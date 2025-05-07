@@ -1,0 +1,46 @@
+# Dockerfile for frontend-website (Create React App)
+
+# ---- Build Stage ----
+# Use a Node.js image to build the application
+FROM node:18-alpine AS builder
+# You can use a more recent LTS version like node:20-alpine if your project supports it.
+
+# Set the working directory
+WORKDIR /app
+
+# Copy package.json and package-lock.json (or yarn.lock)
+COPY package.json package-lock.json* ./
+# If using yarn:
+# COPY package.json yarn.lock ./
+
+# Install dependencies
+RUN npm install
+# If using yarn:
+# RUN yarn install
+
+# Copy the rest of the application source code
+COPY . .
+
+# Build the application for production
+# Create React App typically outputs to a 'build' folder
+RUN npm run build
+
+# ---- Runtime Stage ----
+# Use a lightweight Nginx image to serve the static files
+FROM nginx:stable-alpine
+
+# Remove default Nginx welcome page
+RUN rm -rf /usr/share/nginx/html/*
+
+# Copy the built static files from the 'builder' stage's 'build' folder
+COPY --from=builder /app/build /usr/share/nginx/html
+
+# Copy the custom Nginx configuration file
+# This file should be in the same directory as your Dockerfile (e.g., frontend-website/nginx.conf)
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Expose port 80 (Nginx default HTTP port)
+EXPOSE 80
+
+# Start Nginx when the container launches
+CMD ["nginx", "-g", "daemon off;"]

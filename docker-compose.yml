@@ -1,0 +1,60 @@
+# /docker-compose.yml
+
+version: "3.8"
+
+services:
+  db:
+    image: postgres:13-alpine # You can use a newer version like postgres:14-alpine or postgres:15-alpine
+    container_name: ajeen_pos_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    ports:
+      - "${DB_PORT_ON_HOST}:5432" # Expose PostgreSQL port to host (optional, for direct access)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:6-alpine # Or a newer version like redis:7-alpine
+    container_name: ajeen_pos_redis
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379" # Expose Redis port to host (optional)
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend # Path to your backend directory relative to docker-compose.yml
+      dockerfile: Dockerfile
+    image: ajeen-pos-backend # Optional: if you want to ensure it uses the pre-built image first
+    container_name: ajeen_pos_backend
+    # command: /usr/local/bin/entrypoint.sh /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
+    volumes:
+      # For development, you might want to mount your code for live reloading:
+      # - ./backend:/app
+      # Mount media files for persistence if not using S3 locally:
+      - ./backend/media:/app/media # Ensure this path matches your local media dir
+    ports:
+      - "8000:80" # Map host port 8000 to container port 80 (where Nginx listens)
+    env_file:
+      - ./.env # Load environment variables from .env file in the same directory
+    depends_on:
+      db:
+        condition: service_healthy # Wait for db to be healthy
+      redis:
+        condition: service_healthy # Wait for redis to be healthy
+
+volumes:
+  postgres_data:
+  redis_data:

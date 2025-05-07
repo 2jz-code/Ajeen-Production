@@ -1,0 +1,48 @@
+# .dockerignore for Django Backend
+
+# Git files
+.git
+.gitignore
+
+# Docker files
+Dockerfile
+.dockerignore
+
+# Python virtual environment
+venv/
+.venv/
+env/
+.env/
+
+# Python bytecode and cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDE and editor specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local instance data / Sensitive files
+*.sqlite3
+*.db
+db.sqlite3
+/mediafiles/*
+# !/mediafiles/.gitkeep # Uncomment if you want to keep the mediafiles dir but not its contents
+/staticfiles/*
+# !/staticfiles/.gitkeep # Uncomment if you want to keep the staticfiles dir but not its contents
+debug.log
+*.log
+.env
+.env.*
+!*.env.example # If you have an example env file you want to include
+
+# OS-specific files
+.DS_Store
+Thumbs.db
