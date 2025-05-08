@@ -8,6 +8,7 @@ from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 from django.contrib.auth import authenticate
 import uuid
+from django.conf import settings
 
 from .serializers import WebsiteUserSerializer
 from .utils import (
@@ -30,6 +31,7 @@ class WebsiteTokenObtainPairView(APIView):
         password = request.data.get("password")
 
         user = authenticate(username=username, password=password)
+        secure_cookie = not settings.DEBUG
 
         if user and user.is_website_user:
             refresh = RefreshToken.for_user(user)
@@ -51,7 +53,7 @@ class WebsiteTokenObtainPairView(APIView):
                 max_age=300,  # 5 minutes
                 path="/api/",
                 samesite="Lax",
-                secure=False,  # Set to True in production with HTTPS
+                secure=secure_cookie,  # Set to True in production with HTTPS
             )
             res.set_cookie(
                 key="website_refresh_token",
@@ -60,7 +62,7 @@ class WebsiteTokenObtainPairView(APIView):
                 max_age=60 * 60 * 24 * 7,  # 7 days
                 path="/api/",
                 samesite="Lax",
-                secure=False,  # Set to True in production with HTTPS
+                secure=secure_cookie,  # Set to True in production with HTTPS
             )
             res.set_cookie(
                 key="website_session_token",
@@ -69,7 +71,7 @@ class WebsiteTokenObtainPairView(APIView):
                 max_age=60 * 60 * 24 * 14,  # 14 days
                 path="/api/",
                 samesite="Lax",
-                secure=False,  # Set to True in production with HTTPS
+                secure=secure_cookie,  # Set to True in production with HTTPS
             )
             return res
 
@@ -87,7 +89,7 @@ class WebsiteTokenRefreshView(APIView):
     def post(self, request, *args, **kwargs):
         refresh_token = request.COOKIES.get("website_refresh_token")
         session_identifier = request.COOKIES.get("website_session_token")
-
+        secure_cookie = not settings.DEBUG
         if refresh_token:
             try:
                 refresh = RefreshToken(refresh_token)
@@ -119,7 +121,7 @@ class WebsiteTokenRefreshView(APIView):
                     max_age=300,  # 5 minutes
                     path="/api/",
                     samesite="Lax",
-                    secure=False,  # Set to True in production with HTTPS
+                    secure=secure_cookie,  # Set to True in production with HTTPS
                 )
                 return res
             except Exception as e:
@@ -142,7 +144,7 @@ class WebsiteTokenRefreshView(APIView):
                 max_age=60 * 60 * 24 * 7,  # Guest ID expires in 7 days
                 path="/api/",
                 samesite="Lax",
-                secure=False,  # Use True in production for HTTPS
+                secure=secure_cookie,  # Use True in production for HTTPS
             )
             return res
 

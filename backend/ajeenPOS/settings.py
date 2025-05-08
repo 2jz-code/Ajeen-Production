@@ -190,7 +190,9 @@ AUTH_USER_MODEL = "users.CustomUser"
 
 # --- CORS & CSRF ---
 # In production, set CORS_ALLOW_ALL_ORIGINS to False
-CORS_ALLOW_ALL_ORIGINS = False  # Set explicitly to False
+CORS_ALLOW_CREDENTIALS = (
+    os.environ.get("DJANGO_CORS_ALLOW_CREDENTIALS", "True") == "True"
+)
 
 # Use environment variable DJANGO_CORS_ALLOWED_ORIGINS (comma-separated string)
 # Default allows typical local development servers
