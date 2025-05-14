@@ -70,7 +70,6 @@ const Footer = () => {
 					</div>
 
 					{/* Quick Links */}
-					{/* Quick Links */}
 					<div>
 						<h3 className="text-white text-lg font-semibold mb-4 border-b border-gray-700 pb-2">
 							Quick Links
@@ -154,7 +153,7 @@ const Footer = () => {
 									href="tel:+11234567890"
 									className="group-hover:text-gray-300 transition-colors duration-300"
 								>
-									(123) 456-7890
+									(651) 412-5336
 								</a>
 							</li>
 							<li className="flex items-start group">
@@ -175,7 +174,7 @@ const Footer = () => {
 									href="mailto:contact@ajeen.com"
 									className="group-hover:text-gray-300 transition-colors duration-300"
 								>
-									support@bakeajeen.com
+									contact@bakeajeen.com
 								</a>
 							</li>
 						</ul>
@@ -256,18 +255,21 @@ const Footer = () => {
 						&copy; {currentYear} Ajeen. All rights reserved.
 					</p>
 					<div className="mt-4 md:mt-0 flex flex-wrap justify-center gap-4 text-sm text-gray-400">
+						{/* eslint-disable-next-line jsx-a11y/anchor-is-valid */}
 						<a
 							href="#"
 							className="hover:text-green-400 transition-colors duration-300"
 						>
 							Privacy Policy
 						</a>
+						{/* eslint-disable-next-line jsx-a11y/anchor-is-valid */}
 						<a
 							href="#"
 							className="hover:text-green-400 transition-colors duration-300"
 						>
 							Terms of Service
 						</a>
+						{/* eslint-disable-next-line jsx-a11y/anchor-is-valid */}
 						<a
 							href="#"
 							className="hover:text-green-400 transition-colors duration-300"

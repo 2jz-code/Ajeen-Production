@@ -24,11 +24,12 @@ import CheckoutPage from "./components/checkout";
 import ConfirmationPage from "./components/confirmation";
 import { AuthProvider } from "./contexts/AuthContext";
 import { check_and_refresh_token } from "./api/api";
+import { useDocumentTitle } from "./hooks/useDocumentTitle";
 
 // Create a component to handle scrolling after navigation
 function ScrollHandler() {
 	const location = useLocation();
-
+	useDocumentTitle();
 	useEffect(() => {
 		// Check if there's a hash in the URL
 		check_and_refresh_token();

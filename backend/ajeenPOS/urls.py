@@ -14,28 +14,30 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from . import views  # Import your views
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/auth/", include("users.urls")),
-    path('api/', include('users.urls_website')),
+    path("api/", include("users.urls_website")),
     path("api/", include("products.urls")),
-    path('api/website/', include('products.urls_website')),
+    path("api/website/", include("products.urls_website")),
     path("api/", include("orders.urls")),
-    path('api/website/', include('orders.urls_website')),
+    path("api/website/", include("orders.urls_website")),
     path("api/reports/", include("reports.urls")),
-    path('api/hardware/', include('hardware.urls')),
-    path('api/payments/', include('payments.urls')),
-    path('api/settings/', include('settings.urls')),
-    path('api/rewards/', include('rewards.urls')),
-    path('api/discounts/', include('discounts.urls')),
-    path('api/website/rewards/', include('rewards.urls')),
-    path('api/', include('users.urls_mobile')),
-
+    path("api/hardware/", include("hardware.urls")),
+    path("api/payments/", include("payments.urls")),
+    path("api/settings/", include("settings.urls")),
+    path("api/rewards/", include("rewards.urls")),
+    path("api/discounts/", include("discounts.urls")),
+    path("api/website/rewards/", include("rewards.urls")),
+    path("api/", include("users.urls_mobile")),
+    path("health/", views.health_check, name="health-check"),
 ]
 
 if settings.DEBUG:

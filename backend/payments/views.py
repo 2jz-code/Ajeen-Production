@@ -11,6 +11,8 @@ from .serializers import PaymentSerializer  # Use the updated serializer
 from django.shortcuts import get_object_or_404
 from orders.models import Order
 from hardware.controllers.receipt_printer import ReceiptPrinterController
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 
 # Import PaymentTransaction model
 from .models import Payment, PaymentTransaction
@@ -93,7 +95,10 @@ class CreatePaymentIntentView(APIView):
             )
 
 
+@method_decorator(csrf_exempt, name="dispatch")
 class PaymentWebhookView(APIView):
+    authentication_classes = []  # NO DRF authentication for this view
+    permission_classes = []  # NO DRF permissions for this view
     """
     Handle Stripe webhooks, updating PaymentTransaction and potentially Payment/Order status.
     """

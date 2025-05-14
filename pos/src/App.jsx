@@ -1,4 +1,9 @@
-import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import {
+	BrowserRouter as Router,
+	Route,
+	Routes,
+	Navigate,
+} from "react-router-dom"; // Added Navigate
 import { useEffect, useRef } from "react";
 import customerDisplayManager from "./features/customerDisplay/utils/windowManager";
 import POS from "./pages/POS";
@@ -36,6 +41,7 @@ import VerifyRedemption from "./pages/rewards/VerifyRedemption";
 import TerminalProvider from "./features/payment/contexts/TerminalProvider";
 import DiscountList from "./pages/discounts/DiscountList";
 import DiscountForm from "./pages/discounts/DiscountForm";
+import { useDocumentTitle } from "./hooks/useDocumentTitle";
 window.customerDisplayManager = customerDisplayManager;
 
 function App() {
@@ -109,11 +115,20 @@ function App() {
 function AppContent() {
 	// Use our custom hook to manage customer display based on navigation
 	useCustomerDisplayNavigation();
-
+	useDocumentTitle();
 	return (
 		<div className="w-full h-screen flex flex-col">
 			<div className="flex-grow">
 				<Routes>
+					<Route
+						path="/"
+						element={
+							<Navigate
+								to="/login"
+								replace
+							/>
+						}
+					/>
 					{/* Public Route (Login) */}
 					<Route
 						path="/login"

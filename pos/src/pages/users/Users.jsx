@@ -192,7 +192,6 @@ export default function Users() {
 				<div className="overflow-auto h-full custom-scrollbar">
 					<table className="min-w-full divide-y divide-slate-200">
 						<thead className="bg-slate-50 sticky top-0 z-10">
-							{" "}
 							{/* Sticky header */}
 							<tr>
 								<th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -234,7 +233,6 @@ export default function Users() {
 													: ""
 											}`}
 										>
-											{" "}
 											{/* Dim row slightly if actions disabled */}
 											<td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-800">
 												{user.username}

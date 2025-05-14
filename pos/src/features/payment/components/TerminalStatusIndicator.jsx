@@ -2,6 +2,7 @@
 import { motion } from "framer-motion";
 import { DeviceTabletIcon } from "@heroicons/react/24/solid";
 import { useTerminal } from "../hooks/useTerminal";
+import { useEffect } from "react";
 
 const TerminalStatusIndicator = () => {
 	// Use the terminal context instead of local state
@@ -64,6 +65,10 @@ const TerminalStatusIndicator = () => {
 
 		return configs[status] || configs.unknown;
 	};
+
+	useEffect(() => {
+		checkStatus();
+	}, []);
 
 	const statusConfig = getStatusConfig();
 	const formattedTime = lastChecked

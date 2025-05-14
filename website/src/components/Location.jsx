@@ -32,12 +32,12 @@ const Location = () => {
 		{
 			icon: <PhoneIcon className="w-6 h-6" />,
 			title: "Phone Number",
-			details: "(123) 456-7890",
+			details: "(651) 412-5336",
 		},
 		{
 			icon: <EnvelopeIcon className="w-6 h-6" />,
 			title: "Email Address",
-			details: "support@bakeajeen.com",
+			details: "contact@bakeajeen.com",
 		},
 		{
 			icon: <ClockIcon className="w-6 h-6" />,
@@ -83,7 +83,7 @@ const Location = () => {
 						<iframe
 							title="location"
 							className="w-full h-full border-0"
-							src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d176.96926674777694!2d-93.21474671402575!3d44.79082937328978!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x87f631cb8de434b9%3A0x1611c161b60e7ff0!2s2105%20Cliff%20Rd%20%23%205%2C%20Eagan%2C%20MN%2055122!5e0!3m2!1sen!2sus!4v1725871680728!5m2!1sen!2sus"
+							src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2831.5122758957023!2d-93.21701832427887!3d44.79074767812076!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x87f631b56239743f%3A0x62f01f76556fe739!2sAjeen%20Bakery!5e0!3m2!1sen!2sus!4v1747097843478!5m2!1sen!2sus"
 							allowFullScreen=""
 							loading="lazy"
 							referrerPolicy="no-referrer-when-downgrade"
@@ -91,7 +91,7 @@ const Location = () => {
 
 						{/* Clickable Overlay */}
 						<a
-							href="https://www.google.com/maps/place/2105+Cliff+Rd+%23+5,+Eagan,+MN+55122"
+							href="https://maps.app.goo.gl/jAu5tcsaNpN5V4kk6"
 							target="_blank"
 							rel="noopener noreferrer"
 							className="absolute inset-0 z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300"

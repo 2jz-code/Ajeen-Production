@@ -1,5 +1,5 @@
 // src/features/payment/contexts/TerminalProvider.jsx
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import PropTypes from "prop-types";
 import TerminalContext from "./TerminalContext";
 import axiosInstance from "../../../api/config/axiosConfig";
@@ -76,11 +76,11 @@ export const TerminalProvider = ({ children }) => {
 	};
 
 	// Check status on mount and every 30 seconds
-	useEffect(() => {
-		checkStatus();
-		const interval = setInterval(checkStatus, 30000);
-		return () => clearInterval(interval);
-	}, []);
+	// useEffect(() => {
+	// 	checkStatus();
+	// 	const interval = setInterval(checkStatus, 30000);
+	// 	return () => clearInterval(interval);
+	// }, []);
 
 	// Cancel terminal action
 	const cancelTerminalAction = async () => {

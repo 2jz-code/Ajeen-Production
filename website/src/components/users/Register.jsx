@@ -13,6 +13,7 @@ import {
 	FaGift,
 } from "react-icons/fa";
 import axiosInstance from "../../api/api";
+import ComingSoonWrapper from "../utility/ComingSoonWrapper";
 
 const Register = () => {
 	const [formData, setFormData] = useState({
@@ -525,35 +526,40 @@ const Register = () => {
 							</div>
 
 							{/* Rewards Program Opt-In */}
-							<div className="flex items-start mt-4 p-4 bg-green-50 rounded-lg border border-green-100">
-								<div className="flex items-center h-5">
-									<input
-										id="rewards-opt-in"
-										type="checkbox"
-										checked={formData.is_rewards_opted_in}
-										onChange={(e) =>
-											setFormData({
-												...formData,
-												is_rewards_opted_in: e.target.checked,
-											})
-										}
-										className="h-4 w-4 text-green-500 focus:ring-green-500 border-gray-300 rounded"
-									/>
+							<ComingSoonWrapper active={true}>
+								<div className="flex items-start mt-4 p-4 bg-green-50 rounded-lg border border-green-100">
+									<div className="flex items-center">
+										<input
+											id="is_rewards_opted_in"
+											name="is_rewards_opted_in"
+											type="checkbox"
+											checked={formData.is_rewards_opted_in} // Visually reflects state but is non-interactive
+											onChange={handleChange} // onChange is effectively disabled by ComingSoonWrapper
+											className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+										/>
+										<label
+											htmlFor="is_rewards_opted_in"
+											className="ml-2 block text-sm text-gray-900"
+										>
+											Opt-in for Ajeen Rewards Program
+										</label>
+									</div>
+
+									<div className="ml-3">
+										<label
+											htmlFor="rewards-opt-in"
+											className="text-gray-700 font-medium flex items-center"
+										>
+											<FaGift className="text-green-500 mr-2" /> Join our
+											Rewards Program
+										</label>
+										<p className="text-sm text-gray-600 mt-1">
+											Earn points on every purchase and receive exclusive offers
+											and discounts
+										</p>
+									</div>
 								</div>
-								<div className="ml-3">
-									<label
-										htmlFor="rewards-opt-in"
-										className="text-gray-700 font-medium flex items-center"
-									>
-										<FaGift className="text-green-500 mr-2" /> Join our Rewards
-										Program
-									</label>
-									<p className="text-sm text-gray-600 mt-1">
-										Earn points on every purchase and receive exclusive offers
-										and discounts
-									</p>
-								</div>
-							</div>
+							</ComingSoonWrapper>
 
 							{/* Submit Button */}
 							<button

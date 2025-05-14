@@ -14,7 +14,10 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 from pathlib import Path
 import os  # <-- Import the os module
 from urllib.parse import urlparse  # <-- Import urlparse for Redis URL
+import logging
+import copy  # For deep copying the dict to redact password
 
+logger = logging.getLogger(__name__)
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -37,7 +40,8 @@ DEBUG = os.environ.get("DJANGO_DEBUG", "False") == "True"
 # Default allows localhost for development
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
-
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 # Application definition
 
 INSTALLED_APPS = [
@@ -256,9 +260,12 @@ SIMPLE_JWT = {
 }
 
 # --- Database ---
-# https://docs.djangoproject.com/en/5.1/ref/settings/#databases
-# Use DATABASE_URL environment variable (e.g., postgres://user:password@host:port/dbname)
 DATABASE_URL = os.environ.get("DATABASE_URL")
+# Get DB_SSLMODE from environment, default to 'verify-ca' for production.
+# This 'verify-ca' is crucial for RDS to use the provided sslrootcert.
+DB_SSLMODE = os.environ.get(
+    "DB_SSLMODE", "verify-ca"
+)  # Ensure this is 'verify-ca' in ECS env
 
 if DATABASE_URL:
     db_config = urlparse(DATABASE_URL)
@@ -267,30 +274,77 @@ if DATABASE_URL:
             "ENGINE": (
                 "django.db.backends.postgresql"
                 if db_config.scheme == "postgres"
-                else "django.db.backends.mysql"
-            ),  # Adjust as needed
+                else "django.db.backends.mysql"  # Or other backends
+            ),
             "NAME": db_config.path[1:],  # Remove leading '/'
             "USER": db_config.username,
-            "PASSWORD": db_config.password,
+            "PASSWORD": db_config.password,  # This will be redacted before logging
             "HOST": db_config.hostname,
             "PORT": db_config.port,
-            # Add SSL require option for production databases
-            "OPTIONS": {
-                "sslmode": os.environ.get(
-                    "DB_SSLMODE", "prefer"
-                )  # 'require' for RDS/production
-            },
+            "OPTIONS": {},  # Initialize OPTIONS dictionary
         }
     }
+
+    # Explicitly set SSL options ONLY if connecting to PostgreSQL
+    if DATABASES["default"]["ENGINE"] == "django.db.backends.postgresql":
+        DATABASES["default"]["OPTIONS"]["sslmode"] = DB_SSLMODE
+        if DB_SSLMODE in ["verify-ca", "verify-full"]:
+            # This path MUST match where you COPY the .pem file in your Dockerfile
+            # and must be readable by the user running Gunicorn (app_user).
+            # Using absolute path as copied in Dockerfile.
+            DATABASES["default"]["OPTIONS"][
+                "sslrootcert"
+            ] = "/app/certs/global-bundle.pem"
+        else:
+            # Ensure sslrootcert is not set or is None if not verify-ca or verify-full
+            # This helps avoid psycopg2 trying default (potentially inaccessible) paths.
+            DATABASES["default"]["OPTIONS"].pop("sslrootcert", None)
+            # If sslmode is 'require' but not 'verify-ca'/'verify-full', psycopg2 will still encrypt
+            # but might use system CAs or default user CAs. The error indicated it tried /root/.
+
+    # Log the database configuration (with password redacted) for debugging
+    # This logging should appear in your CloudWatch logs for the backend-app container
+    try:
+        # Create a deep copy for logging to avoid altering the original DATABASES dict
+        log_db_config = copy.deepcopy(DATABASES)
+        # Redact password from the log output
+        if log_db_config.get("default", {}).get("PASSWORD"):
+            log_db_config["default"]["PASSWORD"] = "****REDACTED****"
+
+        logger.info(f"Final Django DATABASES config being used: {log_db_config}")
+        logger.info(f"DB_SSLMODE environment variable evaluated to: {DB_SSLMODE}")
+
+        # Log specific SSL options if present
+        db_options = DATABASES.get("default", {}).get("OPTIONS", {})
+        if "sslmode" in db_options:
+            logger.info(f"Database OPTIONS 'sslmode': {db_options['sslmode']}")
+        if "sslrootcert" in db_options:
+            logger.info(
+                f"Database OPTIONS 'sslrootcert' path being used: {db_options['sslrootcert']}"
+            )
+        elif DB_SSLMODE in ["verify-ca", "verify-full"]:
+            logger.warning(
+                "sslrootcert is EXPECTED but NOT SET in DB OPTIONS (DB_SSLMODE is verify-ca/full)."
+            )
+        else:
+            logger.info(
+                "sslrootcert is NOT being set in DB OPTIONS (DB_SSLMODE is not verify-ca/full)."
+            )
+
+    except Exception as e:
+        logger.error(f"Error during database configuration logging: {e}")
+
 else:
     # Default to SQLite for local development if DATABASE_URL is not set
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",  # Assumes BASE_DIR is correctly defined
         }
     }
-
+    logger.info(
+        "DATABASE_URL environment variable not found, using SQLite as fallback."
+    )
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators

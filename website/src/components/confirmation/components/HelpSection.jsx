@@ -14,13 +14,13 @@ const HelpSection = () => {
 					href="tel:+11234567890"
 					className="text-green-600 hover:text-green-700"
 				>
-					(123) 456-7890
+					(651) 412-5336
 				</a>
 				<a
 					href="mailto:support@bakeajeen.com"
 					className="text-green-600 hover:text-green-700"
 				>
-					support@bakeajeen.com
+					contact@bakeajeen.com
 				</a>
 			</div>
 		</div>

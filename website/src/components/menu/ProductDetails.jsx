@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -11,6 +10,7 @@ import {
 } from "react-icons/fa";
 import { addToCart } from "../utility/CartUtils";
 import Layout from "./Layout";
+import axiosInstance from "../../api/api";
 
 const ProductDetails = ({ updateCartItemCount, cartItemCount }) => {
 	const { productName } = useParams();
@@ -31,18 +31,16 @@ const ProductDetails = ({ updateCartItemCount, cartItemCount }) => {
 				setError(null);
 
 				// Use website-specific endpoint with encoded product name
-				const response = await axios.get(
-					`http://localhost:8000/api/website/products/${encodeURIComponent(
-						productName
-					)}/`
+				const response = await axiosInstance.get(
+					`website/products/${encodeURIComponent(productName)}/`
 				);
 				setProduct(response.data);
 
 				// Fetch related products using the website-specific endpoint
 				if (response.data.category && response.data.category.id) {
 					const categoryId = response.data.category.id;
-					const relatedResponse = await axios.get(
-						`http://localhost:8000/api/website/products/?category=${categoryId}`
+					const relatedResponse = await axiosInstance.get(
+						`website/products/?category=${categoryId}`
 					);
 
 					// Filter out the current product and limit to 4 related products

@@ -34,10 +34,7 @@ ENV DJANGO_SETTINGS_MODULE=ajeenPOS.settings
 # Create the application non-root user and group
 RUN groupadd -r app_group && useradd --no-log-init -r -g app_group app_user
 
-# DO NOT create redis_user/redis_group manually. Let the package do it.
-
 # Install Nginx, Supervisor, PostgreSQL client, Redis server, and runtime dependencies
-# The redis-server package should create the 'redis' user/group automatically
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         nginx \
@@ -47,12 +44,11 @@ RUN apt-get update && \
         zlib1g \
         postgresql-client \
         redis-server \
+        curl \ 
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # Ensure Redis data directory exists and has correct ownership
-# This directory and user 'redis:redis' should be created by the package install,
-# but setting ownership explicitly ensures it's correct.
 RUN mkdir -p /var/lib/redis && chown redis:redis /var/lib/redis && chmod 750 /var/lib/redis
 
 # Configure redis.conf
@@ -68,11 +64,14 @@ COPY --chown=app_user:app_group --from=builder /usr/local/lib/python3.11/site-pa
 COPY --chown=app_user:app_group --from=builder /usr/local/bin/ /usr/local/bin/
 
 # Create other necessary directories
-RUN mkdir -p /var/log/supervisor ${APP_HOME}/staticfiles ${APP_HOME}/media /tmp && \
-    chown -R app_user:app_group ${APP_HOME}/staticfiles ${APP_HOME}/media && \
+RUN mkdir -p /var/log/supervisor ${APP_HOME}/staticfiles ${APP_HOME}/media /tmp ${APP_HOME}/certs && \
+    chown -R app_user:app_group ${APP_HOME}/staticfiles ${APP_HOME}/media ${APP_HOME}/certs && \
     chown root:root /var/log/supervisor && chmod 755 /var/log/supervisor
 
-# Copy Supervisor configuration (ensure it uses user=redis now)
+COPY --chown=app_user:app_group certs/global-bundle.pem ${APP_HOME}/certs/global-bundle.pem
+RUN chmod 444 ${APP_HOME}/certs/global-bundle.pem
+
+# Copy Supervisor configuration
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Copy Nginx configuration
@@ -92,9 +91,19 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 USER app_user
 RUN python manage.py collectstatic --noinput --clear
 
-# Switch back to root for CMD/ENTRYPOINT
+# Create a simple static file for Nginx health check
+# This should be done AFTER collectstatic and while still USER app_user (or ensure permissions allow writing)
+# And ensure the path matches where Nginx serves static files from (/app/staticfiles/)
+RUN mkdir -p ${APP_HOME}/staticfiles/healthcheck && \
+    echo "Nginx_Static_OK" > ${APP_HOME}/staticfiles/healthcheck/nginx_health.txt && \
+    chmod -R 755 ${APP_HOME}/staticfiles/healthcheck # Ensure Nginx can read it
+
+# Switch back to root for CMD/ENTRYPOINT (if necessary for supervisord to start as root)
 USER root
 
-EXPOSE ${PORT}
+EXPOSE ${PORT} 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+# CMD is now defined in your entrypoint.sh or will be passed by ECS
+# If entrypoint.sh ends by exec "$@", then CMD from ECS task def will be used.
+# Default CMD for supervisord is often:
 CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
