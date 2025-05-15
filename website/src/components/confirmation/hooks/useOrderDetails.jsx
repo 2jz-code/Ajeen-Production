@@ -25,10 +25,10 @@ const useOrderDetails = (isAuthenticated) => {
 
 	useEffect(() => {
 		if (navCustomerDetails) {
-			console.log(
-				"useOrderDetails: Received customerDetails from navigation state:",
-				navCustomerDetails
-			);
+			// console.log(
+			// 	"useOrderDetails: Received customerDetails from navigation state:",
+			// 	navCustomerDetails
+			// );
 			setCustomerDetailsFromState(navCustomerDetails);
 		}
 	}, [navCustomerDetails]);
@@ -84,7 +84,7 @@ const useOrderDetails = (isAuthenticated) => {
 		// +++ MODIFICATION START: Use environment variable for WebSocket URL +++
 		const baseWsUrl = process.env.REACT_APP_WS_URL || "ws://localhost:8000/ws"; // Default for local dev
 		const wsUrl = `${baseWsUrl}/website/orders/${orderId}/`;
-		console.log("Attempting to connect WebSocket to:", wsUrl); // For debugging
+		// console.log("Attempting to connect WebSocket to:", wsUrl); // For debugging
 		// +++ MODIFICATION END +++
 
 		socketRef.current = new WebSocket(wsUrl); // Use the constructed URL
@@ -94,25 +94,25 @@ const useOrderDetails = (isAuthenticated) => {
 		};
 
 		socketRef.current.onmessage = (event) => {
-			console.log("WebSocket message received:", event.data);
+			// console.log("WebSocket message received:", event.data);
 			try {
 				const data = JSON.parse(event.data);
-				console.log("Parsed WebSocket data:", data);
+				// console.log("Parsed WebSocket data:", data);
 
 				if (data.type === "order_status_update") {
 					setLiveStatus(data.status);
 					if (data.estimated_preparation_time !== undefined) {
-						console.log(
-							"Updating estimated time to:",
-							data.estimated_preparation_time
-						);
+						// console.log(
+						// "Updating estimated time to:",
+						// data.estimated_preparation_time
+						// );
 						setEstimatedTime(data.estimated_preparation_time);
 					}
 				} else if (data.type === "prep_time_update") {
-					console.log(
-						"Received prep time update:",
-						data.estimated_preparation_time
-					);
+					// console.log(
+					// "Received prep time update:",
+					// data.estimated_preparation_time
+					// );
 					setEstimatedTime(data.estimated_preparation_time);
 				}
 			} catch (error) {
@@ -125,12 +125,12 @@ const useOrderDetails = (isAuthenticated) => {
 		};
 
 		socketRef.current.onclose = (event) => {
-			console.log(
-				"WebSocket connection closed, code:",
-				event.code,
-				"reason:",
-				event.reason
-			);
+			// console.log(
+			// "WebSocket connection closed, code:",
+			// event.code,
+			// "reason:",
+			// event.reason
+			// );
 		};
 	};
 	// --- End WebSocket Setup ---
@@ -154,7 +154,7 @@ const useOrderDetails = (isAuthenticated) => {
 				guest_first_name: customerDetailsFromState.firstName,
 				guest_last_name: customerDetailsFromState.lastName,
 				guest_email: customerDetailsFromState.email,
-				guest_phone: customerDetailsFromState.phone, // Key addition
+				// guest_phone: customerDetailsFromState.phone, // Key addition
 				status: "pending", // Initial assumption for guest before any fetch
 				payment_status: "pending", // Assume pending until confirmed otherwise
 			});
@@ -176,9 +176,9 @@ const useOrderDetails = (isAuthenticated) => {
 				// However, to get items and accurate current status, a fetch might still be desired,
 				// but it would need a secure guest order lookup endpoint.
 				// Your current code skips backend fetch for guests in this hook. We'll honor that.
-				console.log(
-					"Guest user detected in useOrderDetails. Using passed data primarily."
-				);
+				// console.log(
+				// "Guest user detected in useOrderDetails. Using passed data primarily."
+				// );
 				setIsLoading(false);
 				// Note: WebSocket is also skipped for guests in your `setupWebSocketConnection`.
 				return;
@@ -191,7 +191,7 @@ const useOrderDetails = (isAuthenticated) => {
 				const response = await axiosInstance.get(
 					`website/orders/${currentOrderId}/`
 				);
-				console.log("Fetched order details (authenticated):", response.data);
+				// console.log("Fetched order details (authenticated):", response.data);
 				setOrderDetails(response.data); // This should include guest_phone if backend serializer is correct
 				setLiveStatus(response.data.status || "pending");
 				// If customerDetailsFromState exists, it's good, but API is source of truth for auth users

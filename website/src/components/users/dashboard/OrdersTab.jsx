@@ -18,14 +18,14 @@ const OrdersTab = () => {
 	const handleReorder = async (orderId) => {
 		setReorderingId(orderId);
 		try {
-			console.log(`Starting reorder process for order ID: ${orderId}`);
+			// console.log(`Starting reorder process for order ID: ${orderId}`);
 
 			// Call the reorder API directly
 			const response = await reorderPastOrder(orderId);
-			console.log("Reorder API response:", response);
+			// console.log("Reorder API response:", response);
 
 			if (response && response.success) {
-				console.log("Reorder successful, navigating to checkout");
+				// console.log("Reorder successful, navigating to checkout");
 				// Navigate directly to checkout
 				navigate("/checkout");
 			} else {

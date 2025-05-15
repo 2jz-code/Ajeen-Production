@@ -6,6 +6,7 @@ import axiosInstance, {
 	clearTokensAndLogout,
 	checkAuth,
 } from "../../api/api";
+import { toast } from "react-toastify";
 
 // --- Central Cart Data Fetcher ---
 // This function fetches data and updates state using passed setters.
@@ -15,7 +16,7 @@ export const fetchCurrentCartData = async () => {
 	let itemCount = 0;
 	let items = [];
 	let error = null;
-	console.log("fetchCurrentCartData: Starting fetch...");
+	// console.log("fetchCurrentCartData: Starting fetch...");
 	try {
 		const authStatus = await checkAuth();
 		let response = null;
@@ -23,35 +24,35 @@ export const fetchCurrentCartData = async () => {
 
 		if (authStatus === "authenticated") {
 			endpoint = "website/cart/";
-			console.log("fetchCurrentCartData: Fetching authenticated cart...");
+			// console.log("fetchCurrentCartData: Fetching authenticated cart...");
 			response = await axiosInstance.get(endpoint);
 		} else if (authStatus === "guest") {
 			endpoint = "website/guest-cart/";
-			console.log("fetchCurrentCartData: Fetching guest cart...");
+			// console.log("fetchCurrentCartData: Fetching guest cart...");
 			response = await axiosInstance.get(endpoint);
 		} else {
-			console.log(
-				`WorkspaceCurrentCartData: Auth status is ${authStatus}. Cart is empty or inaccessible.`
-			);
+			// console.log(
+			// 	`WorkspaceCurrentCartData: Auth status is ${authStatus}. Cart is empty or inaccessible.`
+			// );
 		}
 
 		if (response && response.data) {
-			console.log(
-				`WorkspaceCurrentCartData: Raw response data from ${endpoint}:`,
-				JSON.stringify(response.data)
-			);
+			// console.log(
+			// 	`WorkspaceCurrentCartData: Raw response data from ${endpoint}:`,
+			// 	JSON.stringify(response.data)
+			// );
 			items = response.data.items || [];
 			itemCount = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
-			console.log(
-				"fetchCurrentCartData: Calculated itemCount:",
-				itemCount,
-				"from items array length:",
-				items.length
-			);
+			// console.log(
+			// 	"fetchCurrentCartData: Calculated itemCount:",
+			// 	itemCount,
+			// 	"from items array length:",
+			// 	items.length
+			// );
 		} else if (authStatus === "authenticated" || authStatus === "guest") {
-			console.log(
-				`WorkspaceCurrentCartData: No data received for status ${authStatus}, setting empty cart.`
-			);
+			// console.log(
+			// 	`WorkspaceCurrentCartData: No data received for status ${authStatus}, setting empty cart.`
+			// );
 		}
 	} catch (fetchError) {
 		console.error(`Error fetching cart data (final): ${fetchError}`);
@@ -59,11 +60,11 @@ export const fetchCurrentCartData = async () => {
 		items = [];
 		itemCount = 0;
 	}
-	console.log("fetchCurrentCartData: Returning:", {
-		itemCount: itemCount,
-		itemsLength: items.length,
-		error: error,
-	});
+	// console.log("fetchCurrentCartData: Returning:", {
+	// 	itemCount: itemCount,
+	// 	itemsLength: items.length,
+	// 	error: error,
+	// });
 	return { items, itemCount, error };
 };
 
@@ -77,46 +78,46 @@ const useCart = (/* isMenuPage is no longer needed here */) => {
 	// Fetches cart data and updates ONLY the count state within this hook
 	const refreshCartCount = useCallback(async () => {
 		// ... (refreshCartCount function remains the same as previous version with logging) ...
-		console.log("useCart/refreshCartCount: CALLED. Fetching data...");
+		// console.log("useCart/refreshCartCount: CALLED. Fetching data...");
 		setIsLoadingCount(true);
 		const { itemCount, error } = await fetchCurrentCartData();
 		if (error) {
 			console.error("useCart/refreshCartCount - Error fetching count:", error);
 		}
-		console.log(
-			"useCart/refreshCartCount: Received itemCount:",
-			itemCount,
-			". Calling setCartItemCount..."
-		);
+		// console.log(
+		// 	"useCart/refreshCartCount: Received itemCount:",
+		// 	itemCount,
+		// 	". Calling setCartItemCount..."
+		// );
 		setCartItemCount(itemCount);
 		setIsLoadingCount(false);
-		console.log("useCart/refreshCartCount: State update called.");
+		// console.log("useCart/refreshCartCount: State update called.");
 	}, []);
 
 	// --- Category Fetching Logic ---
 	const fetchCategories = useCallback(async () => {
 		// Wrap in useCallback
-		console.log("useCart: Fetching categories..."); // Add log
+		// console.log("useCart: Fetching categories..."); // Add log
 		setIsLoadingCategories(true);
 		try {
 			const response = await axiosInstance.get("products/categories/"); // Ensure endpoint is correct
-			console.log("useCart: Categories response received:", response.data);
+			// console.log("useCart: Categories response received:", response.data);
 			setCategories(Array.isArray(response.data) ? response.data : []); // Ensure it's an array
 		} catch (error) {
 			console.error("useCart: Failed to fetch categories:", error);
 			setCategories([]); // Set empty on error
 		} finally {
 			setIsLoadingCategories(false);
-			console.log("useCart: Finished fetching categories.");
+			// console.log("useCart: Finished fetching categories.");
 		}
 	}, []); // Empty dependency array, fetchCategories reference is stable
 
 	// Fetch initial data when the hook mounts
 	useEffect(() => {
 		// --- FIX: Removed the if (isMenuPage) condition ---
-		console.log(
-			"useCart: useEffect running - fetching categories and initial count."
-		);
+		// console.log(
+		// 	"useCart: useEffect running - fetching categories and initial count."
+		// );
 		fetchCategories();
 		refreshCartCount(); // Fetch initial count regardless of page
 		// --- End FIX ---
@@ -141,24 +142,24 @@ export default useCart;
 export const addToCart = async (productId, quantity, onCartUpdate) => {
 	const data = { product_id: productId, quantity };
 	try {
-		console.log(
-			`addToCart: Attempting POST (product: ${productId}, qty: ${quantity})`
-		);
+		// console.log(
+		// 	`addToCart: Attempting POST (product: ${productId}, qty: ${quantity})`
+		// );
 		const response = await axiosInstance.post("website/cart/", data);
-		console.log("addToCart: API POST successful:", response.data);
+		// console.log("addToCart: API POST successful:", response.data);
 
 		if (onCartUpdate) {
 			// --- ADD LOG ---
-			console.log("addToCart: Calling onCartUpdate callback...");
+			// console.log("addToCart: Calling onCartUpdate callback...");
 			await onCartUpdate(); // This should trigger refreshCartCount
-			console.log("addToCart: onCartUpdate callback finished.");
+			// console.log("addToCart: onCartUpdate callback finished.");
 		} else {
 			console.warn("addToCart: No onCartUpdate callback provided.");
 		}
 		return response.data;
 	} catch (error) {
 		console.error("addToCart: Error adding product (final error):", error);
-		alert("Failed to add product to cart. Please try again.");
+		toast.error("Failed to add product to cart. Please try again.");
 		throw error;
 	}
 };
@@ -166,17 +167,17 @@ export const addToCart = async (productId, quantity, onCartUpdate) => {
 // Function to remove an item from the cart
 export const removeItemFromCart = async (itemId, onCartUpdate) => {
 	try {
-		console.log(`removeItemFromCart: Attempting DELETE for item ${itemId}`);
+		// console.log(`removeItemFromCart: Attempting DELETE for item ${itemId}`);
 		await axiosInstance.delete(`website/cart/items/${itemId}/remove/`);
-		console.log(
-			`removeItemFromCart: Item ${itemId} removed successfully via API.`
-		);
+		// console.log(
+		// 	`removeItemFromCart: Item ${itemId} removed successfully via API.`
+		// );
 
 		if (onCartUpdate) {
 			// --- ADD LOG ---
-			console.log("removeItemFromCart: Calling onCartUpdate callback...");
+			// console.log("removeItemFromCart: Calling onCartUpdate callback...");
 			await onCartUpdate(); // This should trigger refreshCartCount
-			console.log("removeItemFromCart: onCartUpdate callback finished.");
+			// console.log("removeItemFromCart: onCartUpdate callback finished.");
 		} else {
 			console.warn("removeItemFromCart: No onCartUpdate callback provided.");
 		}
@@ -185,7 +186,7 @@ export const removeItemFromCart = async (itemId, onCartUpdate) => {
 			"removeItemFromCart: Error removing item (final error):",
 			error
 		);
-		alert("Failed to remove item from cart.");
+		toast.error("Failed to remove item from cart.");
 		throw error;
 	}
 };

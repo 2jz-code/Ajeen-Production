@@ -1,11 +1,12 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import {
-	FaFacebookSquare,
-	FaInstagramSquare,
+	FaFacebook,
+	FaInstagram,
 	FaTwitterSquare,
 	FaYelp,
 	FaHeart,
+	FaTiktok,
 } from "react-icons/fa";
 
 const Footer = () => {
@@ -32,13 +33,13 @@ const Footer = () => {
 						{/* Social Media */}
 						<div className="mt-6 flex space-x-4">
 							<a
-								href="https://www.facebook.com/nadir.mustafa.737"
+								href="https://www.facebook.com/share/1AdkSavHnT/"
 								target="_blank"
 								rel="noopener noreferrer"
 								className="text-gray-400 hover:text-white transition-colors duration-300 transform hover:scale-110"
 								aria-label="Facebook"
 							>
-								<FaFacebookSquare size={24} />
+								<FaFacebook size={24} />
 							</a>
 							<a
 								href="https://www.instagram.com/bake_ajeen/"
@@ -47,25 +48,25 @@ const Footer = () => {
 								className="text-gray-400 hover:text-white transition-colors duration-300 transform hover:scale-110"
 								aria-label="Instagram"
 							>
-								<FaInstagramSquare size={24} />
+								<FaInstagram size={24} />
 							</a>
 							<a
-								href="#"
+								href="https://www.tiktok.com/@bake_ajeen?_t=ZT-8wNu8CL8oaU&_r=1"
 								target="_blank"
 								rel="noopener noreferrer"
 								className="text-gray-400 hover:text-white transition-colors duration-300 transform hover:scale-110"
 								aria-label="Twitter"
 							>
-								<FaTwitterSquare size={24} />
+								<FaTiktok size={22} />
 							</a>
 							<a
-								href="#"
+								href="https://www.yelp.com/biz/ajeen-bakery-eagan?osq=ajeen"
 								target="_blank"
 								rel="noopener noreferrer"
 								className="text-gray-400 hover:text-white transition-colors duration-300 transform hover:scale-110"
 								aria-label="Yelp"
 							>
-								<FaYelp size={24} />
+								<FaYelp size={22} />
 							</a>
 						</div>
 					</div>

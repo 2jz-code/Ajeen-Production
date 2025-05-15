@@ -25,6 +25,8 @@ import ConfirmationPage from "./components/confirmation";
 import { AuthProvider } from "./contexts/AuthContext";
 import { check_and_refresh_token } from "./api/api";
 import { useDocumentTitle } from "./hooks/useDocumentTitle";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 // Create a component to handle scrolling after navigation
 function ScrollHandler() {
@@ -173,7 +175,17 @@ function App() {
 							/>
 						</Routes>
 					</div>
-
+					<ToastContainer
+						position="top-right"
+						autoClose={1000}
+						hideProgressBar={false}
+						newestOnTop={false}
+						closeOnClick
+						rtl={false}
+						draggable
+						pauseOnHover
+						theme="light" // or "dark" or "colored"
+					/>
 					{/* Footer stays outside flex-grow */}
 					<Footer />
 					<ScrollToTop />

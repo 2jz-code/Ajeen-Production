@@ -54,7 +54,7 @@ const useCheckout = () => {
 	const createOrderBeforePayment = useCallback(async () => {
 		if (pendingOrderId || isCreatingOrder) return null;
 
-		const { first_name, last_name, email, phone, notes } = formData;
+		const { first_name, last_name, email, phone } = formData;
 		let requiredFieldsComplete = true;
 		let missingFieldNames = [];
 
@@ -105,7 +105,7 @@ const useCheckout = () => {
 		const endpoint = isAuthenticated
 			? "website/checkout/"
 			: "website/guest-checkout/";
-		console.log(`Creating order with payload to ${endpoint}:`, payload);
+		// console.log(`Creating order with payload to ${endpoint}:`, payload);
 
 		try {
 			const response = await axiosInstance.post(endpoint, payload);
@@ -120,7 +120,7 @@ const useCheckout = () => {
 				setIsCreatingOrder(false);
 				return null;
 			}
-			console.log("Order record created successfully with ID:", orderId);
+			// console.log("Order record created successfully with ID:", orderId);
 			setPendingOrderId(orderId);
 			setIsCreatingOrder(false);
 			return orderId; // Crucial for PaymentForm
@@ -141,10 +141,10 @@ const useCheckout = () => {
 
 	const handlePaymentSuccess = (paymentResult) => {
 		// Called by PaymentForm
-		console.log(
-			"Stripe Payment successful from Stripe, client-side result:",
-			paymentResult
-		);
+		// console.log(
+		// 	"Stripe Payment successful from Stripe, client-side result:",
+		// 	paymentResult
+		// );
 		if (pendingOrderId) {
 			const navigationState = {
 				orderId: pendingOrderId,
@@ -221,22 +221,22 @@ const useCheckout = () => {
 				// Guest validation
 				if (!first_name || !last_name || !email || !phone) {
 					canCreate = false;
-					console.log(
-						"Guest form not complete, delaying auto order creation for card."
-					);
+					// console.log(
+					// "Guest form not complete, delaying auto order creation for card."
+					// );
 				}
 			} else if (isAuthenticated && !phone) {
 				// Authenticated user must also have phone
 				canCreate = false;
-				console.log(
-					"Authenticated user phone not provided, delaying auto order creation for card."
-				);
+				// console.log(
+				// "Authenticated user phone not provided, delaying auto order creation for card."
+				// );
 			}
 
 			if (canCreate) {
-				console.log(
-					"Auto-creating order record for card payment (step 2 reached)."
-				);
+				// console.log(
+				// // "Auto-creating order record for card payment (step 2 reached)."
+				// );
 				createOrderBeforePayment();
 			}
 		}

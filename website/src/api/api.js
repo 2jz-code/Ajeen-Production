@@ -31,10 +31,10 @@ export const check_and_refresh_token = async () => {
 				);
 
 				if (refreshResponse.data.message === "Guest access allowed") {
-					console.log("Guest user detected, allowing to continue");
+					// console.log("Guest user detected, allowing to continue");
 					return "guest";
 				} else {
-					console.log("Token refreshed successfully, user authenticated");
+					// console.log("Token refreshed successfully, user authenticated");
 					return "authenticated";
 				}
 			} catch (refreshError) {
@@ -42,16 +42,16 @@ export const check_and_refresh_token = async () => {
 				console.error("Error refreshing token:", refreshError);
 
 				if (refreshError.response && refreshError.response.status === 401) {
-					console.log("Session expired. Please log in again");
+					// console.log("Session expired. Please log in again");
 					return "session-expired";
 				} else {
-					console.log("Unexpected error during token refresh");
+					// console.log("Unexpected error during token refresh");
 					return "error";
 				}
 			}
 		} else {
 			// No valid refresh token found - call refresh endpoint to get guest_id cookie
-			console.log("No valid website refresh token, setting up guest access...");
+			// console.log("No valid website refresh token, setting up guest access...");
 
 			try {
 				// Call refresh endpoint even without a token to get guest_id cookie
@@ -60,13 +60,13 @@ export const check_and_refresh_token = async () => {
 				);
 
 				if (guestResponse.data.message === "Guest access allowed") {
-					console.log("Guest access successfully established");
+					// console.log("Guest access successfully established");
 					return "guest";
 				} else {
-					console.log(
-						"Unexpected response from refresh endpoint:",
-						guestResponse.data
-					);
+					// console.log(
+					// 	"Unexpected response from refresh endpoint:",
+					// 	guestResponse.data
+					// );
 					return "error";
 				}
 			} catch (guestError) {
@@ -85,10 +85,10 @@ export const check_and_refresh_token = async () => {
 			);
 
 			if (fallbackResponse.data.message === "Guest access allowed") {
-				console.log("Fallback guest access successfully established");
+				// console.log("Fallback guest access successfully established");
 				return "guest";
 			} else {
-				console.log("Unexpected fallback response:", fallbackResponse.data);
+				// console.log("Unexpected fallback response:", fallbackResponse.data);
 				return "error";
 			}
 		} catch (fallbackError) {
@@ -118,7 +118,7 @@ export const checkAuth = async () => {
 		if (refreshStatus === "no-refresh-token" || refreshStatus === "error") {
 			try {
 				const authResponse = await axiosInstance.get("website/auth/");
-				console.log("Auth check response:", authResponse.data);
+				// console.log("Auth check response:", authResponse.data);
 
 				if (authResponse.data.isAuthenticated) {
 					return "authenticated";
@@ -127,7 +127,7 @@ export const checkAuth = async () => {
 					return "no-refresh-token"; // User needs to log in
 				}
 			} catch (authError) {
-				console.log("Auth check failed:", authError);
+				// console.log("Auth check failed:", authError);
 
 				if (authError.response && authError.response.status === 401) {
 					return "session-expired"; // Session has expired
@@ -202,27 +202,27 @@ axiosInstance.interceptors.response.use(
 				isRefreshing = false; // Release lock *after* getting status
 
 				if (authStatus === "authenticated") {
-					console.log("Token refreshed, retrying original request");
+					// console.log("Token refreshed, retrying original request");
 					onRefreshed("some_token_placeholder", authStatus); // Notify subscribers - ideally pass actual token if available
 					// Assuming cookies are set, retry should work
 					return axiosInstance(originalRequest);
 				} else if (authStatus === "guest") {
-					console.log(
-						"Interceptor: Guest detected, rejecting original request."
-					);
+					// console.log(
+					// 	"Interceptor: Guest detected, rejecting original request."
+					// );
 					onRefreshed(null, authStatus); // Notify subscribers
 					return Promise.reject(error); // <<< REJECT FOR GUEST
 				} else if (authStatus === "session-expired") {
 					// *** FIX: Only logout/redirect if session explicitly expired ***
-					console.log("Interceptor: Session expired, logging out.");
+					// console.log("Interceptor: Session expired, logging out.");
 					onRefreshed(null, authStatus); // Notify subscribers
 					clearTokensAndLogout(); // <<< CALL LOGOUT ONLY HERE
 					return Promise.reject(error); // Reject after initiating logout
 				} else {
 					// Includes "error" or any other unexpected status
-					console.log(
-						`Interceptor: Auth check failed (${authStatus}), rejecting original request.`
-					);
+					// console.log(
+					// 	`Interceptor: Auth check failed (${authStatus}), rejecting original request.`
+					// );
 					onRefreshed(null, authStatus); // Notify subscribers
 					return Promise.reject(error); // <<< REJECT FOR OTHER ERRORS
 				}
