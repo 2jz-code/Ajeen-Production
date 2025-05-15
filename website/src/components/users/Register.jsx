@@ -161,7 +161,7 @@ const Register = () => {
 			const { confirm_password, ...apiData } = formData;
 
 			const response = await axiosInstance.post("website/register/", apiData);
-			console.log("Registration successful:", response.data);
+			// console.log("Registration successful:", response.data);
 
 			// Show success message and redirect to login
 			alert("Account created successfully! Please log in.");

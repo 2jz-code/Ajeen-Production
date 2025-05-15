@@ -32,7 +32,7 @@ const CartButton = ({ refreshCartCount, cartItemCount, className = "" }) => {
 		// --- FIX: Remove authentication check ---
 		// Always navigate to checkout page for both guests and authenticated users.
 		// The CheckoutPage component will handle differentiating them.
-		console.log("Proceed to Checkout clicked. Navigating to /checkout...");
+		// console.log("Proceed to Checkout clicked. Navigating to /checkout...");
 		setIsCartOpen(false); // Close the cart sidebar
 		navigate("/checkout"); // Navigate ALL users to checkout
 		// --- End FIX ---
@@ -40,7 +40,7 @@ const CartButton = ({ refreshCartCount, cartItemCount, className = "" }) => {
 
 	// --- Fetch Cart Data Handler for THIS component ---
 	const handleFetchCartDataForDisplay = useCallback(async () => {
-		console.log("CartButton: handleFetch called.");
+		// console.log("CartButton: handleFetch called.");
 		setIsLoading(true);
 		const { items, error } = await fetchCurrentCartData(); // Call the utility directly
 		if (error) {
@@ -49,7 +49,7 @@ const CartButton = ({ refreshCartCount, cartItemCount, className = "" }) => {
 		}
 		setCartItems(items); // Update local state
 		setIsLoading(false);
-		console.log("CartButton: Updated local cartItems state:", items);
+		// console.log("CartButton: Updated local cartItems state:", items);
 	}, []); // No dependencies needed, fetcher is stable
 
 	// --- Fetch cart items when cart is opened ---
@@ -77,22 +77,22 @@ const CartButton = ({ refreshCartCount, cartItemCount, className = "" }) => {
 				// Call utility, pass the combined callback
 				await removeItemFromCart(itemId, async () => {
 					// This callback runs AFTER removeItemFromCart's API call succeeds
-					console.log(
-						"CartButton/removeItemFromCart callback: Refreshing local items list..."
-					);
+					// console.log(
+					// "CartButton/removeItemFromCart callback: Refreshing local items list..."
+					// );
 					await handleFetchCartDataForDisplay(); // Refresh local items list first
 
 					// Now refresh the shared badge count state
 					if (refreshCartCount && typeof refreshCartCount === "function") {
 						// --- ADD LOG ---
-						console.log(
-							"CartButton/removeItemFromCart callback: Calling refreshCartCount prop..."
-						);
+						// console.log(
+						// "CartButton/removeItemFromCart callback: Calling refreshCartCount prop..."
+						// );
 						await refreshCartCount(); // Call the function passed via props
 						// --- ADD LOG ---
-						console.log(
-							"CartButton/removeItemFromCart callback: refreshCartCount prop finished."
-						);
+						// console.log(
+						// "CartButton/removeItemFromCart callback: refreshCartCount prop finished."
+						// );
 					} else {
 						// --- ADD LOG ---
 						console.warn(

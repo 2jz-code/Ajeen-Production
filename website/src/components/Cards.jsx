@@ -34,13 +34,13 @@ const AboutCard = ({
 						alt={title}
 						className="relative w-full h-[300px] md:h-[400px] object-cover rounded-xl shadow-xl"
 					/>
-					<div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl flex items-end">
+					{/* <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl flex items-end">
 						<div className="p-4">
 							<span className="text-white text-sm font-medium bg-green-500 px-3 py-1 rounded-full">
 								Learn More
 							</span>
 						</div>
-					</div>
+					</div> */}
 				</div>
 			</div>
 			<div className="flex flex-col justify-center">

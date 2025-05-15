@@ -36,20 +36,20 @@ const PaymentForm = ({ orderId, amount, onPaymentSuccess, onPaymentError }) => {
 
 		setDebugInfo(newDebugInfo);
 
-		console.log("PaymentForm Debug Info:", {
-			stripe: !!stripe,
-			elements: !!elements,
-			orderId: orderId,
-			cardComplete: cardComplete,
-			processing: processing,
-			buttonDisabled: isButtonDisabled,
-			timestamp: new Date().toISOString(),
-		});
+		// console.log("PaymentForm Debug Info:", {
+		// 	stripe: !!stripe,
+		// 	elements: !!elements,
+		// 	orderId: orderId,
+		// 	cardComplete: cardComplete,
+		// 	processing: processing,
+		// 	buttonDisabled: isButtonDisabled,
+		// 	timestamp: new Date().toISOString(),
+		// });
 	}, [stripe, elements, orderId, processing, cardComplete]);
 
 	// Function to handle payment submission
 	const handlePayment = async () => {
-		console.log("Payment button clicked!");
+		// console.log("Payment button clicked!");
 
 		if (!stripe || !elements) {
 			setError("Stripe hasn't loaded yet. Please try again.");
@@ -73,10 +73,10 @@ const PaymentForm = ({ orderId, amount, onPaymentSuccess, onPaymentError }) => {
 		try {
 			// Get card element
 			const cardElement = elements.getElement(CardElement);
-			console.log("Card element retrieved:", !!cardElement);
+			// console.log("Card element retrieved:", !!cardElement);
 
 			// Create payment method
-			console.log("Creating payment method...");
+			// console.log("Creating payment method...");
 			const { error: pmError, paymentMethod } =
 				await stripe.createPaymentMethod({
 					type: "card",
@@ -88,19 +88,19 @@ const PaymentForm = ({ orderId, amount, onPaymentSuccess, onPaymentError }) => {
 				throw new Error(pmError.message);
 			}
 
-			console.log("Payment method created successfully:", paymentMethod.id);
+			// console.log("Payment method created successfully:", paymentMethod.id);
 
 			// Process payment with backend
-			console.log("Sending payment to backend...");
+			// console.log("Sending payment to backend...");
 			const response = await axiosInstance.post("payments/process-payment/", {
 				order_id: orderId,
 				payment_method_id: paymentMethod.id,
 			});
 
-			console.log("Backend payment response:", response.data);
+			// console.log("Backend payment response:", response.data);
 
 			if (response.data.status === "succeeded") {
-				console.log("Payment succeeded!");
+				// console.log("Payment succeeded!");
 				setPaymentStatus("success");
 				onPaymentSuccess && onPaymentSuccess(response.data);
 			} else {

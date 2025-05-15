@@ -11,6 +11,7 @@ import {
 import { addToCart } from "../utility/CartUtils";
 import Layout from "./Layout";
 import axiosInstance from "../../api/api";
+import { toast } from "react-toastify";
 
 const ProductDetails = ({ updateCartItemCount, cartItemCount }) => {
 	const { productName } = useParams();
@@ -95,11 +96,11 @@ const ProductDetails = ({ updateCartItemCount, cartItemCount }) => {
 			await addToCart(product.id, quantity, updateCartItemCount);
 			// Show success feedback
 			// You could use a toast notification library here
-			alert(`Added ${quantity} ${product.name} to your cart`);
+			toast.success(`Added ${quantity} ${product.name} to your cart`);
 			setQuantity(1);
 		} catch (error) {
 			console.error("Failed to add to cart:", error);
-			alert("Failed to add item to cart. Please try again.");
+			toast.error("Failed to add item to cart. Please try again.");
 		} finally {
 			setAddingToCart(false);
 		}
