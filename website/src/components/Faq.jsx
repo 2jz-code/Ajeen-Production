@@ -49,7 +49,7 @@ const Faq = () => {
 		{
 			question: "What are your hours?",
 			answer:
-				"We are open everyday from 6:00 am - 7:00 pm! Our kitchen begins service at 6:30 am and last orders are taken at 6:30 pm.",
+				"We are open everyday from 6:00 am - 8:00 pm! Our kitchen begins service at 6:00 am and last orders are taken at 7:45 pm.",
 		},
 		{
 			question: "Do you deliver?",
@@ -59,7 +59,7 @@ const Faq = () => {
 		{
 			question: "How did you start?",
 			answer:
-				"Our family has always dreamed of opening a restaurant that serves authentic Middle Eastern food. After years of perfecting our recipes and techniques, we finally opened our doors in 2010. What started as a small family operation has grown into the beloved establishment you see today!",
+				"Our family has always dreamed of opening a restaurant that serves authentic Middle Eastern food. After years of perfecting our recipes and techniques, we finally opened our doors in 2025.",
 		},
 		{
 			question: "Do you cater for events?",
@@ -101,22 +101,24 @@ const Faq = () => {
 
 				<div className="mt-12 text-center">
 					<p className="text-gray-600 mb-6">Don't see your question here?</p>
-					<button className="inline-flex items-center px-6 py-3 rounded-full bg-green-500 text-white font-medium hover:bg-green-600 transition-colors duration-300">
-						Contact Us
-						<svg
-							className="ml-2 w-5 h-5"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-						>
-							<path
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								strokeWidth={2}
-								d="M14 5l7 7m0 0l-7 7m7-7H3"
-							/>
-						</svg>
-					</button>
+					<a href="#contact">
+						<button className="inline-flex items-center px-6 py-3 rounded-full bg-green-500 text-white font-medium hover:bg-green-600 transition-colors duration-300">
+							Contact Us
+							<svg
+								className="ml-2 w-5 h-5"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+							>
+								<path
+									strokeLinecap="round"
+									strokeLinejoin="round"
+									strokeWidth={2}
+									d="M14 5l7 7m0 0l-7 7m7-7H3"
+								/>
+							</svg>
+						</button>
+					</a>
 				</div>
 			</div>
 		</div>

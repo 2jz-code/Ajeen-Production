@@ -71,7 +71,7 @@ const Sidebar = () => {
 					>
 						<FaHistory className="mr-3" /> Order History
 					</button>
-
+					{/* 
 					<button
 						onClick={() => setActiveTab("account")}
 						className={`w-full flex items-center px-4 py-2 rounded-md transition-colors ${
@@ -81,7 +81,7 @@ const Sidebar = () => {
 						}`}
 					>
 						<FaEdit className="mr-3" /> Account Settings
-					</button>
+					</button> */}
 
 					<button
 						onClick={handleLogout}

@@ -41,17 +41,24 @@ class NestedOrderItemSerializer(serializers.ModelSerializer):
         ]
 
 
+# combined/backend/orders/serializers.py
+
+# ... other imports ...
+
+
 class OrderSerializer(serializers.ModelSerializer):
-    # Keep existing nested serializers and method fields
-    items = NestedOrderItemSerializer(
-        many=True, read_only=True
-    )  # Use the updated NestedOrderItemSerializer
-    user_details = serializers.SerializerMethodField()
+    items = NestedOrderItemSerializer(many=True, read_only=True)
+    user_details = serializers.SerializerMethodField()  # Keeps user ID and username
+    # created_by will now provide a more comprehensive display name
     created_by = serializers.SerializerMethodField()
     payment = serializers.SerializerMethodField()
     discount_details = serializers.SerializerMethodField()
-    # Add the new field for the receipt payload
     receipt_payload = serializers.SerializerMethodField()
+
+    # New fields to ensure consistent customer info for POS
+    customer_display_name = serializers.SerializerMethodField()
+    customer_display_email = serializers.SerializerMethodField()
+    customer_display_phone = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -63,29 +70,75 @@ class OrderSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "source",
-            "items",  # Full item details for frontend state
-            "user",
-            "user_details",
-            "created_by",
+            "items",
+            "user",  # Keep the user ID
+            "user_details",  # Keeps username and ID from original serializer
+            "created_by",  # Now a more general display name field from get_created_by
+            # Explicit fields for customer details for POS to consume
+            "customer_display_name",
+            "customer_display_email",
+            "customer_display_phone",
+            # Retain original guest fields for data integrity / other uses if needed,
+            # but POS should prefer the new 'customer_display_*' fields.
             "guest_first_name",
             "guest_last_name",
             "guest_email",
-            "payment",  # Full payment details for frontend state
+            "guest_phone",
+            "payment",
             "discount",
             "discount_amount",
             "discount_details",
-            "tip_amount",  # Include tip_amount
-            "receipt_payload",  # Include the new payload
+            "tip_amount",
+            "receipt_payload",
         ]
         read_only_fields = [
             "created_at",
             "updated_at",
             "user_details",
-            "created_by",
+            "created_by",  # SerializerMethodField
             "payment",
             "discount_details",
             "receipt_payload",
+            "customer_display_name",  # SerializerMethodField
+            "customer_display_email",  # SerializerMethodField
+            "customer_display_phone",  # SerializerMethodField
         ]
+
+    def get_created_by(self, obj):  # This method is ALREADY in your serializer
+        """Provides a display name, preferring full name."""
+        if obj.user:
+            full_name = f"{obj.user.first_name} {obj.user.last_name}".strip()
+            return full_name if full_name else obj.user.username
+        elif obj.guest_first_name or obj.guest_last_name:
+            return f"{obj.guest_first_name} {obj.guest_last_name} (Guest)"
+        return "Guest Customer"
+
+    def get_customer_display_name(self, obj):
+        """Provides a consistent customer name for display."""
+        if obj.user:
+            full_name = f"{obj.user.first_name} {obj.user.last_name}".strip()
+            return full_name if full_name else obj.user.username
+        elif obj.guest_first_name or obj.guest_last_name:
+            return f"{obj.guest_first_name} {obj.guest_last_name}"
+        return "N/A"
+
+    def get_customer_display_email(self, obj):
+        """Provides a consistent customer email for display."""
+        if obj.user and obj.user.email:
+            return obj.user.email
+        elif obj.guest_email:
+            return obj.guest_email
+        return None  # Or "N/A"
+
+    def get_customer_display_phone(self, obj):
+        """Provides a consistent customer phone for display."""
+        if (
+            obj.user and hasattr(obj.user, "phone_number") and obj.user.phone_number
+        ):  # Assuming 'phone_number' on CustomUser
+            return obj.user.phone_number
+        elif obj.guest_phone:
+            return obj.guest_phone
+        return None  # Or "N/A"
 
     def get_discount_details(self, obj):
         """Return discount details if a discount exists"""
@@ -240,6 +293,7 @@ class OrderListSerializer(serializers.ModelSerializer):
             "guest_first_name",
             "guest_last_name",
             "item_count",
+            "payment",
         ]
 
     def get_created_by(self, obj):

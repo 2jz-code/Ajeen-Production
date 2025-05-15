@@ -439,20 +439,24 @@ export default function OrderDetails() {
 							<dl className="space-y-2.5 text-sm">
 								<DetailItem
 									label="Name"
-									value={
-										order.guest_first_name && order.guest_last_name
-											? `${order.guest_first_name} ${order.guest_last_name}`
-											: order.created_by || "Guest"
-									}
+									value={order.customer_display_name || "Guest"}
 								/>
 								<DetailItem
 									label="Email"
-									value={order.guest_email}
+									value={order.customer_display_email}
 									icon={EnvelopeIcon}
 								/>
+								{/* <DetailItem
+									label="Phone" // ADDED for Phone
+									value={order.customer_display_phone} // ADDED
+									icon={PhoneIcon} // Make sure to import PhoneIcon from heroicons if not already
+								/> */}
+								{/* Keep existing payment status display if needed */}
 								{order.payment_status && (
 									<div className="flex justify-between items-center">
-										<dt className="font-medium text-slate-500">Payment:</dt>
+										<dt className="font-medium text-slate-500">
+											Payment Status:
+										</dt>
 										<dd>
 											<span
 												className={`font-semibold px-2 py-0.5 rounded text-xs ${getStatusBadgeClass(

@@ -1,22 +1,38 @@
-// src/components/confirmation/hooks/useOrderDetails.jsx
+// File: combined/website/src/components/confirmation/hooks/useOrderDetails.jsx
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import axiosInstance from "../../../api/api";
-// Removed useAuth import here, as isAuthenticated is passed as an argument
 
 const useOrderDetails = (isAuthenticated) => {
-	// Receive isAuthenticated as an argument
-	const [orderDetails, setOrderDetails] = useState(null);
+	const [orderDetails, setOrderDetails] = useState(null); // Full details from API
+	// State to store customer details passed via navigation
+	const [customerDetailsFromState, setCustomerDetailsFromState] =
+		useState(null);
 	const [estimatedTime, setEstimatedTime] = useState(null);
 	const [liveStatus, setLiveStatus] = useState("pending");
-	const [isLoading, setIsLoading] = useState(true); // Start loading true for auth check
+	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState(null);
 	const navigate = useNavigate();
 	const location = useLocation();
-	const { orderId: orderIdFromState } = location.state || {}; // Get orderId directly
+
+	// Extract orderId and customerDetails from location.state
+	const {
+		orderId: orderIdFromRouterState,
+		customerDetails: navCustomerDetails,
+		isGuest: isGuestFromRouterState,
+	} = location.state || {};
 	const socketRef = useRef(null);
 
-	// --- Helper Functions (Formatters) ---
+	useEffect(() => {
+		if (navCustomerDetails) {
+			console.log(
+				"useOrderDetails: Received customerDetails from navigation state:",
+				navCustomerDetails
+			);
+			setCustomerDetailsFromState(navCustomerDetails);
+		}
+	}, [navCustomerDetails]);
+
 	const formatPrice = (price) => {
 		if (price === null || price === undefined) {
 			return "0.00";
@@ -119,73 +135,104 @@ const useOrderDetails = (isAuthenticated) => {
 	};
 	// --- End WebSocket Setup ---
 
-	// --- Fetch Order Details (Conditional based on Authentication) ---
 	useEffect(() => {
-		if (!isAuthenticated) {
-			console.log("Guest user detected in useOrderDetails, skipping fetch.");
-			setIsLoading(false);
-			setOrderDetails(null);
-			return;
-		}
-
-		console.log("Location state in useOrderDetails:", location.state);
-		const currentOrderId = orderIdFromState;
-		console.log("Order ID from location state:", currentOrderId);
+		const currentOrderId = orderIdFromRouterState;
 
 		if (!currentOrderId) {
-			setError("No order ID found. Please check your order history.");
+			setError("Order ID not found. Unable to display confirmation.");
 			setIsLoading(false);
 			return;
 		}
 
-		const fetchOrderDetails = async () => {
-			try {
-				setIsLoading(true);
-				setError(null);
-				console.log(
-					`Fetching order details for authenticated user, Order ID: ${currentOrderId}`
-				);
-				// Ensure the API endpoint for fetching order details is correct
-				// The path should be relative to the baseURL configured in axiosInstance
-				const response = await axiosInstance.get(
-					`website/orders/${currentOrderId}/` // Example: 'api/website/orders/...' if baseURL is 'http://localhost:8000/'
-					// Or '/website/orders/...' if baseURL is 'http://localhost:8000/api/'
-				);
-				console.log("Order details response:", response.data);
+		// If it's a guest and we have details from navigation, we can use them immediately.
+		// We might still want to fetch from backend to confirm and get latest status,
+		// but this allows showing some info quicker.
+		if (isGuestFromRouterState && customerDetailsFromState) {
+			// Populate a basic orderDetails structure for guests immediately
+			setOrderDetails({
+				id: currentOrderId,
+				guest_first_name: customerDetailsFromState.firstName,
+				guest_last_name: customerDetailsFromState.lastName,
+				guest_email: customerDetailsFromState.email,
+				guest_phone: customerDetailsFromState.phone, // Key addition
+				status: "pending", // Initial assumption for guest before any fetch
+				payment_status: "pending", // Assume pending until confirmed otherwise
+			});
+			setLiveStatus("pending"); // Set initial live status
+			// For guests, we might not fetch full details again if the above is sufficient,
+			// or we can still proceed to fetch to get the *actual* latest status and items.
+			// The current logic below will still attempt to fetch if isAuthenticated is true.
+			// If you want guests to *also* fetch full order details, remove/adjust the !isAuthenticated check.
+		}
 
-				setOrderDetails(response.data);
+		const fetchOrder = async () => {
+			// Only fetch full details if authenticated OR if you decide guests should also re-fetch
+			// Your current code already has: if (!isAuthenticated) { setIsLoading(false); setOrderDetails(null); return; }
+			// We will modify this slightly.
+			if (!isAuthenticated) {
+				// For guests, we've already set basic details from customerDetailsFromState.
+				// If you *don't* want to hit the backend API again for guest confirmation page,
+				// you can simply set loading to false here.
+				// However, to get items and accurate current status, a fetch might still be desired,
+				// but it would need a secure guest order lookup endpoint.
+				// Your current code skips backend fetch for guests in this hook. We'll honor that.
+				console.log(
+					"Guest user detected in useOrderDetails. Using passed data primarily."
+				);
+				setIsLoading(false);
+				// Note: WebSocket is also skipped for guests in your `setupWebSocketConnection`.
+				return;
+			}
+
+			// Proceed to fetch for authenticated users
+			setIsLoading(true);
+			setError(null);
+			try {
+				const response = await axiosInstance.get(
+					`website/orders/${currentOrderId}/`
+				);
+				console.log("Fetched order details (authenticated):", response.data);
+				setOrderDetails(response.data); // This should include guest_phone if backend serializer is correct
 				setLiveStatus(response.data.status || "pending");
+				// If customerDetailsFromState exists, it's good, but API is source of truth for auth users
+				// No need to merge here if API provides all (first_name, email, phone etc.)
 				setupWebSocketConnection(currentOrderId);
-			} catch (error) {
-				console.error("Failed to fetch order details:", error);
+			} catch (err) {
+				console.error("Failed to fetch order details (authenticated):", err);
 				setError(
-					error.response?.data?.error ||
-						`Unable to load order details (ID: ${currentOrderId}). Please try refreshing.`
+					err.response?.data?.error ||
+						`Unable to load order details (ID: ${currentOrderId}).`
 				);
 			} finally {
 				setIsLoading(false);
 			}
 		};
 
-		fetchOrderDetails();
+		fetchOrder();
 
 		return () => {
 			if (socketRef.current) {
 				socketRef.current.close();
-				console.log("WebSocket connection closed on unmount/dependency change");
 				socketRef.current = null;
 			}
 		};
-	}, [orderIdFromState, isAuthenticated, location.state]); // Added location.state as it contains orderIdFromState
+	}, [
+		orderIdFromRouterState,
+		isAuthenticated,
+		customerDetailsFromState,
+		isGuestFromRouterState,
+	]); // Added dependencies
 
 	return {
-		orderDetails,
+		orderDetails, // From API for auth, or constructed from navState for guest
+		customerDetailsFromState, // Always has the data passed from checkout
 		estimatedTime,
 		liveStatus,
 		isLoading,
 		error,
 		navigate,
-		orderId: orderIdFromState,
+		orderId: orderIdFromRouterState,
+		isGuest: isGuestFromRouterState,
 		formatPrice,
 		formatDate,
 		renderEstimatedTime,

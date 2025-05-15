@@ -1,7 +1,7 @@
 // src/components/confirmation/ConfirmationPage.jsx
 import React from "react";
 import { motion } from "framer-motion";
-import { FaHome } from "react-icons/fa";
+import { FaHome, FaEnvelope, FaPhone, FaUserCircle } from "react-icons/fa"; // Added icons
 import useOrderDetails from "./hooks/useOrderDetails";
 import OrderStatusIndicator from "./components/OrderStatusIndicator";
 import OrderTimeline from "./components/OrderTimeline";
@@ -12,24 +12,22 @@ import HelpSection from "./components/HelpSection";
 import { useAuth } from "../../contexts/AuthContext"; // Import useAuth
 
 const ConfirmationPage = () => {
-	// --- MODIFICATION START ---
-	const { isAuthenticated, isLoading: authIsLoading, authChecked } = useAuth(); // Get auth state
-	// --- MODIFICATION END ---
-
+	const { isAuthenticated, isLoading: authIsLoading, authChecked } = useAuth();
 	const {
-		orderDetails,
+		orderDetails, // From API (auth) or constructed (guest)
+		customerDetailsFromState, // Data passed from checkout
 		liveStatus,
-		isLoading: orderIsLoading, // Rename to avoid conflict
+		isLoading: orderIsLoading,
 		error,
 		navigate,
 		formatPrice,
 		formatDate,
 		renderEstimatedTime,
-	} = useOrderDetails(isAuthenticated); // Pass auth status to the hook
+		orderId, // Extracted from hook
+		isGuest, // Extracted from hook
+	} = useOrderDetails(isAuthenticated);
 
-	// --- MODIFICATION START ---
-	// Combined loading state
-	const isLoading = authIsLoading || orderIsLoading;
+	const isLoading = !authChecked || orderIsLoading;
 
 	// Wait until authentication status is checked
 	if (!authChecked) {
@@ -91,7 +89,104 @@ const ConfirmationPage = () => {
 			</div>
 		);
 	}
+	// Determine display details (prioritize API, fallback to navigated state)
+	const displayOrderId = orderDetails?.id || orderId;
+	const displayFirstName =
+		orderDetails?.guest_first_name || customerDetailsFromState?.firstName;
+	const displayLastName =
+		orderDetails?.guest_last_name || customerDetailsFromState?.lastName;
+	const displayEmail =
+		orderDetails?.guest_email || customerDetailsFromState?.email;
+	const displayPhone =
+		orderDetails?.guest_phone || customerDetailsFromState?.phone; // Key: use phone
 
+	// Simplified Guest View (enhanced to show details)
+	if (isGuest || (!isAuthenticated && customerDetailsFromState)) {
+		return (
+			<div className="min-h-screen bg-gray-50">
+				<div className="bg-white shadow-sm">
+					<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+						<div className="flex items-center justify-between">
+							<h1 className="text-2xl font-bold text-gray-900">
+								Order Submitted!
+							</h1>
+							<button
+								onClick={() => navigate("/")}
+								className="flex items-center text-gray-600 hover:text-gray-900"
+							>
+								<FaHome className="mr-2" /> Home
+							</button>
+						</div>
+					</div>
+				</div>
+				<div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+					<motion.div
+						initial={{ opacity: 0, y: 20 }}
+						animate={{ opacity: 1, y: 0 }}
+						transition={{ duration: 0.5 }}
+						className="bg-white rounded-lg shadow-md overflow-hidden p-6 md:p-8"
+					>
+						<div className="text-center">
+							<svg
+								className="w-16 h-16 text-green-500 mx-auto mb-4"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+								xmlns="http://www.w3.org/2000/svg"
+							>
+								<path
+									strokeLinecap="round"
+									strokeLinejoin="round"
+									strokeWidth={2}
+									d="M5 13l4 4L19 7"
+								/>
+							</svg>
+							<h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">
+								Thank You, {displayFirstName || "Customer"}!
+							</h2>
+							<p className="text-gray-600 mb-3">
+								Your Order{" "}
+								<span className="font-semibold">#{displayOrderId}</span> has
+								been received.
+							</p>
+							{displayEmail && (
+								<div className="flex items-center justify-center text-sm text-gray-500 mb-1">
+									<FaEnvelope className="mr-2" /> Confirmation sent to:{" "}
+									{displayEmail}
+								</div>
+							)}
+							{displayPhone && (
+								<div className="flex items-center justify-center text-sm text-gray-500 mb-4">
+									<FaPhone className="mr-2" /> Contact: {displayPhone}
+								</div>
+							)}
+							<p className="text-gray-700 mb-2 text-lg">
+								We'll start preparing it shortly.
+							</p>
+							<p className="text-gray-600 mb-6 text-xl font-bold">
+								Est. Prep. Time: 15 - 25 Minutes
+							</p>
+						</div>
+						{orderDetails &&
+							orderDetails.items &&
+							orderDetails.items.length > 0 && (
+								<div className="my-6 border-t border-b border-gray-200 py-4">
+									<h3 className="text-lg font-semibold text-gray-700 mb-3 text-center">
+										Your Order Summary
+									</h3>
+									<OrderItems
+										orderDetails={orderDetails}
+										formatPrice={formatPrice}
+									/>
+								</div>
+							)}
+						<ActionButtons navigate={navigate} />
+					</motion.div>
+					<HelpSection />
+				</div>
+			</div>
+		);
+	}
 	// --- MODIFICATION START: Conditional Rendering ---
 	if (!isAuthenticated) {
 		// Guest User View
@@ -224,24 +319,19 @@ const ConfirmationPage = () => {
 
 			<div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 				<motion.div
-					initial={{ opacity: 0, y: 20 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ duration: 0.5 }}
-					className="bg-white rounded-lg shadow-md overflow-hidden"
+					/* ... */ className="bg-white rounded-lg shadow-md overflow-hidden"
 				>
-					{/* Order Status Header */}
 					<div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-6 text-center">
 						<h2 className="text-xl font-bold mb-2">
 							Thank you for your order,{" "}
-							{orderDetails.customerName || "Customer"}!
+							{orderDetails.user?.first_name || displayFirstName || "Customer"}!
 						</h2>
-						<p className="text-green-100">Order #{orderDetails.id}</p>
+						<p className="text-green-100">
+							Order #{orderDetails.id || displayOrderId}
+						</p>
 					</div>
-
-					{/* Order Status Indicator */}
 					<div className="p-6 text-center border-b border-gray-200">
 						<OrderStatusIndicator status={liveStatus} />
-
 						<div className="mt-6">
 							<span className="text-sm text-gray-500">Estimated Time:</span>
 							<p className="text-2xl font-bold text-green-500">
@@ -249,38 +339,28 @@ const ConfirmationPage = () => {
 							</p>
 						</div>
 					</div>
-
-					{/* Order Timeline */}
 					<div className="px-6 py-4 border-b border-gray-200">
 						<h3 className="font-medium text-gray-700 mb-4">Order Progress</h3>
 						<OrderTimeline status={liveStatus} />
 					</div>
-
-					{/* Order Details Section */}
 					<div className="p-6">
-						{/* Order Details */}
+						{/* OrderDetailsDisplay should now get orderDetails which includes guest_phone */}
 						<OrderDetails
-							orderDetails={orderDetails}
+							orderDetails={orderDetails} // This contains all info from API
 							formatDate={formatDate}
+							customerPhoneFromCheckout={customerDetailsFromState?.phone} // Can be a fallback or for comparison
 						/>
-
-						{/* Order Items Table */}
 						<OrderItems
 							orderDetails={orderDetails}
 							formatPrice={formatPrice}
 						/>
-
-						{/* Action Buttons */}
 						<ActionButtons navigate={navigate} />
 					</div>
 				</motion.div>
-
-				{/* Help Section */}
 				<HelpSection />
 			</div>
 		</div>
 	);
-	// --- MODIFICATION END ---
 };
 
 export default ConfirmationPage;

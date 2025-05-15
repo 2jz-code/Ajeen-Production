@@ -42,7 +42,7 @@ const Location = () => {
 		{
 			icon: <ClockIcon className="w-6 h-6" />,
 			title: "Working Hours",
-			details: "6:00 am - 7:00 pm, Everyday",
+			details: "6:00 am - 8:00 pm, Everyday",
 		},
 	];
 
