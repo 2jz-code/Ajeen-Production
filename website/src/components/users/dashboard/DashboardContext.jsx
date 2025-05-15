@@ -70,21 +70,21 @@ export const DashboardProvider = ({ children }) => {
 	};
 
 	// Fetch rewards profile
-	const fetchRewardsProfile = async () => {
-		try {
-			setLoadingRewards(true);
-			const response = await axiosInstance.get("website/rewards/profile/");
-			setRewardsProfile(response.data);
-		} catch (err) {
-			if (err.response?.status === 403 && err.response?.data?.opt_in_required) {
-				setRewardsProfile(null);
-			} else {
-				console.error("Failed to fetch rewards profile:", err);
-			}
-		} finally {
-			setLoadingRewards(false);
-		}
-	};
+	// const fetchRewardsProfile = async () => {
+	// 	try {
+	// 		setLoadingRewards(true);
+	// 		const response = await axiosInstance.get("website/rewards/profile/");
+	// 		setRewardsProfile(response.data);
+	// 	} catch (err) {
+	// 		if (err.response?.status === 403 && err.response?.data?.opt_in_required) {
+	// 			setRewardsProfile(null);
+	// 		} else {
+	// 			console.error("Failed to fetch rewards profile:", err);
+	// 		}
+	// 	} finally {
+	// 		setLoadingRewards(false);
+	// 	}
+	// };
 
 	// Fetch order history
 	const fetchOrderHistory = async () => {
@@ -160,9 +160,9 @@ export const DashboardProvider = ({ children }) => {
 
 			setUser(response.data);
 
-			if (userInfo.is_rewards_opted_in) {
-				fetchRewardsProfile();
-			}
+			// if (userInfo.is_rewards_opted_in) {
+			// 	fetchRewardsProfile();
+			// }
 
 			setUpdateSuccess("Your profile has been updated successfully!");
 			setTimeout(() => setUpdateSuccess(""), 3000);
@@ -201,7 +201,7 @@ export const DashboardProvider = ({ children }) => {
 			fetchUserProfile();
 		}
 
-		fetchRewardsProfile();
+		// fetchRewardsProfile();
 		fetchOrderHistory();
 	}, [user]);
 
@@ -245,7 +245,7 @@ export const DashboardProvider = ({ children }) => {
 		handleImageUpload,
 		updateProfile,
 		fetchUserProfile,
-		fetchRewardsProfile,
+		// fetchRewardsProfile,
 		fetchOrderHistory,
 		reorderPastOrder,
 	};

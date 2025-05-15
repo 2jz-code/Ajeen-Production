@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "users",
+    "contact",
     "products",
     "orders",
     "payments",
@@ -399,6 +400,28 @@ MEDIA_ROOT = BASE_DIR / "media"
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+
+EMAIL_BACKEND = os.environ.get(
+    "DJANGO_EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
+)  # Default to console backend if not set
+EMAIL_HOST = os.environ.get("DJANGO_EMAIL_HOST")
+EMAIL_PORT = int(
+    os.environ.get("DJANGO_EMAIL_PORT", 587)
+)  # Default to 587, ensure it's an int
+EMAIL_USE_TLS = (
+    os.environ.get("DJANGO_EMAIL_USE_TLS", "True") == "True"
+)  # Convert to boolean
+EMAIL_USE_SSL = (
+    os.environ.get("DJANGO_EMAIL_USE_SSL", "False") == "True"
+)  # Convert to boolean
+EMAIL_HOST_USER = os.environ.get("DJANGO_EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.environ.get("DJANGO_EMAIL_HOST_PASSWORD")
+DEFAULT_FROM_EMAIL = os.environ.get("DJANGO_DEFAULT_FROM_EMAIL")  # Default if not set
+
+logger.info(
+    f"EFFECTIVE EMAIL_BACKEND: {EMAIL_BACKEND}"
+)  # Add this for specific confirmation
 
 # --- Logging ---
 LOGGING = {
