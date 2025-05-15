@@ -8,16 +8,19 @@ import {
 	useCallback,
 } from "react";
 import PropTypes from "prop-types";
+// +++ Import your local hardware service function +++
+import { printGenericTicketWithAgent } from "../api/services/localHardwareService";
 
 // Define initial WebSocket endpoints by category
 const WS_ENDPOINTS = {
 	// HARDWARE: {
-	// 	// CASH_DRAWER: "hardware/cash-drawer",
-	// 	// CARD_PAYMENT: "hardware/card-payment",
-	// 	RECEIPT_PRINTER: "hardware/receipt-printer",
+	//  // CASH_DRAWER: "hardware/cash-drawer",
+	//  // CARD_PAYMENT: "hardware/card-payment",
+	//  RECEIPT_PRINTER: "hardware/receipt-printer",
 	// },
 	BUSINESS: {
-		KITCHEN: "kitchen/orders", // Add kitchen endpoint
+		KITCHEN: "kitchen/orders", // For kitchen display updates
+		POS: "pos_updates", // For POS specific updates, including print jobs
 	},
 };
 
@@ -41,14 +44,10 @@ export const WebSocketProvider = ({ children }) => {
 	);
 
 	const [connections, setConnections] = useState(initialConnectionStates);
-
-	// WebSocket references - flattened structure for easier access
 	const wsRefs = useRef({});
 
-	// Initialize refs for all endpoints
 	useEffect(() => {
 		Object.entries(WS_ENDPOINTS).forEach(([category, endpoints]) => {
-			// Use Object.keys instead since we don't need the path values
 			Object.keys(endpoints).forEach((name) => {
 				if (!wsRefs.current[`${category}.${name}`]) {
 					wsRefs.current[`${category}.${name}`] = null;
@@ -57,82 +56,58 @@ export const WebSocketProvider = ({ children }) => {
 		});
 	}, []);
 
-	// Keep track of reconnection attempts
 	const reconnectAttempts = useRef({});
 
-	// Calculate reconnection delay with exponential backoff
 	const calculateReconnectDelay = useCallback((endpointKey) => {
 		if (!reconnectAttempts.current[endpointKey]) {
 			reconnectAttempts.current[endpointKey] = 0;
 		}
-
 		reconnectAttempts.current[endpointKey]++;
-
-		// Reset after 10 attempts
 		if (reconnectAttempts.current[endpointKey] > 10) {
 			reconnectAttempts.current[endpointKey] = 1;
 		}
-
-		// Base delay is 1000ms, max is ~30 seconds
 		const delay = Math.min(
 			1000 * Math.pow(1.5, reconnectAttempts.current[endpointKey] - 1),
 			30000
 		);
-
-		// Add some randomness to prevent all connections trying at the same time
 		return delay + Math.random() * 1000;
 	}, []);
 
-	// Get WebSocket URL based on category and endpoint
 	const getWebSocketUrl = useCallback((category, endpointName) => {
-		const path = WS_ENDPOINTS[category]?.[endpointName]; // Use optional chaining
+		const path = WS_ENDPOINTS[category]?.[endpointName];
 		if (!path) {
 			throw new Error(
 				`Unknown WebSocket path for: ${category}.${endpointName}`
 			);
 		}
-
-		// +++ Define the base URL using environment variables +++
-		// Default to localhost for development if the variable isn't set
 		const baseWsUrl = import.meta.env.VITE_WS_URL || "ws://localhost:8001/ws";
-
-		// --- BEFORE --- (Example for BUSINESS)
-		// if (category === "BUSINESS") {
-		// 	return `ws://localhost:8001/ws/${path}/`;
-		// }
-
-		// +++ AFTER +++
-		// Construct the full URL
-		// Ensure the base URL doesn't end with '/' and the path doesn't start with '/'
 		const cleanBase = baseWsUrl.endsWith("/")
 			? baseWsUrl.slice(0, -1)
 			: baseWsUrl;
 		const cleanPath = path.startsWith("/") ? path.slice(1) : path;
-		return `${cleanBase}/${cleanPath}/`; // Add trailing slash as expected by Django Channels
 
-		// Remove or comment out old logic
-		// throw new Error(`Unknown WebSocket category: ${category}`);
+		// For POS updates, if your backend routing includes a location_id placeholder,
+		// you might need to inject it here.
+		// For now, assuming /ws/pos_updates/ as per your routing.py for the global POS connection.
+		// If location specific: e.g. `${cleanBase}/${cleanPath}/${locationId}/`
+		return `${cleanBase}/${cleanPath}/`;
 	}, []);
 
-	// Connect to a specific endpoint
 	const connect = useCallback(
 		(category, endpointName) => {
 			const endpointKey = `${category}.${endpointName}`;
 
 			try {
-				// Check if this endpoint is already connected
 				if (wsRefs.current[endpointKey]?.readyState === WebSocket.OPEN) {
 					console.log(`${endpointKey} WebSocket already connected`);
 					return;
 				}
-
-				// Close existing connection if any
 				if (wsRefs.current[endpointKey]) {
 					wsRefs.current[endpointKey].close();
 				}
 
 				const wsUrl = getWebSocketUrl(category, endpointName);
-				console.log(`Connecting to ${wsUrl}`);
+				console.log(`Connecting to ${wsUrl} for ${endpointKey}`);
 
 				const ws = new WebSocket(wsUrl);
 				wsRefs.current[endpointKey] = ws;
@@ -146,6 +121,7 @@ export const WebSocketProvider = ({ children }) => {
 							[endpointName]: { isConnected: true, error: null },
 						},
 					}));
+					reconnectAttempts.current[endpointKey] = 0; // Reset on successful connect
 				};
 
 				ws.onmessage = (e) => {
@@ -153,7 +129,52 @@ export const WebSocketProvider = ({ children }) => {
 						const data = JSON.parse(e.data);
 						console.log(`${endpointKey} WebSocket received:`, data);
 
-						// Dispatch to window event system for compatibility with existing code
+						// +++ Specific handler for print jobs from the POS endpoint +++
+						if (category === "BUSINESS" && endpointName === "POS") {
+							if (data.type === "new_website_order_for_printing") {
+								console.log(
+									`Received print jobs for order ${data.order_id}:`,
+									data.print_jobs
+								);
+								if (data.print_jobs && Array.isArray(data.print_jobs)) {
+									data.print_jobs.forEach((job) => {
+										console.log(
+											`Attempting to print job via agent for printer: ${job.printer_id}`,
+											job
+										);
+										printGenericTicketWithAgent(job) // Assuming printJob structure matches agent's expectation
+											.then((response) => {
+												if (response.success) {
+													console.log(
+														`Successfully sent print job for ${job.printer_id} (Order: ${data.order_id})`
+													);
+													// Optionally, dispatch a success notification to UI
+												} else {
+													console.error(
+														`Failed to send print job for ${job.printer_id} (Order: ${data.order_id}): ${response.message}`
+													);
+													// Optionally, dispatch an error notification to UI
+												}
+											})
+											.catch((err) => {
+												console.error(
+													`Critical error calling printGenericTicketWithAgent for ${job.printer_id} (Order: ${data.order_id}):`,
+													err
+												);
+												// Optionally, dispatch an error notification to UI
+											});
+									});
+								} else {
+									console.warn(
+										"Received 'new_website_order_for_printing' but 'print_jobs' was missing or not an array."
+									);
+								}
+								return; // Handled this message type specifically
+							}
+							// Potentially other 'POS' specific message types here
+						}
+
+						// Fallback to generic window event dispatch for other messages or other endpoints
 						const event = new CustomEvent("websocket-message", {
 							detail: {
 								...data,
@@ -177,21 +198,23 @@ export const WebSocketProvider = ({ children }) => {
 						[category]: {
 							...prev[category],
 							[endpointName]: {
-								...prev[category][endpointName],
+								...prev[category]?.[endpointName], // Keep potential error message
 								isConnected: false,
 							},
 						},
 					}));
-
-					// Attempt to reconnect after delay (with exponential backoff)
-					const delay = calculateReconnectDelay(endpointKey);
-					console.log(`Will attempt to reconnect ${endpointKey} in ${delay}ms`);
-
-					setTimeout(() => {
-						if (document.visibilityState !== "hidden") {
-							connect(category, endpointName);
-						}
-					}, delay);
+					if (!event.wasClean) {
+						// Only attempt reconnect if not a clean closure
+						const delay = calculateReconnectDelay(endpointKey);
+						console.log(
+							`Will attempt to reconnect ${endpointKey} in ${delay}ms`
+						);
+						setTimeout(() => {
+							if (document.visibilityState !== "hidden") {
+								connect(category, endpointName);
+							}
+						}, delay);
+					}
 				};
 
 				ws.onerror = (err) => {
@@ -201,20 +224,21 @@ export const WebSocketProvider = ({ children }) => {
 						[category]: {
 							...prev[category],
 							[endpointName]: {
-								...prev[category][endpointName],
+								isConnected: false, // Ensure isConnected is false on error
 								error: "WebSocket connection error",
 							},
 						},
 					}));
+					// onclose will handle the reconnection logic
 				};
 			} catch (err) {
-				console.error(`${endpointKey} Connection error:`, err);
+				console.error(`${endpointKey} Connection setup error:`, err);
 				setConnections((prev) => ({
 					...prev,
 					[category]: {
 						...prev[category],
 						[endpointName]: {
-							...prev[category][endpointName],
+							isConnected: false,
 							error: err.message,
 						},
 					},
@@ -224,24 +248,23 @@ export const WebSocketProvider = ({ children }) => {
 		[calculateReconnectDelay, getWebSocketUrl]
 	);
 
-	// Send a message to a specific endpoint
+	// Send a message to a specific endpoint (if needed by POS frontend to send to this consumer)
 	const sendMessage = useCallback(
 		(category, endpointName, message) => {
 			const endpointKey = `${category}.${endpointName}`;
-
 			if (wsRefs.current[endpointKey]?.readyState !== WebSocket.OPEN) {
-				console.error(`${endpointKey} WebSocket is not connected`);
-				// Try to reconnect
-				connect(category, endpointName);
+				console.error(
+					`${endpointKey} WebSocket is not connected. Attempting to reconnect.`
+				);
+				connect(category, endpointName); // Try to reconnect before failing
+				// It might be better to queue message or return a promise that resolves after connection
 				return false;
 			}
-
 			const formattedMessage = {
 				...message,
-				id: Date.now().toString(),
-				timestamp: new Date().toISOString(),
+				// id: Date.now().toString(), // Backend might not need these for messages from client
+				// timestamp: new Date().toISOString(),
 			};
-
 			console.log(`Sending message to ${endpointKey}:`, formattedMessage);
 			wsRefs.current[endpointKey].send(JSON.stringify(formattedMessage));
 			return true;
@@ -249,37 +272,32 @@ export const WebSocketProvider = ({ children }) => {
 		[connect]
 	);
 
-	// Reconnect a specific endpoint
 	const reconnect = useCallback(
 		(category, endpointName) => {
 			const endpointKey = `${category}.${endpointName}`;
-
 			if (!WS_ENDPOINTS[category] || !WS_ENDPOINTS[category][endpointName]) {
 				console.error(`Cannot reconnect - unknown endpoint: ${endpointKey}`);
 				return false;
 			}
-
-			// Reset reconnect attempts for this endpoint
 			reconnectAttempts.current[endpointKey] = 0;
-
-			// Connect
 			connect(category, endpointName);
 			return true;
 		},
 		[connect]
 	);
 
-	// Connect to all endpoints on initial render
 	useEffect(() => {
-		// Handle visibility changes to reconnect when tab becomes visible
 		const handleVisibilityChange = () => {
 			if (document.visibilityState === "visible") {
 				console.log("Tab is now visible, checking connections...");
-
 				Object.entries(WS_ENDPOINTS).forEach(([category, endpoints]) => {
 					Object.keys(endpoints).forEach((endpointName) => {
 						const endpointKey = `${category}.${endpointName}`;
-						if (wsRefs.current[endpointKey]?.readyState !== WebSocket.OPEN) {
+						if (
+							wsRefs.current[endpointKey]?.readyState !== WebSocket.OPEN &&
+							wsRefs.current[endpointKey]?.readyState !== WebSocket.CONNECTING
+						) {
+							// Also check for CONNECTING
 							console.log(
 								`Reconnecting to ${endpointKey} after visibility change`
 							);
@@ -292,31 +310,25 @@ export const WebSocketProvider = ({ children }) => {
 
 		document.addEventListener("visibilitychange", handleVisibilityChange);
 
-		// Initial connections
 		Object.entries(WS_ENDPOINTS).forEach(([category, endpoints]) => {
 			Object.keys(endpoints).forEach((endpointName) => {
 				connect(category, endpointName);
 			});
 		});
 
-		// Cleanup function
 		return () => {
 			document.removeEventListener("visibilitychange", handleVisibilityChange);
-
-			Object.entries(WS_ENDPOINTS).forEach(([category, endpoints]) => {
-				Object.keys(endpoints).forEach((endpointName) => {
-					const endpointKey = `${category}.${endpointName}`;
-					if (wsRefs.current[endpointKey]) {
-						wsRefs.current[endpointKey].close();
-					}
-				});
+			Object.values(wsRefs.current).forEach((wsInstance) => {
+				if (wsInstance) {
+					wsInstance.close(1000, "Component unmounting"); // Use code 1000 for normal closure
+				}
 			});
 		};
-	}, [connect]);
+	}, [connect]); // `connect` is memoized with useCallback
 
 	const contextValue = {
 		connections,
-		sendMessage,
+		sendMessage, // Expose sendMessage if POS needs to send messages to POSUpdatesConsumer
 		endpoints: WS_ENDPOINTS,
 		reconnect,
 	};
@@ -328,12 +340,10 @@ export const WebSocketProvider = ({ children }) => {
 	);
 };
 
-// Add prop validation
 WebSocketProvider.propTypes = {
 	children: PropTypes.node.isRequired,
 };
 
-// Custom hook to use the WebSocket context
 export const useWebSocketContext = () => {
 	const context = useContext(WebSocketContext);
 	if (!context) {

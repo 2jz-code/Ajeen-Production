@@ -15,6 +15,7 @@ class Order(models.Model):
         ("completed", "Completed"),
         ("voided", "Voided"),
         # Website-specific statuses
+        ("preparing", "Preparing"),
         ("pending", "Pending"),
         ("cancelled", "Cancelled"),
     ]
@@ -58,7 +59,14 @@ class Order(models.Model):
     discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     tip_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
 
-    kitchen_ticket_printed = models.BooleanField(default=False)
+    kitchen_ticket_printed = models.BooleanField(
+        default=False,
+        help_text="Flag for direct backend printing, e.g., for POS orders",
+    )
+    pos_print_jobs_sent = models.BooleanField(
+        default=False,
+        help_text="Flag if print jobs for this order were sent to POS via WebSocket",
+    )
 
     def calculate_subtotal(self):
         """Calculate subtotal based on items' stored unit_price."""
