@@ -269,6 +269,79 @@ class OrderSerializer(serializers.ModelSerializer):
         }
         return payload
 
+    def get_kitchen_drinks_payload(self, instance):
+        drink_soup_categories = ["Drinks", "Soups"]
+        relevant_items = []
+        for item in instance.items.all().select_related("product", "product__category"):
+            if (
+                item.product.category
+                and item.product.category.name in drink_soup_categories
+            ):
+                relevant_items.append(
+                    {
+                        "name": item.product.name,
+                        "quantity": item.quantity,
+                        "modifiers": (
+                            [mod.name for mod in item.selected_modifiers.all()]
+                            if hasattr(item, "selected_modifiers")
+                            else []
+                        ),  # <--- MODIFIED HERE
+                    }
+                )
+        if not relevant_items:
+            return None
+        return {
+            "order_id": str(
+                instance.id
+            ),  # Using instance.id as id_string might not exist on Order model directly
+            "order_type": (
+                instance.get_order_type_display()
+                if hasattr(instance, "get_order_type_display")
+                else instance.status
+            ),  # Safely get display
+            "items": relevant_items,
+            "timestamp": instance.created_at.isoformat(),  # Add timestamp for kitchen tickets
+        }
+
+    def get_kitchen_qc_payload(self, instance):
+        all_items = [
+            {
+                "name": item.product.name,
+                "quantity": item.quantity,
+                "modifiers": (
+                    [mod.name for mod in item.selected_modifiers.all()]
+                    if hasattr(item, "selected_modifiers")
+                    else []
+                ),  # <--- MODIFIED HERE
+                # "notes": item.notes, # Assuming item-specific notes are not on OrderItem model.
+                # If they were, item.notes would also need hasattr or be a direct field.
+            }
+            for item in instance.items.all().select_related("product")
+        ]
+        return {
+            "order_id": str(instance.id),
+            "order_type": (
+                instance.get_order_type_display()
+                if hasattr(instance, "get_order_type_display")
+                else instance.status
+            ),
+            "customer_name": (
+                f"{instance.guest_first_name} {instance.guest_last_name}".strip()
+                if instance.guest_first_name or instance.guest_last_name
+                else (
+                    instance.user.get_full_name()
+                    if instance.user and instance.user.get_full_name()
+                    else (instance.user.username if instance.user else "Website Order")
+                )
+            ),
+            "order_source": instance.source,  # <--- ADD THIS FIELD
+            "items": all_items,
+            "special_instructions": (
+                instance.notes if hasattr(instance, "notes") and instance.notes else ""
+            ),  # Assuming order-level notes are on 'instance.notes'
+            "timestamp": instance.created_at.isoformat(),  # Add timestamp
+        }
+
 
 class OrderListSerializer(serializers.ModelSerializer):
     """
