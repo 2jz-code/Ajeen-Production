@@ -37,6 +37,7 @@ urlpatterns = [
     path("api/discounts/", include("discounts.urls")),
     path("api/website/rewards/", include("rewards.urls")),
     path("api/", include("users.urls_mobile")),
+    path("api/", include("contact.urls")),
     path("health/", views.health_check, name="health-check"),
 ]
 

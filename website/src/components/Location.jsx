@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useState } from "react"; // <-- Import useState
 import {
 	MapPinIcon,
 	PhoneIcon,
 	EnvelopeIcon,
 	ClockIcon,
 } from "@heroicons/react/24/outline";
+import axiosInstance from "../api/api";
 
 const ContactItem = ({ icon, title, details }) => {
 	return (
@@ -45,6 +46,58 @@ const Location = () => {
 			details: "6:00 am - 8:00 pm, Everyday",
 		},
 	];
+
+	// --- Form State ---
+	const [firstName, setFirstName] = useState("");
+	const [lastName, setLastName] = useState("");
+	const [email, setEmail] = useState("");
+	const [message, setMessage] = useState("");
+
+	// --- Submission State ---
+	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [submitStatus, setSubmitStatus] = useState({ type: "", message: "" }); // 'success' or 'error'
+
+	const handleSubmit = async (event) => {
+		event.preventDefault();
+		setIsSubmitting(true);
+		setSubmitStatus({ type: "", message: "" }); // Reset status
+
+		// Combine first and last name for the 'name' field expected by the backend
+		const name = `${firstName} ${lastName}`.trim();
+
+		const formData = {
+			name, // Backend expects 'name'
+			email,
+			message,
+		};
+
+		try {
+			// The endpoint is '/contact/' relative to your API_BASE_URL
+			// e.g., if API_BASE_URL is http://localhost:8000/api, this hits http://localhost:8000/api/contact/
+			const response = await axiosInstance.post("contact-form/", formData);
+
+			// Assuming your backend returns a success message like: {"success": "Message sent successfully!"}
+			setSubmitStatus({
+				type: "success",
+				message:
+					response.data.success ||
+					"Message sent successfully! We will get back to you soon.",
+			});
+			// Clear the form
+			setFirstName("");
+			setLastName("");
+			setEmail("");
+			setMessage("");
+		} catch (error) {
+			console.error("Error submitting contact form:", error);
+			const errorMessage =
+				error.response?.data?.error ||
+				"An error occurred. Please try again later.";
+			setSubmitStatus({ type: "error", message: errorMessage });
+		} finally {
+			setIsSubmitting(false);
+		}
+	};
 
 	return (
 		<div
@@ -120,54 +173,105 @@ const Location = () => {
 							</div>
 						</div>
 						<div className="p-12">
-							<form className="space-y-6">
+							{/* --- ATTACH SUBMIT HANDLER --- */}
+							<form
+								onSubmit={handleSubmit}
+								className="space-y-6"
+							>
 								<div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
 									<div>
-										<label className="block text-sm font-medium text-gray-700 mb-1">
+										<label
+											htmlFor="firstName"
+											className="block text-sm font-medium text-gray-700 mb-1"
+										>
 											First Name
 										</label>
 										<input
 											type="text"
+											id="firstName"
+											name="firstName" // Keep for label association
+											value={firstName}
+											onChange={(e) => setFirstName(e.target.value)}
+											required
 											className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
 											placeholder="Your first name"
 										/>
 									</div>
 									<div>
-										<label className="block text-sm font-medium text-gray-700 mb-1">
+										<label
+											htmlFor="lastName"
+											className="block text-sm font-medium text-gray-700 mb-1"
+										>
 											Last Name
 										</label>
 										<input
 											type="text"
+											id="lastName"
+											name="lastName"
+											value={lastName}
+											onChange={(e) => setLastName(e.target.value)}
+											required
 											className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
 											placeholder="Your last name"
 										/>
 									</div>
 								</div>
 								<div>
-									<label className="block text-sm font-medium text-gray-700 mb-1">
+									<label
+										htmlFor="email"
+										className="block text-sm font-medium text-gray-700 mb-1"
+									>
 										Email Address
 									</label>
 									<input
 										type="email"
+										id="email"
+										name="email" // This will be the key in formData
+										value={email}
+										onChange={(e) => setEmail(e.target.value)}
+										required
 										className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
 										placeholder="your@email.com"
 									/>
 								</div>
 								<div>
-									<label className="block text-sm font-medium text-gray-700 mb-1">
+									<label
+										htmlFor="message"
+										className="block text-sm font-medium text-gray-700 mb-1"
+									>
 										Message
 									</label>
 									<textarea
+										id="message"
+										name="message" // This will be the key in formData
 										rows="4"
+										value={message}
+										onChange={(e) => setMessage(e.target.value)}
+										required
 										className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
 										placeholder="How can we help you?"
 									></textarea>
 								</div>
+
+								{/* --- SUBMISSION STATUS MESSAGE --- */}
+								{submitStatus.message && (
+									<div
+										className={`p-3 rounded-md text-sm text-center ${
+											submitStatus.type === "success"
+												? "bg-green-100 text-green-800"
+												: "bg-red-100 text-red-800"
+										}`}
+									>
+										{submitStatus.message}
+									</div>
+								)}
+
 								<button
 									type="submit"
-									className="w-full bg-green-500 text-white font-medium py-3 px-4 rounded-lg hover:bg-green-600 transition-colors duration-300 transform hover:scale-[1.02]"
+									disabled={isSubmitting}
+									className="w-full bg-green-500 text-white font-medium py-3 px-4 rounded-lg hover:bg-green-600 transition-colors duration-300 transform hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed"
 								>
-									Send Message
+									{isSubmitting ? "Sending..." : "Send Message"}
 								</button>
 							</form>
 						</div>
