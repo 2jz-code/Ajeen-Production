@@ -26,7 +26,8 @@ const Footer = () => {
 						</Link>
 						<p className="mt-4 text-gray-400 text-sm">
 							Authentic Middle Eastern cuisine made with love and tradition.
-							Serving the community with fresh, delicious food since 2010.
+							Serving the community with fresh, delicious food since{" "}
+							{currentYear}.
 						</p>
 						{/* Social Media */}
 						<div className="mt-6 flex space-x-4">
@@ -150,7 +151,7 @@ const Footer = () => {
 									/>
 								</svg>
 								<a
-									href="tel:+11234567890"
+									href="tel:+16514125336"
 									className="group-hover:text-gray-300 transition-colors duration-300"
 								>
 									(651) 412-5336
@@ -256,26 +257,26 @@ const Footer = () => {
 					</p>
 					<div className="mt-4 md:mt-0 flex flex-wrap justify-center gap-4 text-sm text-gray-400">
 						{/* eslint-disable-next-line jsx-a11y/anchor-is-valid */}
-						<a
+						{/* <a
 							href="#"
 							className="hover:text-green-400 transition-colors duration-300"
 						>
 							Privacy Policy
-						</a>
+						</a> */}
 						{/* eslint-disable-next-line jsx-a11y/anchor-is-valid */}
-						<a
+						{/* <a
 							href="#"
 							className="hover:text-green-400 transition-colors duration-300"
 						>
 							Terms of Service
-						</a>
+						</a> */}
 						{/* eslint-disable-next-line jsx-a11y/anchor-is-valid */}
-						<a
+						{/* <a
 							href="#"
 							className="hover:text-green-400 transition-colors duration-300"
 						>
 							Accessibility
-						</a>
+						</a> */}
 						<span className="flex items-center">
 							Made with{" "}
 							<FaHeart

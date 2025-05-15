@@ -45,6 +45,7 @@ class Order(models.Model):
     guest_first_name = models.CharField(max_length=100, blank=True, null=True)
     guest_last_name = models.CharField(max_length=100, blank=True, null=True)
     guest_email = models.EmailField(blank=True, null=True)
+    guest_phone = models.CharField(max_length=20, blank=True, null=True)
 
     # Flag to identify the source of the order
     source = models.CharField(

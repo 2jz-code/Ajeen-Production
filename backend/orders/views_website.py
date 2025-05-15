@@ -15,6 +15,10 @@ from .serializers_website import (
 )
 from products.models import Product
 from users.permissions import IsWebsiteUser
+import logging
+from django.db import transaction  # Import transaction
+
+logger = logging.getLogger(__name__)  # Add logger
 
 
 class WebsiteCartView(APIView):
@@ -203,103 +207,120 @@ class WebsiteCartItemView(APIView):
 
 
 class WebsiteCheckoutView(APIView):
-    """
-    Handle checkout process for website orders
-    """
+    permission_classes = []
 
-    permission_classes = []  # Allow both authenticated and guest users
-
+    @transaction.atomic  # Add transaction.atomic
     def post(self, request):
-        """Create an order from cart contents"""
-        # Get cart
-        if request.user.is_authenticated and request.user.is_website_user:
-            cart = Cart.objects.filter(user=request.user, checked_out=False).first()
-            user = request.user
-            guest_id = None
+        user = (
+            request.user
+            if request.user.is_authenticated
+            and hasattr(request.user, "is_website_user")
+            and request.user.is_website_user
+            else None
+        )
+        cart = None
+        guest_id = None
+        guest_data_for_order = {}
+
+        if user:
+            cart = Cart.objects.filter(user=user, checked_out=False).first()
         else:
             guest_id = request.COOKIES.get("guest_id")
             if not guest_id:
                 return Response(
-                    {"error": "No cart found"}, status=status.HTTP_404_NOT_FOUND
+                    {"error": "No cart found. Guest session missing."},
+                    status=status.HTTP_404_NOT_FOUND,
                 )
-
             cart = Cart.objects.filter(guest_id=guest_id, checked_out=False).first()
-            user = None
 
         if not cart or not cart.items.exists():
             return Response(
                 {"error": "Cart is empty"}, status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Get guest information for guest checkout
-        guest_data = {}
-        if not user:
-            guest_data = {
+        # Enforce 'card' payment
+        payment_method_from_request = request.data.get("payment_method", "card").lower()
+        if payment_method_from_request not in ["card", "credit"]:
+            logger.warning(
+                f"WebsiteCheckoutView: Invalid payment_method '{payment_method_from_request}'. Website orders are card only."
+            )
+            return Response(
+                {
+                    "error": "Invalid payment method. Online orders must be paid by card."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        actual_payment_method_for_db = "credit"
+
+        if not user:  # Guest checkout specific data
+            guest_data_for_order = {
                 "guest_id": guest_id,
                 "guest_first_name": request.data.get("first_name", ""),
                 "guest_last_name": request.data.get("last_name", ""),
                 "guest_email": request.data.get("email", ""),
+                "guest_phone": request.data.get("phone", ""),  # Get phone for guest
             }
-
-            # Validate required guest information
-            if not all(
-                [
-                    guest_data["guest_first_name"],
-                    guest_data["guest_last_name"],
-                    guest_data["guest_email"],
+            required_guest_fields = [
+                "guest_first_name",
+                "guest_last_name",
+                "guest_email",
+                "guest_phone",
+            ]
+            if not all(guest_data_for_order.get(f) for f in required_guest_fields):
+                missing = [
+                    f for f in required_guest_fields if not guest_data_for_order.get(f)
                 ]
-            ):
                 return Response(
-                    {
-                        "error": "Guest information required (first_name, last_name, email)"
-                    },
+                    {"error": f"Guest information required: {', '.join(missing)}"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-        # Create the order
-        order = Order.objects.create(
-            user=user, status="pending", source="website", **guest_data
-        )
+        order_creation_payload = {
+            "user": user,
+            "status": "pending",
+            "source": "website",
+            "payment_status": "pending",
+            **guest_data_for_order,  # Spreads guest info if guest, otherwise empty
+        }
 
-        # Add order items
+        # If authenticated user, try to get phone from their profile if not provided in guest_data
+        if user and not guest_data_for_order.get(
+            "guest_phone"
+        ):  # Should not happen if user is not None
+            # Assuming your CustomUser model has a 'phone_number' field
+            if hasattr(user, "phone_number") and user.phone_number:
+                order_creation_payload["guest_phone"] = (
+                    user.phone_number
+                )  # Store it in guest_phone for consistency or have a dedicated order.phone
+            # else: # Optionally make phone required for authenticated users too if not on profile
+            #    return Response({"error": "Phone number required for authenticated user."}, status=status.HTTP_400_BAD_REQUEST)
+
+        order = Order.objects.create(**order_creation_payload)
+        # ... (OrderItem creation logic from cart items) ...
         for item in cart.items.all():
             OrderItem.objects.create(
                 order=order,
                 product=item.product,
                 quantity=item.quantity,
-                unit_price=item.product.price,  # Store current price
+                unit_price=item.product.price,
             )
+        order.calculate_total_price()  # This also saves the order
 
-        # Calculate total price
-        order.calculate_total_price()
-
-        # Mark cart as checked out
-        cart.checked_out = True
-        cart.save()
-
-        # Get payment method from request data
-        payment_method = request.data.get("payment_method", "cash")
-
-        # Map frontend payment method to backend payment method
-        backend_payment_method = {"cash": "cash", "card": "credit"}.get(
-            payment_method, "cash"
-        )  # Default to cash if not specified
-
-        # Create Payment record for the order
         from payments.models import Payment
 
         Payment.objects.create(
             order=order,
-            payment_method=backend_payment_method,
+            payment_method=actual_payment_method_for_db,  # 'credit'
             amount=order.total_price,
             status="pending",
         )
 
-        # Return order data with explicit order_id in the response
-        serializer = WebsiteOrderSerializer(order)
-        response_data = serializer.data
-        response_data["order_id"] = order.id  # Explicitly include order_id
+        cart.checked_out = True
+        cart.save()
 
+        serializer = WebsiteOrderSerializer(order, context={"request": request})
+        response_data = serializer.data
+        response_data["order_id"] = order.id
         return Response(response_data, status=status.HTTP_201_CREATED)
 
 

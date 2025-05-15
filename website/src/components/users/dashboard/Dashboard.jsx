@@ -5,7 +5,7 @@ import { DashboardProvider, useDashboard } from "./DashboardContext"; // Add use
 import Sidebar from "./Sidebar";
 import ProfileTab from "./ProfileTab";
 import OrdersTab from "./OrdersTab";
-import AccountTab from "./AccountTab";
+// import AccountTab from "./AccountTab";
 
 const Dashboard = () => {
 	return (
@@ -37,7 +37,7 @@ const DashboardContent = () => {
 							<>
 								{activeTab === "profile" && <ProfileTab />}
 								{activeTab === "orders" && <OrdersTab />}
-								{activeTab === "account" && <AccountTab />}
+								{/* {activeTab === "account" && <AccountTab />} */}
 							</>
 						)}
 					</div>

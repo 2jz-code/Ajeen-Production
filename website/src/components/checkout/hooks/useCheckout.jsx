@@ -1,342 +1,275 @@
-// src/components/checkout/hooks/useCheckout.jsx
-import { useState, useEffect } from "react";
+// File: combined/website/src/components/checkout/hooks/useCheckout.jsx
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import axiosInstance from "../../../api/api";
+import axiosInstance from "../../../api/api"; // Your API instance
 import { useAuth } from "../../../contexts/AuthContext";
-// Import CartUtils to fetch cart data consistently
-import { fetchCurrentCartData } from "../../utility/CartUtils"; // <--- IMPORT CartUtils
+import { fetchCurrentCartData } from "../../utility/CartUtils"; // Ensure this path is correct
 
 const useCheckout = () => {
-	const [isCreatingOrder, setIsCreatingOrder] = useState(false);
 	const [cartItems, setCartItems] = useState([]);
-	const [totalPrice, setTotalPrice] = useState(0); // This might be redundant if using calculated total
-	const [step, setStep] = useState(1); // 1: Review Cart, 2: Payment & Pickup
-	const [isLoading, setIsLoading] = useState(true);
-	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [step, setStep] = useState(1);
+	const [isLoading, setIsLoading] = useState(true); // For initial cart load
+	const [isCreatingOrder, setIsCreatingOrder] = useState(false); // When POSTing order to backend
 	const [error, setError] = useState(null);
 	const navigate = useNavigate();
-	// Use authChecked to wait until auth status is confirmed
-	const { isAuthenticated, user, authChecked } = useAuth(); // <--- Add authChecked
+	const { isAuthenticated, user, authChecked } = useAuth();
 	const [pendingOrderId, setPendingOrderId] = useState(null);
 
-	// Initialize form based on auth status
 	const [formData, setFormData] = useState({
 		first_name: "",
 		last_name: "",
 		email: "",
-		phone: "",
+		phone: "", // Ensure phone is part of the initial state
 		delivery_method: "pickup", // Fixed to pickup
-		payment_method: "cash", // Default to cash
+		payment_method: "card", // Default and only option now
 		notes: "",
 	});
-	// Format price helper
+
 	const formatPrice = (price) => {
-		if (price === null || price === undefined) {
-			return "0.00";
-		}
+		if (price === null || price === undefined) return "0.00";
 		const numericPrice = typeof price === "string" ? parseFloat(price) : price;
-		if (isNaN(numericPrice)) {
-			return "0.00";
-		}
-		return numericPrice.toFixed(2);
+		return isNaN(numericPrice) ? "0.00" : numericPrice.toFixed(2);
 	};
 
-	// Calculate price components
 	const subtotal = cartItems.reduce(
-		(sum, item) => sum + item.item_price * item.quantity,
+		(sum, item) => sum + (item.item_price || 0) * (item.quantity || 0),
 		0
 	);
-	const tax = subtotal * 0.1; // 8% tax
-	const total = subtotal + tax; // No delivery fee
+	const tax = subtotal * 0.1; // Assuming 10% tax
+	const total = subtotal + tax;
 
-	// Create order for card payment
-	const createOrderForCardPayment = async () => {
-		if (isCreatingOrder || pendingOrderId) return;
-
-		console.log("Creating order for card payment...");
-		setIsCreatingOrder(true);
-		setIsSubmitting(true);
-		setError(null);
-
-		// Determine endpoint based on auth status
-		const endpoint = isAuthenticated
-			? "website/checkout/"
-			: "website/guest-checkout/"; // <--- Use guest endpoint
-
-		try {
-			const response = await axiosInstance.post(endpoint, {
-				...formData,
-				delivery_method: "pickup", // Always pickup
-				payment_method: "card",
-				notes: formData.notes,
-			});
-
-			console.log("Order creation response:", response.data);
-			// Assuming backend returns 'id' for guest order and 'order_id'/'id' for auth order
-			const orderId = response.data.id || response.data.order_id;
-
-			if (!orderId) {
-				console.error("No order ID found in the response:", response.data);
-				setError("Failed to create order. Please try again.");
-				return; // Return early if no orderId
-			}
-
-			console.log("Order created successfully with ID:", orderId);
-			setPendingOrderId(orderId);
-		} catch (error) {
-			console.error("Failed to create order:", error);
-			const errorMsg =
-				error.response?.data?.error ||
-				"Failed to create your order. Please check your information and try again.";
-			setError(errorMsg);
-			window.scrollTo(0, 0);
-		} finally {
-			setIsCreatingOrder(false);
-			setIsSubmitting(false); // Keep submitting true until payment attempt for card
-		}
-	};
-
-	// Handle form field changes
 	const handleChange = (e) => {
 		const { name, value } = e.target;
-		setFormData((prev) => ({
-			...prev,
-			[name]: value,
-		}));
+		setFormData((prev) => ({ ...prev, [name]: value }));
 	};
 
-	// Handle radio button changes
-	const handleRadioChange = async (name, value) => {
-		setFormData((prev) => ({
-			...prev,
-			[name]: value,
-		}));
+	// handleRadioChange is no longer needed for payment_method if it's fixed.
+	// If you used it for delivery_method (though it's fixed to pickup), keep it.
+	// const handleRadioChange = (name, value) => { /* ... */ };
 
-		if (name === "payment_method" && value === "card") {
-			if (step === 2 && !pendingOrderId && !isCreatingOrder) {
-				console.log(
-					"Card payment selected, checking if we need to create order..."
-				);
-				await createOrderForCardPayment(); // Await this
-			}
-		}
-	};
-
-	// Navigate between steps
-	const nextStep = () => setStep((prev) => Math.min(prev + 1, 2)); // Now only 2 steps
+	const nextStep = () => setStep((prev) => Math.min(prev + 1, 2));
 	const prevStep = () => setStep((prev) => Math.max(prev - 1, 1));
 
-	// Handle checkout submission
-	const handleSubmit = async (e) => {
-		if (e && e.preventDefault) {
-			e.preventDefault();
+	// This function creates the order on the backend before Stripe interaction
+	const createOrderBeforePayment = useCallback(async () => {
+		if (pendingOrderId || isCreatingOrder) return null;
+
+		const { first_name, last_name, email, phone, notes } = formData;
+		let requiredFieldsComplete = true;
+		let missingFieldNames = [];
+
+		if (!isAuthenticated) {
+			// For guests, these are essential from the form
+			if (!first_name) {
+				missingFieldNames.push("First Name");
+				requiredFieldsComplete = false;
+			}
+			if (!last_name) {
+				missingFieldNames.push("Last Name");
+				requiredFieldsComplete = false;
+			}
+			if (!email) {
+				missingFieldNames.push("Email");
+				requiredFieldsComplete = false;
+			}
 		}
-		// If card payment, the order is already created or being created, rely on PaymentForm
-		if (formData.payment_method === "card") {
-			console.log("Card payment selected, PaymentForm handles submission.");
-			// Potentially trigger Stripe form submission here if needed, but likely handled within PaymentForm
-			return;
+		// Phone is always required now
+		if (!phone) {
+			missingFieldNames.push("Phone Number");
+			requiredFieldsComplete = false;
 		}
 
-		console.log(
-			"handleSubmit called for CASH payment with formData:",
-			formData
-		);
-		setIsSubmitting(true);
+		if (!requiredFieldsComplete) {
+			setError(
+				`Please fill in all required fields: ${missingFieldNames.join(", ")}.`
+			);
+			window.scrollTo(0, 0);
+			return null;
+		}
+
+		setIsCreatingOrder(true);
 		setError(null);
 
-		// Determine endpoint based on auth status
+		// Backend expects 'payment_method' in payload even if it's always 'card'
+		const payload = {
+			...formData, // Includes first_name, last_name, email, phone, notes
+			delivery_method: "pickup", // Fixed
+			payment_method: "card", // Fixed
+			// If your backend GuestCheckoutView or WebsiteCheckoutView expects items in payload:
+			// items: cartItems.map(item => ({ product_id: item.product_id || item.id, quantity: item.quantity })),
+		};
+		// Remove redundant/fixed fields if the backend doesn't need them explicitly for card orders
+		// delete payload.delivery_method;
+		// delete payload.payment_method; // Or send it as 'card'
+
 		const endpoint = isAuthenticated
 			? "website/checkout/"
-			: "website/guest-checkout/"; // <--- Use guest endpoint
+			: "website/guest-checkout/";
+		console.log(`Creating order with payload to ${endpoint}:`, payload);
 
 		try {
-			console.log(`Submitting cash order to ${endpoint}...`);
-			const response = await axiosInstance.post(endpoint, {
-				...formData,
-				delivery_method: "pickup", // Always pickup
-				payment_method: "cash", // Explicitly cash
-				notes: formData.notes,
-			});
-
-			console.log("Cash Checkout response:", response.data);
-			// Assuming backend returns 'id' for guest order and 'order_id'/'id' for auth order
+			const response = await axiosInstance.post(endpoint, payload);
 			const orderId = response.data.id || response.data.order_id;
 
 			if (!orderId) {
-				console.error("No order ID found in the response:", response.data);
-				setError(
-					"Order was created but no order ID was returned. Please contact support."
+				console.error(
+					"No order ID in createOrderBeforePayment response:",
+					response.data
 				);
-				setIsSubmitting(false);
-				return;
+				setError("Failed to prepare order for payment. Please try again.");
+				setIsCreatingOrder(false);
+				return null;
 			}
-
-			console.log("Cash Order created successfully with ID:", orderId);
-			// Navigate to confirmation for cash orders
-			const navigationState = {
-				orderId: orderId,
-				isGuest: !isAuthenticated,
-			};
-			if (!isAuthenticated) {
-				navigationState.guestEmail = formData.email; // Add guest email
-			}
-			navigate("/confirmation", { state: navigationState });
+			console.log("Order record created successfully with ID:", orderId);
+			setPendingOrderId(orderId);
+			setIsCreatingOrder(false);
+			return orderId; // Crucial for PaymentForm
 		} catch (error) {
-			console.error("Cash Checkout failed:", error);
+			console.error(
+				"Failed to create order record:",
+				error.response?.data || error.message
+			);
 			const errorMsg =
 				error.response?.data?.error ||
-				"Failed to process your order. Please check your information and try again.";
+				"Failed to prepare your order. Please check your information and try again.";
 			setError(errorMsg);
 			window.scrollTo(0, 0);
-			setIsSubmitting(false);
+			setIsCreatingOrder(false);
+			return null;
 		}
-		// No finally setIsSubmitting(false) here, navigation happens on success
-	};
+	}, [formData, isAuthenticated, pendingOrderId, isCreatingOrder, cartItems]); // cartItems if sending them
 
-	// Handle successful payment (from Stripe)
 	const handlePaymentSuccess = (paymentResult) => {
-		console.log("Payment successful:", paymentResult);
+		// Called by PaymentForm
+		console.log(
+			"Stripe Payment successful from Stripe, client-side result:",
+			paymentResult
+		);
 		if (pendingOrderId) {
-			// --- MODIFICATION START ---
-			// Pass necessary details to confirmation page state
 			const navigationState = {
 				orderId: pendingOrderId,
 				isGuest: !isAuthenticated,
+				// Pass all customer details that were used to create the order, for display on confirmation
+				customerDetails: {
+					firstName: formData.first_name,
+					lastName: formData.last_name,
+					email: formData.email,
+					phone: formData.phone, // Ensure phone is passed
+				},
+				// You can also pass paymentIntentId if needed on confirmation, e.g. from paymentResult
+				paymentIntentId: paymentResult?.paymentIntent?.id,
 			};
-			if (!isAuthenticated) {
-				navigationState.guestEmail = formData.email; // Add guest email
-			}
 			navigate("/confirmation", { state: navigationState });
-			// --- MODIFICATION END ---
 		} else {
-			console.error("Payment success called but no pending order ID found!");
-			setError("Payment succeeded but we couldn't find your order details.");
+			console.error(
+				"Stripe payment success reported, but no pendingOrderId was found in useCheckout state!"
+			);
+			setError(
+				"Payment succeeded but we encountered an issue finalizing your order details. Please contact support."
+			);
 		}
 	};
 
-	// Redirect if not authenticated
-	// useEffect(() => {
-	// 	if (!isAuthenticated && !isLoading) {
-	// 		navigate("/login", { state: { from: "/checkout" } });
-	// 	}
-	// }, [isAuthenticated, isLoading, navigate]);
-
 	useEffect(() => {
-		// Only run fetch when auth status is known
-		if (!authChecked) {
-			return;
-		}
-
-		const fetchCart = async () => {
-			setIsLoading(true);
-			setError(null);
-			try {
-				// Use the utility function which handles guest/auth automatically
-				const cartData = await fetchCurrentCartData();
-
+		// Fetch cart and prefill form
+		if (!authChecked) return;
+		setIsLoading(true);
+		fetchCurrentCartData()
+			.then((cartData) => {
 				if (!cartData || !cartData.items || cartData.items.length === 0) {
-					console.log("Cart is empty or not found, redirecting to menu.");
 					navigate("/menu");
 					return;
 				}
+				setCartItems(cartData.items || []);
+				if (isAuthenticated && user) {
+					setFormData((prev) => ({
+						...prev,
+						first_name: user.first_name || "",
+						last_name: user.last_name || "",
+						email: user.email || "",
+						phone: user.phone_number || prev.phone || "", // Use profile phone, allow override if prev.phone has value
+						payment_method: "card", // Ensure default
+					}));
+				} else {
+					// Guest or user data not yet loaded
+					setFormData((prev) => ({
+						...prev, // Keep any typed data
+						payment_method: "card", // Ensure default
+					}));
+				}
+			})
+			.catch((err) => {
+				console.error("Failed to fetch cart items:", err);
+				setError("Unable to load your cart.");
+			})
+			.finally(() => setIsLoading(false));
+	}, [navigate, authChecked, isAuthenticated, user]);
 
-				console.log("Fetched Cart Data:", cartData);
-				setCartItems(cartData.items || []); // Ensure items is an array
-
-				// Recalculate totals based on fetched cart items
-				const fetchedSubtotal = (cartData.items || []).reduce(
-					(sum, item) => sum + (item.item_price || 0) * (item.quantity || 0),
-					0
-				);
-				const fetchedTax = fetchedSubtotal * 0.1;
-				setTotalPrice(fetchedSubtotal + fetchedTax); // Update total based on fetched cart
-			} catch (error) {
-				console.error("Failed to fetch cart items:", error);
-				setError(
-					"Unable to load your cart. Please refresh the page or try again."
-				);
-				// Optional: Redirect on critical error?
-				// navigate('/menu');
-			} finally {
-				setIsLoading(false);
-			}
-		};
-
-		fetchCart();
-	}, [navigate, authChecked]);
-
-	// Initialize form data based on user authentication status
-	useEffect(() => {
-		// Only run when auth status is known and user data might be available
-		if (authChecked) {
-			if (isAuthenticated && user) {
-				console.log("User is authenticated, pre-filling form.");
-				setFormData((prev) => ({
-					...prev,
-					first_name: user.first_name || "",
-					last_name: user.last_name || "",
-					email: user.email || "",
-					phone: user.phone_number || "", // Adjust field name if necessary
-				}));
-			} else {
-				console.log("User is guest, clearing personal info fields.");
-				// Ensure fields are cleared for guests or if user data isn't loaded
-				setFormData((prev) => ({
-					...prev,
-					first_name: "",
-					last_name: "",
-					email: "",
-					phone: "",
-				}));
-			}
-		}
-	}, [user, isAuthenticated, authChecked]);
-
-	// Auto-create order when card payment is selected (Guest or Auth)
+	// Auto-create order when user reaches payment step (step 2)
 	useEffect(() => {
 		if (
 			step === 2 &&
-			formData.payment_method === "card" &&
 			!pendingOrderId &&
 			!isCreatingOrder &&
-			cartItems.length > 0 // Only create if cart has items
+			cartItems.length > 0 &&
+			authChecked // Ensure we know if user is auth or guest
 		) {
-			console.log(
-				"User at payment step with card selected but no order yet, creating order..."
-			);
-			createOrderForCardPayment();
+			// Validation before auto-creating order
+			let canCreate = true;
+			const { first_name, last_name, email, phone } = formData;
+			if (!isAuthenticated) {
+				// Guest validation
+				if (!first_name || !last_name || !email || !phone) {
+					canCreate = false;
+					console.log(
+						"Guest form not complete, delaying auto order creation for card."
+					);
+				}
+			} else if (isAuthenticated && !phone) {
+				// Authenticated user must also have phone
+				canCreate = false;
+				console.log(
+					"Authenticated user phone not provided, delaying auto order creation for card."
+				);
+			}
+
+			if (canCreate) {
+				console.log(
+					"Auto-creating order record for card payment (step 2 reached)."
+				);
+				createOrderBeforePayment();
+			}
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [
 		step,
-		formData.payment_method,
 		pendingOrderId,
 		isCreatingOrder,
-		cartItems,
-	]); // Add cartItems dependency
+		cartItems.length,
+		authChecked,
+		formData,
+		isAuthenticated,
+		createOrderBeforePayment,
+	]);
 
 	return {
 		cartItems,
 		formData,
 		step,
 		isLoading,
-		isSubmitting, // Use this for disabling buttons
+		isCreatingOrder,
 		error,
 		pendingOrderId,
-		isCreatingOrder, // Use this for showing loading states for order creation
 		subtotal,
 		tax,
-		total, // Use this calculated total
+		total,
 		formatPrice,
 		handleChange,
-		handleRadioChange,
 		nextStep,
 		prevStep,
-		handleSubmit, // Primarily for cash now
+		createOrderBeforePayment, // Expose this if a button needs to manually trigger it
 		handlePaymentSuccess,
 		setError,
-		isAuthenticated, // Pass down for conditional rendering
+		isAuthenticated,
 	};
 };
 
