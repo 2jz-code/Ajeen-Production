@@ -34,4 +34,5 @@ class ProductSerializer(serializers.ModelSerializer):
             "category",  # <-- Ensure this (the ID field) is listed
             "category_name",
             "description",
+            "barcode",  # <-- Add this line
         ]
