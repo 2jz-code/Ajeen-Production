@@ -61,14 +61,54 @@ export const useCartStore = create(
 			},
 
 			// Set the entire cart (e.g., when loading a held order)
-			setCart: (newCart) => {
-				const normalizedCart = Array.isArray(newCart)
-					? newCart
-							.map((item) => get().normalizeItem(item))
-							.filter((item) => item !== null) // Filter out any invalid items
-					: [];
-				set({ cart: normalizedCart });
-				get().saveCartToBackend(get().cart); // Sync after setting
+			setCart: (newCartItems) => {
+				console.log(
+					"[CART_ACTION] setCart CALLED. newCartItems from DB:",
+					newCartItems,
+					"Current OrderID:",
+					get().orderId,
+					"Cart BEFORE:",
+					JSON.parse(JSON.stringify(get().cart))
+				);
+				const consolidatedItems = {};
+				if (Array.isArray(newCartItems)) {
+					newCartItems.forEach((rawItem) => {
+						// rawItem here is an item from the backend's OrderItem serializer
+						// which includes { product: { id, name, price, ... }, quantity: X, unit_price: Y }
+						const normalized = get().normalizeItem(rawItem);
+						if (normalized) {
+							if (consolidatedItems[normalized.id]) {
+								// If product ID already exists, sum quantities
+								// This handles the case where DB might have sent duplicate OrderItems for the same product
+								console.warn(
+									`Consolidating duplicate product ID ${
+										normalized.id
+									} from backend data. Original q: ${
+										consolidatedItems[normalized.id].quantity
+									}, adding: ${normalized.quantity}`
+								);
+								consolidatedItems[normalized.id].quantity +=
+									normalized.quantity;
+							} else {
+								consolidatedItems[normalized.id] = normalized;
+							}
+						}
+					});
+				}
+				const finalCart = Object.values(consolidatedItems);
+				console.log(
+					"[CART_ACTION] setCart - finalCart to be set and saved:",
+					JSON.parse(JSON.stringify(finalCart))
+				);
+				set({ cart: finalCart });
+				// Only save to backend if the cart isn't empty, to avoid an unnecessary empty save on initial load if cart is empty
+				if (finalCart.length > 0 || get().orderId !== null) {
+					get().saveCartToBackend(finalCart);
+				} else {
+					console.log(
+						"CartStore: setCart resulted in empty cart, skipping backend save for now."
+					);
+				}
 			},
 
 			// Update quantity or other properties of a specific item
@@ -130,6 +170,14 @@ export const useCartStore = create(
 
 			// Add a product to the cart
 			addToCart: (product) => {
+				console.log(
+					"[CART_ACTION] addToCart CALLED. Product:",
+					product,
+					"Current OrderID:",
+					get().orderId,
+					"Cart BEFORE:",
+					JSON.parse(JSON.stringify(get().cart))
+				);
 				const itemToAdd = get().normalizeItem(product);
 				if (!itemToAdd) {
 					toast.error("Could not add invalid product data to cart.");

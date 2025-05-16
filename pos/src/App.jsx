@@ -237,14 +237,23 @@ function AppContent() {
 						element={<VerifyRedemption />}
 					/>
 				</Routes>
-				<ToastContainer
-					position="top-right"
-					autoClose={3000}
-					hideProgressBar={false}
-					closeOnClick
-					pauseOnHover
-				/>
 			</div>
+			<ToastContainer
+				position="top-right"
+				autoClose={1000} // Auto-close after 1 second
+				hideProgressBar={false}
+				newestOnTop={false} // Usually true is preferred if limit > 1, but with limit=1 it matters less.
+				closeOnClick
+				rtl={false}
+				pauseOnFocusLoss={false} // Do not pause when window loses focus
+				draggable // Allow dragging
+				pauseOnHover={false} // Do not pause on hover
+				theme="light" // Or "dark" or "colored"
+				limit={1} // Only one toast visible at a time, new replaces old
+				// Removed transition="Bounce" to use the default Bounce transition.
+				// If you want a specific transition like Slide, Zoom, or Flip,
+				// import it from 'react-toastify' and use transition={Slide}.
+			/>
 		</div>
 	);
 }

@@ -89,4 +89,14 @@ export const ENDPOINTS = {
 		DETAIL: (id) => `discounts/${id}/`,
 		VALIDATE: "discounts/validate/",
 	},
+
+	PRODUCTS: {
+		LIST: "products/", // Example
+		CATEGORIES: "products/categories/", // From your Products.jsx
+		DETAIL: (name) => `products/${encodeURIComponent(name)}/`, // From your ProductDetail.jsx
+		ADD: "products/", // From your AddProduct.jsx
+		EDIT: (name) => `products/${encodeURIComponent(name)}/`, // From your EditProduct.jsx
+		DELETE: (name) => `products/${encodeURIComponent(name)}/`, // From your Products.jsx
+		BY_BARCODE: "products/by-barcode/", // <-- ADD THIS LINE
+	},
 };
