@@ -7,7 +7,14 @@ export const userService = {
 	getUsers: async () => {
 		try {
 			const response = await axiosInstance.get(ENDPOINTS.AUTH.USERS);
-			return response.data;
+			// Filter users where is_pos_user is true
+			if (response.data && Array.isArray(response.data)) {
+				const posUsers = response.data.filter(
+					(user) => user.is_pos_user === true
+				);
+				return posUsers;
+			}
+			return []; // Return empty array if data is not as expected
 		} catch (error) {
 			console.error("Error fetching users:", error);
 			throw error;
