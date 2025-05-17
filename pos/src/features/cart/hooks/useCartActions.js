@@ -11,6 +11,10 @@ export const useCartActions = () => {
 		useCartStore.getState().addToCart(item);
 	}, []);
 
+	const clearCart = useCallback(() => {
+		useCartStore.getState().clearItems();
+	}, []);
+
 	// Remove item from cart
 	const removeFromCart = useCallback((itemId) => {
 		// <-- ADD THIS FUNCTION
@@ -209,6 +213,7 @@ export const useCartActions = () => {
 		addToCart, // Assuming addToCart exists in store
 		removeFromCart, // Added back
 		updateItemQuantity,
+		clearCart,
 		// Expose store state/actions directly IF NEEDED, otherwise prefer specific actions.
 		// Example: Use useCartStore directly in components for state like 'cart', 'orderId' etc.
 		// clearCart: useCartStore.getState().clearCart, // If needed directly

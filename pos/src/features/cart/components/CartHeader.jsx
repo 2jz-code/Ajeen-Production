@@ -34,11 +34,11 @@ export const CartHeader = ({
 	// const setRewardsProfile = useCartStore((state) => state.setRewardsProfile);
 
 	// const handleRewardsMemberAuthenticated = (profile) => {
-	// 	setRewardsProfile(profile);
+	//  setRewardsProfile(profile);
 	// };
 
 	// const handleRewardsMemberRemoved = () => {
-	// 	setRewardsProfile(null);
+	//  setRewardsProfile(null);
 	// };
 	// --- END OF ORIGINAL LOGIC ---
 
@@ -61,16 +61,16 @@ export const CartHeader = ({
 				<div className="flex gap-2 items-center">
 					{/* Rewards Button - Apply consistent styling */}
 					{/* <RewardsAccessButton
-						// Pass original props
-						onUserAuthenticated={handleRewardsMemberAuthenticated}
-						onUserRemoved={handleRewardsMemberRemoved}
-						rewardsProfile={rewardsProfile}
-						// Apply consistent button styling (adjust if RewardsAccessButton accepts className)
-						// Note: If RewardsAccessButton internally defines styles, these might need adjustment there.
-						// This example assumes it might accept a className or has similar internal styles.
-						// Using a generic style here for demonstration.
-						buttonClassName="p-2 bg-blue-100 text-blue-700 rounded-md text-sm hover:bg-blue-200 transition-colors flex items-center gap-1" // Example styling
-					/> */}
+                            // Pass original props
+                            onUserAuthenticated={handleRewardsMemberAuthenticated}
+                            onUserRemoved={handleRewardsMemberRemoved}
+                            rewardsProfile={rewardsProfile}
+                            // Apply consistent button styling (adjust if RewardsAccessButton accepts className)
+                            // Note: If RewardsAccessButton internally defines styles, these might need adjustment there.
+                            // This example assumes it might accept a className or has similar internal styles.
+                            // Using a generic style here for demonstration.
+                            buttonClassName="p-2 bg-blue-100 text-blue-700 rounded-md text-sm hover:bg-blue-200 transition-colors flex items-center gap-1" // Example styling
+                        /> */}
 
 					{/* Conditional rendering based on original activeOrderId prop */}
 					{activeOrderId && (
@@ -87,9 +87,16 @@ export const CartHeader = ({
 								// If not, pass className like:
 								// buttonClassName="p-2 bg-red-100 text-red-700 rounded-md text-sm hover:bg-red-200 transition-colors flex items-center gap-1"
 							/>
+							{/* Clear Button - Updated to red theme styling */}
+							<button
+								className="p-2 bg-red-100 text-red-700 rounded-md text-sm hover:bg-red-200 transition-colors flex items-center gap-1" // Consistent styling (red theme)
+								onClick={clearCart}
+							>
+								Clear
+							</button>
 							{/* New Order Button - Apply consistent styling */}
 							<button
-								className="p-2 bg-emerald-100 text-emerald-700 rounded-md text-sm hover:bg-emerald-200 transition-colors flex items-center gap-1" // Consistent styling
+								className="p-2 bg-emerald-100 text-emerald-700 rounded-md text-sm hover:bg-emerald-200 transition-colors flex items-center gap-1" // Consistent styling (green theme)
 								onClick={startNewOrder} // Use original prop function
 							>
 								<PlusIcon className="h-4 w-4" /> {/* Use imported icon */}
