@@ -240,7 +240,16 @@ export const useCartStore = create(
 					showOverlay: true, // Show overlay after clearing
 				});
 			},
-
+			clearItems: () => {
+				const orderId = get().orderId;
+				if (orderId) {
+					get().saveCartToBackend([]);
+				}
+				set({
+					cart: [],
+					orderDiscount: null,
+				});
+			},
 			// Set the current order ID
 			setOrderId: (id) => set({ orderId: id }),
 
