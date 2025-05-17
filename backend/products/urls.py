@@ -1,10 +1,27 @@
-# products/urls.py
+# backend/products/urls.py
 from django.urls import path
-from .views import ProductList, ProductDetail, CategoryList, CategoryDetail
+from .views import (
+    ProductList,
+    ProductDetail,
+    CategoryList,
+    CategoryDetail,
+    ProductByBarcodeView,
+)  # <-- Import new view
 
 urlpatterns = [
     path("products/categories/", CategoryList.as_view(), name="category-list"),
-    path("products/categories/<int:pk>/", CategoryDetail.as_view(), name="category-detail"),
+    path(
+        "products/categories/<int:pk>/",
+        CategoryDetail.as_view(),
+        name="category-detail",
+    ),
     path("products/", ProductList.as_view(), name="product-list"),
-    path("products/<str:name>/", ProductDetail.as_view(), name="product-detail"),
+    path(
+        "products/by-barcode/",
+        ProductByBarcodeView.as_view(),
+        name="product-by-barcode",
+    ),  # <-- Add this URL
+    path(
+        "products/<str:name>/", ProductDetail.as_view(), name="product-detail"
+    ),  # Ensure this is specific enough or comes after by-barcode
 ]

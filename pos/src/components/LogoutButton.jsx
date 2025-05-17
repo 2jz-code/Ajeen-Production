@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import axiosInstance from "../api/config/axiosConfig";
+import { useCartStore } from "../store/cartStore";
 
 const LogoutButton = () => {
 	const navigate = useNavigate();
@@ -7,6 +8,8 @@ const LogoutButton = () => {
 	const handleLogout = async () => {
 		try {
 			await axiosInstance.post("/auth/logout/");
+			useCartStore.getState().clearCart(); // This already sets orderId to null and showOverlay to true.
+
 			navigate("/login");
 		} catch (error) {
 			console.error("Logout failed:", error);

@@ -177,6 +177,9 @@ class OrderItem(models.Model):
         max_digits=10, decimal_places=2, null=True, blank=True
     )
 
+    class Meta:
+        unique_together = ("order", "product")
+
     def save(self, *args, **kwargs):
         # Set the unit price from the product if not already set
         if self.unit_price is None and self.product:

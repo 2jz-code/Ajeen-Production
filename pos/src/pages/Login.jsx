@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axiosInstance from "../api/config/axiosConfig";
-
+import { useCartStore } from "../store/cartStore";
 const Login = () => {
 	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
@@ -14,6 +14,7 @@ const Login = () => {
 
 		try {
 			await axiosInstance.post("/auth/login/", { username, password });
+			useCartStore.getState().clearCart(); // This will clear orderId, cart, etc., and set showOverlay to true.
 
 			navigate("/dashboard"); // Redirect user to dashboard on success
 		} catch (error) {

@@ -4,6 +4,7 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
+from django.http import Http404
 
 # Updated imports: Import PaymentTransaction
 from payments.models import Payment, PaymentTransaction
@@ -193,111 +194,240 @@ class UpdateInProgressOrder(APIView):
     permission_classes = [IsAuthenticated]
 
     def patch(self, request, *args, **kwargs):
-        """
-        Updates only the specific 'in_progress' order provided in the request.
-        """
         user = request.user
-        order_id = request.data.get("order_id")
+        order_id_from_request = request.data.get("order_id")  # Renamed for clarity
 
-        if not order_id:
+        logger.debug(
+            f"UpdateInProgressOrder: User={user} (ID: {user.id if user else 'None'}), Order ID from request={order_id_from_request} (Type: {type(order_id_from_request)})"
+        )
+
+        if not order_id_from_request:
+            logger.warning(
+                "UpdateInProgressOrder: Order ID is required but not provided."
+            )
             return Response(
                 {"error": "Order ID is required"}, status=status.HTTP_400_BAD_REQUEST
             )
 
         try:
-            # Use select_related to fetch payment along with order
+            # Preliminary check (optional, but good for deeper debugging if needed)
+            # order_for_debug = Order.objects.get(id=order_id_from_request)
+            # logger.debug(f"Order ID {order_id_from_request} exists. User: {order_for_debug.user}, Status: '{order_for_debug.status}'")
+            # if order_for_debug.user != user:
+            #     logger.warning(f"User mismatch! DB Order User: {order_for_debug.user.id}, Request User: {user.id}")
+            # if order_for_debug.status != "in_progress":
+            #     logger.warning(f"Status mismatch! DB Order Status: '{order_for_debug.status}', Expected: 'in_progress'")
+            # pass # End of optional preliminary check
+
             order = get_object_or_404(
-                Order.objects.select_related("payment"),
-                id=order_id,
+                Order.objects.select_related(
+                    "payment", "user"
+                ),  # Added "user" to select_related
+                id=order_id_from_request,
                 user=user,
                 status="in_progress",
             )
-        except Order.DoesNotExist:
+            logger.info(
+                f"Order {order.id} found for user {user.username} with status 'in_progress'."
+            )
+
+        except Http404:  # Correctly catch Http404 raised by get_object_or_404
+            logger.warning(
+                f"get_object_or_404 failed for order_id={order_id_from_request}, user={user.username} (ID: {user.id}), status='in_progress'. "
+                f"This usually means the order doesn't exist, doesn't belong to this user, or isn't 'in_progress'."
+            )
             return Response(
                 {"error": "In-progress order not found or does not belong to user"},
                 status=status.HTTP_404_NOT_FOUND,
             )
+        # Removed the redundant Order.DoesNotExist as get_object_or_404 handles it by raising Http404
 
-        with transaction.atomic():  # Wrap updates in a transaction
-            # ✅ Remove old items linked to this order
+        with transaction.atomic():
+            logger.debug(
+                f"Order {order.id}: Items BEFORE delete: {order.items.count()}"
+            )
+
+            # Ensure 'items' is the correct related_name. Based on your model, it is.
             order.items.all().delete()
 
-            # ✅ Add new items to the order
-            for item_data in request.data.get("items", []):
+            # To be absolutely sure deletion happened before re-adding,
+            # you can re-fetch the count from the DB.
+            items_after_delete_count = OrderItem.objects.filter(order=order).count()
+            logger.debug(
+                f"Order {order.id}: Items AFTER delete (queried DB): {items_after_delete_count}"
+            )
+
+            if items_after_delete_count > 0:
+                logger.error(
+                    f"CRITICAL: Order {order.id}: Items were NOT deleted properly before re-adding! Count: {items_after_delete_count}"
+                )
+                # This would be a significant issue if it occurs.
+
+            items_in_payload = request.data.get("items", [])
+            logger.debug(
+                f"Order {order.id}: Payload to add contains {len(items_in_payload)} items."
+            )
+
+            items_added_count = 0
+            for item_data in items_in_payload:
                 try:
-                    # Frontend might send product ID as 'id' or 'product_id'
                     product_id = item_data.get("id") or item_data.get("product_id")
+                    quantity = item_data.get("quantity")
+
                     if not product_id:
-                        continue  # Skip if no product ID
-                    product = get_object_or_404(Product, id=product_id)
-                    # Ensure unit_price is stored
+                        logger.warning(
+                            f"Order {order.id}: Skipping item due to missing product_id: {item_data}"
+                        )
+                        continue
+                    if quantity is None:  # Check for None explicitly for quantity
+                        logger.warning(
+                            f"Order {order.id}: Skipping item {product_id} due to missing quantity: {item_data}"
+                        )
+                        continue
+
+                    # Ensure quantity is a positive integer
+                    try:
+                        quantity = int(quantity)
+                        if quantity <= 0:
+                            logger.warning(
+                                f"Order {order.id}: Skipping item {product_id} due to invalid quantity ({quantity})."
+                            )
+                            continue
+                    except ValueError:
+                        logger.warning(
+                            f"Order {order.id}: Skipping item {product_id} due to non-integer quantity ('{item_data.get('quantity')}')."
+                        )
+                        continue
+
+                    product = Product.objects.get(
+                        id=product_id
+                    )  # Use .get() to raise Product.DoesNotExist if not found
+
                     OrderItem.objects.create(
                         order=order,
                         product=product,
-                        quantity=item_data["quantity"],
-                        unit_price=product.price,
+                        quantity=quantity,
+                        unit_price=product.price,  # Storing price at time of order
                     )
+                    items_added_count += 1
                 except Product.DoesNotExist:
-                    print(
-                        f"Warning: Product ID {product_id} not found during cart update for order {order_id}"
+                    logger.warning(
+                        f"Order {order.id}: Product ID {product_id} not found during cart update. Skipping item."
                     )
-                    # Optionally return an error:
-                    # return Response({"error": f"Product ID {product_id} not found"}, status=status.HTTP_400_BAD_REQUEST)
-                except KeyError:
-                    print(
-                        f"Warning: Missing 'quantity' for item during cart update for order {order_id}"
+                except KeyError as e:  # Catch specific KeyError for missing 'quantity'
+                    logger.warning(
+                        f"Order {order.id}: Missing key '{e}' in item_data for product_id {product_id if 'product_id' in locals() else 'unknown'}. Item data: {item_data}. Skipping item."
                     )
-                    # Optionally return an error:
-                    # return Response({"error": "Missing 'quantity' for an item"}, status=status.HTTP_400_BAD_REQUEST)
+                except (
+                    Exception
+                ) as e:  # Catch any other unexpected error during item creation
+                    logger.error(
+                        f"Order {order.id}: Unexpected error creating OrderItem for product_id {product_id if 'product_id' in locals() else 'unknown'}: {str(e)}. Item data: {item_data}"
+                    )
 
-            # ✅ Recalculate total price and save order
-            order.calculate_total_price()  # This should handle discounts if applied
-            order.save()
+            logger.debug(
+                f"Order {order.id}: Items actually ADDED in this request: {items_added_count}"
+            )
+            logger.debug(
+                f"Order {order.id}: Items count via order.items.count() AFTER add loop: {order.items.count()}"
+            )
+            # Forcing a refresh from DB to get the most accurate count for items just created in the loop
+            db_items_count_after_add = OrderItem.objects.filter(order=order).count()
+            logger.debug(
+                f"Order {order.id}: Items count by querying DB AFTER add loop: {db_items_count_after_add}"
+            )
 
-            # ✅ Update associated Payment amount
-            # Use the prefetched payment object if available
+            order.calculate_total_price(
+                save_instance=False
+            )  # Calculate but don't save yet, main save is next
+            order.save()  # Saves total_price, discount_amount, tip_amount, and any other direct field changes
+            logger.info(f"Order {order.id} totals recalculated and order saved.")
+
             payment = getattr(order, "payment", None)
             if payment:
                 payment.amount = order.total_price
                 payment.save()
+                logger.debug(
+                    f"Order {order.id}: Associated payment {payment.id} amount updated."
+                )
             else:
-                # If somehow payment doesn't exist, create it
-                Payment.objects.create(
+                new_payment = Payment.objects.create(
                     order=order, status="pending", amount=order.total_price
                 )
+                logger.info(
+                    f"Order {order.id}: New payment {new_payment.id} created as none existed."
+                )
 
-        return Response(
-            {"message": "Order auto-saved", "order": OrderSerializer(order).data}
+        serialized_order = OrderSerializer(order).data
+        logger.info(
+            f"Order {order.id} successfully auto-saved for user {user.username}."
         )
+        return Response({"message": "Order auto-saved", "order": serialized_order})
 
 
 # ✅ Resume a Saved Order
 class ResumeOrder(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [
+        IsAuthenticated
+    ]  # Or a more specific permission like IsStaffUser
 
     def post(self, request, pk, *args, **kwargs):
-        allowed_statuses = ["saved", "in_progress"]
-        order = get_object_or_404(
-            Order.objects.select_related("payment").prefetch_related("items__product"),
-            id=pk,
-            user=request.user,
-            status__in=allowed_statuses,  # Use the list here
-        )
-        # If resuming a saved order, change status to in_progress
-        order.status = "in_progress"
-        order.save()
+        allowed_statuses_to_resume = ["saved", "in_progress"]
+        current_user = request.user
 
-        # Get or create payment record if it somehow doesn't exist
+        try:
+            # Step 1: Fetch the order by pk, without filtering by the current user yet.
+            # We prefetch related items for efficiency, as in your original code.
+            order_to_resume = get_object_or_404(
+                Order.objects.select_related("payment", "user").prefetch_related(
+                    "items__product"
+                ),
+                id=pk,
+                status__in=allowed_statuses_to_resume,  # Order must be in a resumable state
+            )
+        except Http404:  # Catch Http404 specifically if get_object_or_404 fails
+            return Response(
+                {"error": "Order not found or is not in a resumable state."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        original_user = order_to_resume.user
+
+        # Step 2: Re-assign the order to the current user if they are different.
+        # Also, log this action for auditing if necessary.
+        if original_user != current_user:
+            print(
+                f"[AUDIT] User '{current_user.username}' (ID: {current_user.id}) "
+                f"is resuming/taking over order '{order_to_resume.id}' "
+                f"previously associated with user '{original_user.username if original_user else 'Unassigned'}' "
+                f"(ID: {original_user.id if original_user else 'N/A'})."
+            )
+            order_to_resume.user = current_user
+            # Any other logic for takeover can go here (e.g., logging, notifications)
+
+        # Step 3: Ensure the order status is 'in_progress' for the current user.
+        order_to_resume.status = "in_progress"
+        order_to_resume.save()  # This will save the user and status updates.
+
+        # Step 4: Handle the payment record (same as your existing logic).
+        # This ensures a payment record is associated and in 'pending' state.
         payment, created = Payment.objects.get_or_create(
-            order=order, defaults={"status": "pending", "amount": order.total_price}
+            order=order_to_resume,
+            defaults={"status": "pending", "amount": order_to_resume.total_price},
         )
         if (
             payment.status != "pending"
         ):  # Ensure payment status is pending when resuming
             payment.status = "pending"
-            payment.save()
+            # If the order total might have changed due to re-calculation logic elsewhere,
+            # you might also want to update payment.amount here.
+            # For now, assuming total_price on order is up-to-date or will be handled by cart sync.
+            # payment.amount = order_to_resume.total_price
+            payment.save(update_fields=["status"])
 
-        serialized_order = OrderSerializer(order).data
+        # Step 5: Serialize and return the order data.
+        # The frontend will use this to populate the cartStore.
+        serialized_order = OrderSerializer(order_to_resume).data
         return Response(serialized_order, status=status.HTTP_200_OK)
 
 
