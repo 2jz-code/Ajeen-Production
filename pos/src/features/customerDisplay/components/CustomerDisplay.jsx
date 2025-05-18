@@ -68,7 +68,7 @@ const CustomerDisplay = () => {
 						cartData?.orderId ||
 						useCartStore.getState().orderId;
 
-					console.log("Starting customer flow with orderId:", orderId);
+					// console.log("Starting customer flow with orderId:", orderId);
 
 					// Create a deeply cloned object to avoid reference issues
 					const flowContent = {
@@ -82,10 +82,10 @@ const CustomerDisplay = () => {
 					};
 
 					// Log the content to verify
-					console.log(
-						"Flow content prepared with orderId:",
-						flowContent.orderId
-					);
+					// console.log(
+					// 	"Flow content prepared with orderId:",
+					// 	flowContent.orderId
+					// );
 
 					setDisplayData(flowContent);
 					setDisplayMode("flow");
@@ -102,7 +102,7 @@ const CustomerDisplay = () => {
 					setDisplayData(updatedContent);
 					// Keep the display mode as flow
 				} else if (event.data.type === "DIRECT_CASH_UPDATE") {
-					console.log("Received DIRECT_CASH_UPDATE:", event.data.content);
+					// console.log("Received DIRECT_CASH_UPDATE:", event.data.content);
 
 					// Update display data directly
 					setDisplayData((prevData) => ({
@@ -169,7 +169,7 @@ const CustomerDisplay = () => {
 			processedCartData().orderId ||
 			useCartStore.getState().orderId;
 
-		console.log(`Completing step: ${step} with orderId:`, effectiveOrderId);
+		// console.log(`Completing step: ${step} with orderId:`, effectiveOrderId);
 
 		// Send message back to parent window
 		if (window.opener) {
@@ -192,7 +192,7 @@ const CustomerDisplay = () => {
 	// Render the appropriate view based on the display mode
 	const renderDisplay = () => {
 		const processedData = processedCartData();
-		console.log("Processed cart data with orderId:", processedData.orderId);
+		// console.log("Processed cart data with orderId:", processedData.orderId);
 
 		switch (displayMode) {
 			case "welcome":

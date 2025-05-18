@@ -21,7 +21,7 @@ export const useCardPayment = () => {
 				message._source?.endpoint === "CARD_PAYMENT"
 			) {
 				if (message.type === "card_operation") {
-					console.log("Card payment message received:", message);
+					// console.log("Card payment message received:", message);
 
 					setIsProcessing(
 						["waiting_for_card", "processing"].includes(message.status)

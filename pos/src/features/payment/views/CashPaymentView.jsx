@@ -79,18 +79,18 @@ export const CashPaymentView = ({
 			state.currentStepAmount !== undefined &&
 			state.currentStepAmount >= 0 // Allow zero amount if valid (e.g., final rounding)
 		) {
-			console.log(
-				`CASH VIEW: Using currentStepAmount: ${state.currentStepAmount}`
-			);
+			// console.log(
+			// 	`CASH VIEW: Using currentStepAmount: ${state.currentStepAmount}`
+			// );
 			// Ensure 2 decimal places for currency
 			return parseFloat(state.currentStepAmount.toFixed(2));
 		}
 		// 2. Fallback for non-split mode: use the total remaining order amount
 		if (!state.splitMode) {
 			const overallRemaining = Math.max(0, remainingAmountProp); // Use overall remaining prop
-			console.log(
-				`CASH VIEW: Using overall remaining (non-split): ${overallRemaining}`
-			);
+			// console.log(
+			// 	`CASH VIEW: Using overall remaining (non-split): ${overallRemaining}`
+			// );
 			return parseFloat(overallRemaining.toFixed(2));
 		}
 		// 3. Fallback IN split mode if currentStepAmount isn't set
@@ -109,9 +109,9 @@ export const CashPaymentView = ({
 		return () => {
 			isMountedRef.current = false;
 			if (hasBeenMounted) {
-				console.log(
-					"CashPaymentView unmounting, attempting reset customer display"
-				);
+				// console.log(
+				// 	"CashPaymentView unmounting, attempting reset customer display"
+				// );
 				try {
 					// Reset customer display using windowManager
 					if (typeof customerDisplayManager.showWelcome === "function") {
@@ -137,12 +137,12 @@ export const CashPaymentView = ({
 
 	// Effect to log processing states (optional for debugging)
 	useEffect(() => {
-		console.log("CashPaymentView State Update:", {
-			isPrinterProcessing,
-			paymentInProgress,
-			isPrinterConnected,
-			currentPaymentAmount, // Log calculated amount
-		});
+		// console.log("CashPaymentView State Update:", {
+		// 	isPrinterProcessing,
+		// 	paymentInProgress,
+		// 	isPrinterConnected,
+		// 	currentPaymentAmount, // Log calculated amount
+		// });
 	}, [
 		isPrinterProcessing,
 		paymentInProgress,
@@ -152,9 +152,9 @@ export const CashPaymentView = ({
 
 	// --- Send Initial State to Customer Display on Mount ---
 	useEffect(() => {
-		console.log(
-			"CashPaymentView Mounted: Sending initial state to customer display."
-		);
+		// console.log(
+		// 	"CashPaymentView Mounted: Sending initial state to customer display."
+		// );
 		// Ensure calculation is ready before sending message
 		if (currentPaymentAmount === undefined) {
 			console.warn(
@@ -195,10 +195,10 @@ export const CashPaymentView = ({
 
 		try {
 			customerDisplayManager.sendDirectCashUpdateMessage(initialMessageContent);
-			console.log(
-				"Initial cash state sent via windowManager.",
-				initialMessageContent
-			);
+			// console.log(
+			// 	"Initial cash state sent via windowManager.",
+			// 	initialMessageContent
+			// );
 		} catch (err) {
 			console.error("Error sending initial cash state:", err);
 		}
@@ -208,7 +208,7 @@ export const CashPaymentView = ({
 	useEffect(() => {
 		// Only run if in split mode when this component mounts or relevant state changes
 		if (state.splitMode) {
-			console.log("CASH VIEW (Split Mode): Calling startCustomerFlow.");
+			// console.log("CASH VIEW (Split Mode): Calling startCustomerFlow.");
 			// Ensure we have the correct amount for this step
 			const amountForThisStep = currentPaymentAmount; // Use the calculated amount
 			if (amountForThisStep === undefined || amountForThisStep < 0) {
@@ -301,9 +301,9 @@ export const CashPaymentView = ({
 		setError(null);
 		setPaymentInProgress(true);
 		const requiredAmount = currentPaymentAmount; // Amount needed for this step
-		console.log(
-			`CASH VIEW: Preset $${amountTendered} clicked. Amount due: $${requiredAmount}`
-		);
+		// console.log(
+		// 	`CASH VIEW: Preset $${amountTendered} clicked. Amount due: $${requiredAmount}`
+		// );
 
 		try {
 			const amountToApply = Math.min(amountTendered, requiredAmount);
@@ -356,7 +356,7 @@ export const CashPaymentView = ({
 				orderId: state.orderId,
 			};
 			customerDisplayManager.sendDirectCashUpdateMessage(messageContent);
-			console.log("Direct cash update message sent after preset.");
+			// console.log("Direct cash update message sent after preset.");
 		} catch (err) {
 			setError(err.message || "Failed to process preset amount");
 			console.error("Preset amount payment error:", err);
@@ -385,9 +385,9 @@ export const CashPaymentView = ({
 
 		setError(null);
 		setPaymentInProgress(true);
-		console.log(
-			`CASH VIEW: Custom $${amountTendered} submitted. Amount due: $${requiredAmount}`
-		);
+		// console.log(
+		// 	`CASH VIEW: Custom $${amountTendered} submitted. Amount due: $${requiredAmount}`
+		// );
 
 		try {
 			const amountToApply = Math.min(amountTendered, requiredAmount);
@@ -442,7 +442,7 @@ export const CashPaymentView = ({
 				orderId: state.orderId,
 			};
 			customerDisplayManager.sendDirectCashUpdateMessage(messageContent);
-			console.log("Direct cash update message sent after custom.");
+			// console.log("Direct cash update message sent after custom.");
 		} catch (err) {
 			setError(err.message || "Failed to process custom amount");
 			console.error("Custom amount payment error:", err);
@@ -473,14 +473,14 @@ export const CashPaymentView = ({
 		const canProceed =
 			tenderedMetRequirement && !isPrinterProcessing && !paymentInProgress;
 
-		console.log("canCompleteCurrentStep check:", {
-			requiredAmountForThisStep,
-			tenderedInLastTx,
-			tenderedMetRequirement,
-			isPrinterProcessing,
-			paymentInProgress,
-			canProceed,
-		});
+		// console.log("canCompleteCurrentStep check:", {
+		// 	requiredAmountForThisStep,
+		// 	tenderedInLastTx,
+		// 	tenderedMetRequirement,
+		// 	isPrinterProcessing,
+		// 	paymentInProgress,
+		// 	canProceed,
+		// });
 
 		return canProceed;
 	}, [
@@ -495,7 +495,7 @@ export const CashPaymentView = ({
 	// Handles clicking the "Complete Payment" or "Continue Split" button
 	const handlePaymentCompletionAndPrint = async () => {
 		setError(null);
-		console.log("=== CASH: Handling Completion/Continuation ===");
+		// console.log("=== CASH: Handling Completion/Continuation ===");
 		if (!canCompleteCurrentStep()) {
 			console.warn("Complete button clicked but shouldn't be enabled.");
 			return;
@@ -510,25 +510,25 @@ export const CashPaymentView = ({
 				currentAmountPaidOverall
 			);
 
-			console.log("Completion check:", {
-				currentAmountPaidOverall,
-				totalAmount,
-				isOrderFullyPaid,
-				isSplitMode: state.splitMode,
-			});
+			// console.log("Completion check:", {
+			// 	currentAmountPaidOverall,
+			// 	totalAmount,
+			// 	isOrderFullyPaid,
+			// 	isSplitMode: state.splitMode,
+			// });
 
 			if (state.splitMode && !isOrderFullyPaid) {
 				// --- Scenario 1: Split Mode and Order NOT Fully Paid ---
-				console.log("SPLIT CONTINUE: Navigating back to Split view.");
+				// console.log("SPLIT CONTINUE: Navigating back to Split view.");
 				customerDisplayManager.showCart(); // Reset customer display
 				setTimeout(() => {
 					if (isMountedRef.current) handleNavigation("Split", -1); // Navigate POS back
 				}, 100);
 			} else if (isOrderFullyPaid) {
 				// --- Scenario 2: Order Fully Paid ---
-				console.log(
-					"COMPLETE: Order fully paid. Calling completePaymentFlow..."
-				);
+				// console.log(
+				// 	"COMPLETE: Order fully paid. Calling completePaymentFlow..."
+				// );
 				// Call the hook's function to finalize with backend
 				const completedOrderData = await completePaymentFlow(
 					currentTransactions
@@ -536,14 +536,14 @@ export const CashPaymentView = ({
 
 				if (completedOrderData) {
 					// Backend successful
-					console.log("COMPLETE: Backend successful.");
+					// console.log("COMPLETE: Backend successful.");
 					// *** MODIFICATION START: Navigate, pass payload ***
 					const receiptPayload = completedOrderData.receipt_payload || null;
-					console.log(
-						`COMPLETE: Navigating to Completion. Receipt payload ${
-							receiptPayload ? "exists" : "missing"
-						}.`
-					);
+					// console.log(
+					// 	`COMPLETE: Navigating to Completion. Receipt payload ${
+					// 		receiptPayload ? "exists" : "missing"
+					// 	}.`
+					// );
 					// Navigate to completion view, passing the payload
 					openDrawerWithAgent();
 					handleNavigation("Completion", 1, { receiptPayload: receiptPayload });

@@ -55,9 +55,9 @@ const PaymentView = ({ orderData, onComplete }) => {
 			if (!isMountedRef.current) return;
 
 			setIsInitiating(false); // Mark initiation complete
-			console.log(
-				`PaymentView: Initiating payment for Order ${orderId}, Base: ${baseTotal}, Tip: ${tipAmount}, Final: ${finalTotal}`
-			);
+			// console.log(
+			// 	`PaymentView: Initiating payment for Order ${orderId}, Base: ${baseTotal}, Tip: ${tipAmount}, Final: ${finalTotal}`
+			// );
 
 			// Prepare data object for the simulation hook
 			const dataForSimulation = {
@@ -71,10 +71,10 @@ const PaymentView = ({ orderData, onComplete }) => {
 				orderDiscount: orderData?.orderDiscount,
 			};
 
-			console.log(
-				"PaymentView: Calling processPayment with data:",
-				JSON.stringify(dataForSimulation, null, 2)
-			);
+			// console.log(
+			// 	"PaymentView: Calling processPayment with data:",
+			// 	JSON.stringify(dataForSimulation, null, 2)
+			// );
 			hasStartedPaymentRef.current = true; // Mark payment as started
 			processPayment(dataForSimulation); // Trigger the simulation hook
 		}, 1500); // Delay before starting
@@ -96,10 +96,10 @@ const PaymentView = ({ orderData, onComplete }) => {
 					...paymentResult, // Include result details (amount, cardInfo, etc.)
 					orderId,
 				};
-				console.log(
-					"PaymentView: Payment successful, calling onComplete:",
-					completionData
-				);
+				// console.log(
+				// 	"PaymentView: Payment successful, calling onComplete:",
+				// 	completionData
+				// );
 				onComplete(completionData); // Signal completion to parent
 			}, 2000); // 2-second delay
 
@@ -117,7 +117,7 @@ const PaymentView = ({ orderData, onComplete }) => {
 	// Retry handler
 	const handleRetry = () => {
 		if (!orderData || !orderId || !isMountedRef.current || isInitiating) return;
-		console.log("PaymentView: Retrying payment...");
+		// console.log("PaymentView: Retrying payment...");
 		setIsInitiating(true); // Re-trigger the payment initiation effect
 		hasStartedPaymentRef.current = false;
 		// The processPayment hook should handle resetting its internal state

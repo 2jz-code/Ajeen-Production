@@ -46,7 +46,7 @@ function HardwareAgentTest() {
 		setIsLoading(true);
 		setLastResponse(null);
 		setAgentStatus(null);
-		console.log("Testing Agent Status...");
+		// console("Testing Agent Status...");
 		const statusResult = await checkAgentStatus();
 		setAgentStatus(statusResult);
 		setLastResponse(
@@ -58,30 +58,30 @@ function HardwareAgentTest() {
 				  }
 		);
 		setIsLoading(false);
-		console.log("Agent Status Result:", statusResult);
+		// console("Agent Status Result:", statusResult);
 	}, []);
 
 	const handleTestPrint = useCallback(async (openDrawer) => {
 		setIsLoading(true);
 		setLastResponse(null);
-		console.log(`Testing Print (Open Drawer: ${openDrawer})...`);
+		// console(`Testing Print (Open Drawer: ${openDrawer})...`);
 		const printResult = await printReceiptWithAgent(
 			mockReceiptData,
 			openDrawer
 		);
 		setLastResponse(printResult);
 		setIsLoading(false);
-		console.log("Print Result:", printResult);
+		// console("Print Result:", printResult);
 	}, []);
 
 	const handleOpenDrawer = useCallback(async () => {
 		setIsLoading(true);
 		setLastResponse(null);
-		console.log("Testing Open Drawer...");
+		// console("Testing Open Drawer...");
 		const drawerResult = await openDrawerWithAgent();
 		setLastResponse(drawerResult);
 		setIsLoading(false);
-		console.log("Open Drawer Result:", drawerResult);
+		// console("Open Drawer Result:", drawerResult);
 	}, []);
 
 	return (

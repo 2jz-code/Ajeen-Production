@@ -17,7 +17,6 @@ export const useApi = () => {
 
 			try {
 				const result = await apiFunc();
-				console.log("API function returned:", result); // Debug log
 
 				if (successMessage) {
 					toast.success(successMessage);

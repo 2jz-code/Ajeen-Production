@@ -20,19 +20,19 @@ class CustomerDisplayWindowManager {
 	openWindow() {
 		// Prevent multiple simultaneous open attempts
 		if (this.isOpening) {
-			console.log("Window opening already in progress.");
+			// console.log("Window opening already in progress.");
 			return;
 		}
 		this.isOpening = true;
 
 		// Check if window exists and is not closed
 		if (this.displayWindow && !this.displayWindow.closed) {
-			console.log("Window already open.");
+			// console.log("Window already open.");
 			this.isOpening = false;
 			return this.displayWindow;
 		}
 
-		console.log("Attempting to open customer display window...");
+		// console.log("Attempting to open customer display window...");
 		// Reset state variables for a new window instance
 		this.displayWindow = null;
 		// this.isWindowReady = false;
@@ -47,7 +47,7 @@ class CustomerDisplayWindowManager {
 
 			// Start monitoring only if successfully opened
 			if (this.displayWindow) {
-				console.log("Customer display window opened successfully.");
+				// console.log("Customer display window opened successfully.");
 				this.startMonitoring();
 				this.setupMessageListener(); // Setup listener immediately
 			} else {
@@ -86,7 +86,7 @@ class CustomerDisplayWindowManager {
 			// Check if the message source is the window we opened
 			if (event.source === this.displayWindow) {
 				if (event.data === "CUSTOMER_DISPLAY_READY") {
-					console.log("Customer display window is ready");
+					// console.log("Customer display window is ready");
 					// Handle readiness: Send queued messages or initial state
 					// this.isWindowReady = true;
 					// this.sendQueuedMessages(); // Example if using a queue
@@ -97,7 +97,7 @@ class CustomerDisplayWindowManager {
 
 		window.addEventListener("message", this.messageHandler);
 		this.messageListenerAdded = true;
-		console.log("Message listener set up for customer display.");
+		// console.log("Message listener set up for customer display.");
 	}
 
 	startMonitoring() {
@@ -105,11 +105,11 @@ class CustomerDisplayWindowManager {
 		if (this.checkInterval) {
 			clearInterval(this.checkInterval);
 		}
-		console.log("Starting window monitoring.");
+		// console.log("Starting window monitoring.");
 		// Check every 2 seconds if the window is still open
 		this.checkInterval = setInterval(() => {
 			if (this.displayWindow && this.displayWindow.closed) {
-				console.log("Customer display window was closed, cleaning up...");
+				// console.log("Customer display window was closed, cleaning up...");
 				this.displayWindow = null;
 				clearInterval(this.checkInterval);
 				this.checkInterval = null;
@@ -123,14 +123,14 @@ class CustomerDisplayWindowManager {
 
 				// Optional: Automatically reopen? Or rely on next action to reopen?
 				// Consider if auto-reopening is desired behavior.
-				// console.log("Attempting to reopen closed window...");
+				// // console.log("Attempting to reopen closed window...");
 				// setTimeout(() => this.openWindow(), 1000);
 			}
 		}, 2000);
 	}
 
 	closeWindow() {
-		console.log("Closing customer display window...");
+		// console.log("Closing customer display window...");
 		if (this.checkInterval) {
 			clearInterval(this.checkInterval);
 			this.checkInterval = null;
@@ -152,7 +152,7 @@ class CustomerDisplayWindowManager {
 	}
 
 	sendDirectCashUpdateMessage(content) {
-		console.log("Requesting direct cash update message:", content);
+		// console.log("Requesting direct cash update message:", content);
 
 		// Ensure the essential 'type' is correct for the message payload
 		const messagePayload = {
@@ -175,10 +175,10 @@ class CustomerDisplayWindowManager {
 					delete this.lastFlowData[key];
 				}
 			});
-			console.log(
-				"Updated lastFlowData based on direct cash update:",
-				this.lastFlowData
-			);
+			// console.log(
+			// 	"Updated lastFlowData based on direct cash update:",
+			// 	this.lastFlowData
+			// );
 		} else {
 			// If no flow data exists or order ID mismatch, just send without updating internal state broadly
 			console.warn(
@@ -186,7 +186,7 @@ class CustomerDisplayWindowManager {
 			);
 		}
 
-		console.log("Prepared DIRECT_CASH_UPDATE payload:", messagePayload);
+		// console.log("Prepared DIRECT_CASH_UPDATE payload:", messagePayload);
 
 		// Use the internal, safe message sending method which handles window checks and targetOrigin
 		this.sendRawMessage(messagePayload);
@@ -199,7 +199,7 @@ class CustomerDisplayWindowManager {
 			try {
 				// SECURITY: Use specific origin instead of '*'
 				this.displayWindow.postMessage(payload, this.targetOrigin);
-				console.log("Message sent successfully via postMessage:", payload);
+				// console.log("Message sent successfully via postMessage:", payload);
 			} catch (error) {
 				console.error(
 					"Error sending message via postMessage:",
@@ -229,7 +229,7 @@ class CustomerDisplayWindowManager {
 	// --- Public Methods for Controlling Display ---
 
 	showCart() {
-		console.log("Requesting to show cart on customer display.");
+		// console.log("Requesting to show cart on customer display.");
 		// Get current cart state DIRECTLY when needed
 		const cartItems = useCartStore.getState().cart;
 		const orderDiscount = useCartStore.getState().orderDiscount;
@@ -269,7 +269,7 @@ class CustomerDisplayWindowManager {
 	}
 
 	showWelcome() {
-		console.log("Requesting to show welcome screen on customer display.");
+		// console.log("Requesting to show welcome screen on customer display.");
 		// ** FIX: Clear last flow data when resetting to Welcome screen **
 		this.lastFlowData = null;
 		// --------------------------------------------------------------
@@ -286,7 +286,7 @@ class CustomerDisplayWindowManager {
 	}
 
 	showRewardsRegistration() {
-		console.log("Requesting to show rewards registration on customer display.");
+		// console.log("Requesting to show rewards registration on customer display.");
 		const messagePayload = { type: "SHOW_REWARDS" };
 		if (!this.displayWindow || this.displayWindow.closed) {
 			this.openWindow();
@@ -304,9 +304,9 @@ class CustomerDisplayWindowManager {
 		isSplitPayment = false,
 		splitDetails = null,
 	}) {
-		console.log(
-			`Starting customer flow. Step: ${initialStep}, Method: ${paymentMethod}, Amount Due: ${amountDue}`
-		);
+		// console.log(
+		// 	`Starting customer flow. Step: ${initialStep}, Method: ${paymentMethod}, Amount Due: ${amountDue}`
+		// );
 		// ** FIX: Clear any lingering flow data from previous transactions **
 		this.lastFlowData = null;
 		// -----------------------------------------------------------------
@@ -345,7 +345,7 @@ class CustomerDisplayWindowManager {
 			totalRemainingAmount: amountDue, // Initially, remaining is the full amount due
 		};
 
-		console.log("Initial customer flow content:", flowContent);
+		// console.log("Initial customer flow content:", flowContent);
 		this.lastFlowData = flowContent; // Store this initial state
 
 		const messagePayload = {
@@ -364,7 +364,7 @@ class CustomerDisplayWindowManager {
 
 	// Method to update the current step within an active customer flow
 	updateCustomerFlowStep(step, stepData = {}) {
-		console.log(`Updating customer flow step to: ${step}`, stepData);
+		// console.log(`Updating customer flow step to: ${step}`, stepData);
 
 		if (!this.lastFlowData) {
 			console.error(
@@ -407,10 +407,10 @@ class CustomerDisplayWindowManager {
 			}
 		});
 
-		console.log(
-			"Prepared content for customer display update:",
-			updatedContent
-		);
+		// console.log(
+		// 	"Prepared content for customer display update:",
+		// 	updatedContent
+		// );
 
 		// Store this new state as the last known state for the *current* flow
 		this.lastFlowData = updatedContent;
@@ -427,7 +427,7 @@ class CustomerDisplayWindowManager {
 	// Listener setup for step completions coming FROM the customer display
 	listenForCustomerFlowStepCompletion(callback) {
 		const listenerId = `customerFlowCompleteListener_${Date.now()}`; // Unique ID for listener
-		console.log(`Setting up listener: ${listenerId}`);
+		// console.log(`Setting up listener: ${listenerId}`);
 
 		const handleMessage = (event) => {
 			// Origin and Source checks
@@ -441,11 +441,11 @@ class CustomerDisplayWindowManager {
 			if (event.data?.type === "CUSTOMER_FLOW_STEP_COMPLETE") {
 				const content = event.data.content;
 				if (content) {
-					console.log(
-						`Listener ${listenerId} received step completion:`,
-						content.step,
-						content.data
-					);
+					// console.log(
+					// 	`Listener ${listenerId} received step completion:`,
+					// 	content.step,
+					// 	content.data
+					// );
 					callback(content.step, content.data);
 				} else {
 					console.warn(
@@ -459,15 +459,16 @@ class CustomerDisplayWindowManager {
 
 		// Return a cleanup function to remove this specific listener
 		return () => {
-			console.log(`Cleaning up listener: ${listenerId}`);
+			// console.log(`Cleaning up listener: ${listenerId}`);
 			window.removeEventListener("message", handleMessage);
 		};
 	}
 
 	// Listener for rewards registration completion
 	listenForRewardsRegistration(callback) {
+		// eslint-disable-next-line
 		const listenerId = `rewardsCompleteListener_${Date.now()}`;
-		console.log(`Setting up listener: ${listenerId}`);
+		// console.log(`Setting up listener: ${listenerId}`);
 
 		const handleMessage = (event) => {
 			// Origin and Source checks
@@ -479,17 +480,17 @@ class CustomerDisplayWindowManager {
 			}
 
 			if (event.data?.type === "REWARDS_REGISTRATION_COMPLETE") {
-				console.log(
-					`Listener ${listenerId} received rewards completion:`,
-					event.data.content
-				);
+				// console.log(
+				// 	`Listener ${listenerId} received rewards completion:`,
+				// 	event.data.content
+				// );
 				callback(event.data.content);
 			}
 		};
 
 		window.addEventListener("message", handleMessage);
 		return () => {
-			console.log(`Cleaning up listener: ${listenerId}`);
+			// console.log(`Cleaning up listener: ${listenerId}`);
 			window.removeEventListener("message", handleMessage);
 		};
 	}

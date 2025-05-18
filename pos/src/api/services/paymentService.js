@@ -46,9 +46,9 @@ export const paymentService = {
 					"Transaction ID and refund amount are required for processing refund."
 				);
 			}
-			console.log(
-				`paymentService: Refunding payment ${paymentId}, transaction ${refundData.transaction_id}, amount ${refundData.amount}`
-			);
+			// console.log(
+			// 	`paymentService: Refunding payment ${paymentId}, transaction ${refundData.transaction_id}, amount ${refundData.amount}`
+			// );
 			// The backend endpoint expects transaction_id and amount in the request body
 			const response = await axiosInstance.post(
 				`payments/${paymentId}/refund/`,

@@ -28,16 +28,16 @@ export const Cart = () => {
 
 	const handlePaymentComplete = async (paymentDetails) => {
 		try {
-			console.log("1. Payment completion started");
+			// console.log("1. Payment completion started");
 			const success = await cartActions.completeOrder(orderId, paymentDetails);
-			console.log("2. Complete order result:", success);
+			// console.log("2. Complete order result:", success);
 
 			if (success) {
-				console.log("3. Payment successful - keeping payment flow open");
+				// console.log("3. Payment successful - keeping payment flow open");
 				return true;
 			}
 
-			console.log("4. Payment failed");
+			// console.log("4. Payment failed");
 			return false;
 		} catch (error) {
 			console.error("5. Payment completion error:", error);

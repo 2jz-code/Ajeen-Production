@@ -62,9 +62,9 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 	// Resets the entire payment flow state when the component mounts or totalAmount changes.
 	useEffect(() => {
 		isMountedRef.current = true;
-		console.log(
-			`PaymentFlow Hook: Mounted/totalAmount changed. Resetting state for total: ${totalAmount}`
-		);
+		// console.log(
+		// 	`PaymentFlow Hook: Mounted/totalAmount changed. Resetting state for total: ${totalAmount}`
+		// );
 		// Reset state fully
 		setState({
 			orderId: useCartStore.getState().orderId,
@@ -137,16 +137,16 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 			const isFullyPaid = isPaymentCompleteInternal(state.amountPaid);
 			const currentView = state.currentView; // Get current view before potential state update
 
-			console.log("NAVIGATION: Navigating", {
-				currentView: currentView,
-				nextView,
-				direction,
-				options,
-				isFullyPaid,
-				splitMode: state.splitMode,
-				currentAmountPaid: state.amountPaid,
-				currentStepAmountState: state.currentStepAmount,
-			});
+			// console.log("NAVIGATION: Navigating", {
+			// 	currentView: currentView,
+			// 	nextView,
+			// 	direction,
+			// 	options,
+			// 	isFullyPaid,
+			// 	splitMode: state.splitMode,
+			// 	currentAmountPaid: state.amountPaid,
+			// 	currentStepAmountState: state.currentStepAmount,
+			// });
 
 			// --- Special Case: Redirect to Completion if order is paid ---
 			// If trying to navigate BACK from Cash/Credit in split mode AFTER full payment, go to Completion instead.
@@ -157,9 +157,9 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 				(currentView === "Cash" || currentView === "Credit") &&
 				nextView !== "Completion" // Avoid infinite loop if already going to Completion
 			) {
-				console.log(
-					"NAVIGATION: Split complete, navigating to Completion instead of back"
-				);
+				// console.log(
+				// 	"NAVIGATION: Split complete, navigating to Completion instead of back"
+				// );
 				setState((prev) => ({
 					...prev,
 					currentView: "Completion",
@@ -193,18 +193,18 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 						if (options.nextSplitAmount !== undefined) {
 							// Amount explicitly provided (split payment)
 							newCurrentStepAmount = options.nextSplitAmount;
-							console.log(
-								`NAVIGATION: Set currentStepAmount from options: ${newCurrentStepAmount}`
-							);
+							// console.log(
+							// 	`NAVIGATION: Set currentStepAmount from options: ${newCurrentStepAmount}`
+							// );
 							newNextSplitAmount = null; // Clear pre-calculated next amount
 						} else if (!prev.splitMode) {
 							// Non-split: amount is the total remaining
 							const { remainingAmount: currentRemaining } =
 								calculatePaymentTotals(totalAmount, prev.amountPaid);
 							newCurrentStepAmount = currentRemaining;
-							console.log(
-								`NAVIGATION: Set currentStepAmount for non-split: ${newCurrentStepAmount}`
-							);
+							// console.log(
+							// 	`NAVIGATION: Set currentStepAmount for non-split: ${newCurrentStepAmount}`
+							// );
 						} else {
 							// Split mode but no amount provided (should not happen ideally)
 							console.warn(
@@ -214,9 +214,9 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 						}
 					} else {
 						// Navigating to non-payment view (InitialOptions, Split, Completion)
-						console.log(
-							`NAVIGATION: Forward nav to non-payment view (${nextView}), clearing step amounts.`
-						);
+						// console.log(
+						// 	`NAVIGATION: Forward nav to non-payment view (${nextView}), clearing step amounts.`
+						// );
 						newCurrentStepAmount = null;
 						newNextSplitAmount = null;
 					}
@@ -243,11 +243,11 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 					if (nextView === "Completion") {
 						// *** Store receipt payload if provided ***
 						newReceiptPayload = options.receiptPayload ?? null;
-						console.log(
-							`NAVIGATION: Storing receipt payload for Completion: ${
-								newReceiptPayload ? "Exists" : "None"
-							}`
-						);
+						// console.log(
+							// `NAVIGATION: Storing receipt payload for Completion: ${
+							// 	newReceiptPayload ? "Exists" : "None"
+							// }`
+						// );
 					} else {
 						// *** Clear receipt payload when navigating elsewhere ***
 						newReceiptPayload = null;
@@ -260,9 +260,9 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 						isPaymentCompleteInternal(prev.amountPaid) &&
 						nextView !== "Completion"
 					) {
-						console.log(
-							"NAVIGATION: Split payment already complete, navigating straight to Completion"
-						);
+						// console.log(
+						// 	"NAVIGATION: Split payment already complete, navigating straight to Completion"
+						// );
 						return {
 							...prev,
 							currentView: "Completion",
@@ -276,13 +276,13 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 					}
 
 					// --- Apply Forward State Update ---
-					console.log("NAVIGATION: Updating state for forward move:", {
-						nextView,
-						newPaymentMethod,
-						newSplitMode,
-						newCurrentStepAmount,
-						receiptPayloadExists: !!newReceiptPayload,
-					});
+					// console.log("NAVIGATION: Updating state for forward move:", {
+					// 	nextView,
+					// 	newPaymentMethod,
+					// 	newSplitMode,
+					// 	newCurrentStepAmount,
+					// 	receiptPayloadExists: !!newReceiptPayload,
+					// });
 					return {
 						...prev,
 						currentView: nextView,
@@ -300,7 +300,7 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 				else {
 					const previousViews = [...prev.previousViews];
 					const lastView = previousViews.pop() || "InitialOptions"; // Get the last view from history
-					console.log(`NAVIGATION: Moving back to: ${lastView}`);
+					// console.log(`NAVIGATION: Moving back to: ${lastView}`);
 
 					// Reset payment method if going back to non-payment screens
 					if (lastView === "InitialOptions" || lastView === "Split") {
@@ -354,9 +354,9 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 		const fromView = state.currentView;
 		// Cannot go back from the initial options view
 		if (fromView === "InitialOptions") {
-			console.log(
-				"NAV BACK: Already at InitialOptions, cannot go back further."
-			);
+			// console.log(
+			// 	"NAV BACK: Already at InitialOptions, cannot go back further."
+			// );
 			return false; // Indicate back navigation failed/not possible
 		}
 
@@ -371,15 +371,15 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 
 			if (state.splitMode) {
 				// In split mode: navigate back to the Split view
-				console.log(
-					`NAV BACK: From ${fromView} (Split Mode), navigating POS to Split, Customer Display to Cart.`
-				);
+				// console.log(
+				// 	`NAV BACK: From ${fromView} (Split Mode), navigating POS to Split, Customer Display to Cart.`
+				// );
 				handleNavigation("Split", -1); // Navigate back to Split view
 			} else {
 				// Not in split mode: navigate back to Initial Options
-				console.log(
-					`NAV BACK: From ${fromView} (Non-Split), navigating POS back, Customer Display to Cart.`
-				);
+				// console.log(
+				// 	`NAV BACK: From ${fromView} (Non-Split), navigating POS back, Customer Display to Cart.`
+				// );
 				handleNavigation("InitialOptions", -1); // Navigate back to Initial Options
 			}
 			return true; // Indicate back navigation succeeded
@@ -387,9 +387,9 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 
 		// --- Handle Back from Split View ---
 		if (fromView === "Split") {
-			console.log(
-				`NAV BACK: Leaving Split view, navigating POS back, Customer Display to Cart.`
-			);
+			// console.log(
+			// 	`NAV BACK: Leaving Split view, navigating POS back, Customer Display to Cart.`
+			// );
 			// Reset customer display
 			try {
 				customerDisplayManager.showCart();
@@ -404,7 +404,7 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 		}
 
 		// --- Generic Back Navigation (from other views like Completion - though usually disabled) ---
-		console.log(`NAV BACK: Generic back navigation from ${fromView}`);
+		// console.log(`NAV BACK: Generic back navigation from ${fromView}`);
 		handleNavigation(null, -1); // Use null to pop from history stack
 		return true; // Indicate back navigation succeeded
 	}, [state.currentView, state.splitMode, handleNavigation]);
@@ -414,7 +414,7 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 	// Does NOT interact with the backend directly.
 	const processPayment = useCallback(
 		async (amountCharged, paymentDetails = {}) => {
-			console.log("PROCESS PAYMENT: Start", { amountCharged, paymentDetails });
+			// console.log("PROCESS PAYMENT: Start", { amountCharged, paymentDetails });
 			let calculatedNewAmountPaid = state.amountPaid; // Track calculated values
 			let finalUpdatedTransactions = state.transactions;
 			let isNowFullyPaid = false;
@@ -434,13 +434,13 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 				// Ensure base amount is not negative
 				const validatedBaseAmount = Math.max(0, baseAmountThisTransaction);
 
-				console.log("PROCESS PAYMENT: Calculated amounts", {
-					amountCharged,
-					baseAmountThisTransaction: validatedBaseAmount,
-					tipThisTransaction,
-					method,
-					splitMode: state.splitMode,
-				});
+				// console.log("PROCESS PAYMENT: Calculated amounts", {
+				// 	amountCharged,
+				// 	baseAmountThisTransaction: validatedBaseAmount,
+				// 	tipThisTransaction,
+				// 	method,
+				// 	splitMode: state.splitMode,
+				// });
 
 				// Create the new transaction object
 				const newTransaction = {
@@ -471,10 +471,10 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 							},
 						}),
 				};
-				console.log(
-					"PROCESS PAYMENT: Created Transaction Object:",
-					newTransaction
-				);
+				// console.log(
+				// 	"PROCESS PAYMENT: Created Transaction Object:",
+				// 	newTransaction
+				// );
 
 				// Update state immutably
 				setState((prev) => {
@@ -529,19 +529,19 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 						splitDetails: updatedOverallSplitDetails,
 						currentSplitMethod: null, // Reset current split method choice
 					};
-					console.log("PROCESS PAYMENT: State update calculation complete", {
-						calculatedNewAmountPaid,
-						isNowFullyPaid,
-					});
+					// console.log("PROCESS PAYMENT: State update calculation complete", {
+					// 	calculatedNewAmountPaid,
+					// 	isNowFullyPaid,
+					// });
 					return newState;
 				});
 
 				// Wait for state update to settle (optional, usually not needed with async setState)
 				// await new Promise(resolve => setTimeout(resolve, 0));
 
-				console.log(
-					`PROCESS PAYMENT: After state update attempt - isNowFullyPaid=${isNowFullyPaid}, newAmountPaid=${calculatedNewAmountPaid}`
-				);
+				// console.log(
+				// 	`PROCESS PAYMENT: After state update attempt - isNowFullyPaid=${isNowFullyPaid}, newAmountPaid=${calculatedNewAmountPaid}`
+				// );
 
 				// Return success status and key updated values
 				return {
@@ -637,13 +637,13 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 			};
 
 			try {
-				console.log(
-					`COMPLETE FLOW (Hook): Calling onComplete prop for Order ID: ${orderId}`
-				);
-				console.log(
-					"COMPLETE FLOW (Hook): Payload for onComplete:",
-					JSON.stringify(paymentPayload, null, 2) // Log the payload being sent
-				);
+				// // console.log(
+				// 	`COMPLETE FLOW (Hook): Calling onComplete prop for Order ID: ${orderId}`
+				// );
+				// // console.log(
+				// 	"COMPLETE FLOW (Hook): Payload for onComplete:",
+				// 	JSON.stringify(paymentPayload, null, 2) // Log the payload being sent
+				// );
 
 				// --- Call the onComplete Prop ---
 				if (typeof onComplete !== "function") {
@@ -657,7 +657,7 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 
 				// --- Handle Result from onComplete ---
 				if (backendOrderData) {
-					console.log("COMPLETE FLOW (Hook): onComplete prop successful.");
+					// console.log("COMPLETE FLOW (Hook): onComplete prop successful.");
 
 					// --- Calculate Cash Details from Transactions ---
 					let totalCashTendered = new Decimal(0);
@@ -683,10 +683,10 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 							totalChangeGiven: parseFloat(totalChangeGiven.toFixed(2)),
 						}),
 					};
-					console.log(
-						"COMPLETE FLOW (Hook): Final Completion Result Object:",
-						finalCompletionResult
-					);
+					// console.log(
+					// 	"COMPLETE FLOW (Hook): Final Completion Result Object:",
+					// 	finalCompletionResult
+					// );
 					// -------------------------------------------------------
 
 					// --- Store combined result in state ---
@@ -742,7 +742,7 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 	// Resets the payment flow state and calls the onNewOrder prop.
 	const handleStartNewOrder = useCallback(async () => {
 		try {
-			console.log("Starting new order from payment flow hook");
+			// console.log("Starting new order from payment flow hook");
 			// Call the parent's function to handle new order logic (e.g., clear cart)
 			await onNewOrder?.();
 			// Reset state fully after new order is started by parent

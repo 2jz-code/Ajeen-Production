@@ -39,7 +39,7 @@ export default function RefundSuccessModal({
 	// *** REMOVED unused originalPaymentId prop from here - not needed ***
 }) {
 	// Optional Log: Verify the prop structure upon render
-	// console.log("🔵 RefundSuccessModal Props:", JSON.stringify(refundDetails, null, 2));
+	// // console.log("🔵 RefundSuccessModal Props:", JSON.stringify(refundDetails, null, 2));
 
 	if (!isOpen || !refundDetails) return null;
 

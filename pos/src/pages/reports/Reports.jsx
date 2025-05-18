@@ -158,9 +158,9 @@ const Reports = () => {
 		setIsLoading(true);
 		setError(null);
 		try {
-			console.log("Loading saved report with ID:", reportId);
+			// console.log("Loading saved report with ID:", reportId);
 			const data = await reportService.getSavedReport(reportId);
-			console.log("Received saved report data:", data);
+			// console.log("Received saved report data:", data);
 
 			// Ensure result_data exists before setting
 			if (!data.result_data) {
@@ -178,7 +178,7 @@ const Reports = () => {
 			};
 			const mappedType =
 				reportTypeMapping[data.report_type] || data.report_type;
-			console.log(`Mapping report type: ${data.report_type} → ${mappedType}`);
+			// console.log(`Mapping report type: ${data.report_type} → ${mappedType}`);
 			setReportType(mappedType);
 		} catch (err) {
 			console.error("Error loading saved report:", err);

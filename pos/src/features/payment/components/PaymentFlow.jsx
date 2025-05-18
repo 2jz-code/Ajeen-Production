@@ -33,10 +33,10 @@ export const PaymentFlow = ({ totalAmount, onBack }) => {
 					return null; // Return null on failure
 				}
 
-				console.log("PAYMENT FLOW: handleBackendComplete received:", {
-					orderId,
-					paymentPayload,
-				});
+				// console.log("PAYMENT FLOW: handleBackendComplete received:", {
+				// 	orderId,
+				// 	paymentPayload,
+				// });
 
 				// Add/Confirm discount details in the payload before sending to cartActions.completeOrder
 				// Note: usePaymentFlow already includes discountId/Amount in its payload
@@ -56,10 +56,10 @@ export const PaymentFlow = ({ totalAmount, onBack }) => {
 					orderId,
 					finalPayload // Pass the correct, detailed payload
 				);
-				console.log(
-					"PAYMENT FLOW: cartActions.completeOrder result:",
-					result ? "Order Data Received" : result
-				);
+				// console.log(
+				// 	"PAYMENT FLOW: cartActions.completeOrder result:",
+				// 	result ? "Order Data Received" : result
+				// );
 
 				// *** MODIFIED: Return the result (order data or null) ***
 				return result;

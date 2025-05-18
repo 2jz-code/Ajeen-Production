@@ -214,7 +214,7 @@ export default function EditUser() {
 				delete userData.confirm_password; // Only send 'password' if set
 			}
 
-			console.log("Sending user update data:", userData);
+			// console.log("Sending user update data:", userData);
 			await userService.updateUser(userId, userData);
 			toast.success("User updated successfully");
 			navigate("/users");

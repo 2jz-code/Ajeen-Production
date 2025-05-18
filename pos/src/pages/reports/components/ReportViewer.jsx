@@ -994,7 +994,7 @@ const ReportViewer = ({ data, type, onBack }) => {
 
 	// Render the appropriate report based on type (Original logic)
 	const renderReport = () => {
-		console.log("Rendering report of type:", type); // Keep for debugging
+		// console.log("Rendering report of type:", type); // Keep for debugging
 		switch (type) {
 			case "sales":
 			case "daily_sales":

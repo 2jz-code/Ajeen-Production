@@ -63,7 +63,7 @@ export function usePaymentNavigation() {
 				);
 			}
 
-			console.log("Reset customer display to cart view");
+			// console.log("Reset customer display to cart view");
 		} catch (err) {
 			console.error("Error resetting display to cart:", err);
 		}

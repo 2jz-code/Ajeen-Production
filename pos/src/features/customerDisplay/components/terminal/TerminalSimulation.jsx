@@ -9,9 +9,11 @@ const TerminalSimulation = ({ paymentData = {}, onPaymentResult }) => {
 	const [processingPayment, setProcessingPayment] = useState(false);
 	const [error, setError] = useState("");
 	const [localPaymentData, setLocalPaymentData] = useState(paymentData);
+	// eslint-disable-next-line
 	const [paymentIntentId, setPaymentIntentId] = useState(null);
 	const [readerId, setReaderId] = useState(null);
 	const [paymentStatus, setPaymentStatus] = useState("idle"); // idle, connecting, creating_intent, processing_intent, waiting_for_card, processing, success, error
+	// eslint-disable-next-line
 	const [connectionToken, setConnectionToken] = useState(null);
 	const [statusMessage, setStatusMessage] = useState("");
 
@@ -39,7 +41,7 @@ const TerminalSimulation = ({ paymentData = {}, onPaymentResult }) => {
 			) {
 				// Update local payment data state with the received data
 				const newPaymentData = event.data.content;
-				console.log("Received payment data:", newPaymentData);
+				// console.log("Received payment data:", newPaymentData);
 				setLocalPaymentData(newPaymentData);
 
 				// Start the payment flow
@@ -70,7 +72,7 @@ const TerminalSimulation = ({ paymentData = {}, onPaymentResult }) => {
 				"payments/terminal/connection-token/"
 			);
 			setConnectionToken(tokenResponse.data.secret);
-			console.log(connectionToken);
+			// console.log(connectionToken);
 			// 2. Get available readers (in test mode, we'll get a simulated reader)
 			const readersResponse = await axiosInstance.get(
 				"payments/terminal/reader-status/"
@@ -119,7 +121,7 @@ const TerminalSimulation = ({ paymentData = {}, onPaymentResult }) => {
 			);
 
 			setPaymentIntentId(response.data.id);
-			console.log(paymentIntentId);
+			// console.log(paymentIntentId);
 			// Now process the payment intent on the reader (new step)
 			await processPaymentIntent(response.data.id, readerId);
 		} catch (err) {

@@ -26,14 +26,14 @@ const CustomerFlowView = ({ flowData, onStepComplete }) => {
 	// Handle step completion
 	const handleStepComplete = (stepData) => {
 		if (onStepComplete) {
-			console.log(`Completing step: ${currentStep}`, stepData);
+			// console.log(`Completing step: ${currentStep}`, stepData);
 			onStepComplete(currentStep, stepData);
 		}
 	};
 
 	const renderStepContent = () => {
-		console.log("--- CustomerFlowView ---");
-		console.log("Received flowData:", JSON.stringify(flowData, null, 2));
+		// console.log("--- CustomerFlowView ---");
+		// console.log("Received flowData:", JSON.stringify(flowData, null, 2));
 
 		let orderDataForView; // Renamed variable for clarity
 		const isSplit = flowData?.isSplitPayment;
@@ -50,7 +50,7 @@ const CustomerFlowView = ({ flowData, onStepComplete }) => {
 
 		// *** FIX: Ensure orderDataForView.total is always the BASE total before tip ***
 		if (isSplit && flowData?.currentPaymentAmount != null) {
-			console.log("Split payment: Using currentPaymentAmount for view.");
+			// console.log("Split payment: Using currentPaymentAmount for view.");
 			const currentAmount = flowData.currentPaymentAmount;
 			// For split, 'total' represents the amount for *this* payment step
 			orderDataForView = {
@@ -71,7 +71,7 @@ const CustomerFlowView = ({ flowData, onStepComplete }) => {
 		// Removed fallback to splitOrderData as currentPaymentAmount should be primary for splits
 		else {
 			// Not a split payment or first step
-			console.log("Not split or first step: Using base cartData for view.");
+			// console.log("Not split or first step: Using base cartData for view.");
 			orderDataForView = {
 				items: flowData?.cartData?.items || [],
 				subtotal: baseCartTotals.subtotal,
@@ -85,11 +85,11 @@ const CustomerFlowView = ({ flowData, onStepComplete }) => {
 			};
 		}
 
-		console.log(
-			"Constructed orderDataForView:",
-			JSON.stringify(orderDataForView, null, 2)
-		);
-		console.log("--- End CustomerFlowView Logs ---");
+		// console.log(
+		// 	"Constructed orderDataForView:",
+		// 	JSON.stringify(orderDataForView, null, 2)
+		// );
+		// console.log("--- End CustomerFlowView Logs ---");
 
 		switch (currentStep) {
 			case "cart":
@@ -128,11 +128,11 @@ const CustomerFlowView = ({ flowData, onStepComplete }) => {
 			case "receipt":
 				// Receipt view needs the BASE total and the tip amount separately
 				// It also needs the payment result details
-				console.log("CustomerFlowView: Rendering ReceiptView");
-				console.log(
-					"CustomerFlowView: Passing paymentData:",
-					flowData?.payment
-				);
+				// console.log("CustomerFlowView: Rendering ReceiptView");
+				// console.log(
+				// 	"CustomerFlowView: Passing paymentData:",
+				// 	flowData?.payment
+				// );
 
 				return (
 					<ReceiptView
