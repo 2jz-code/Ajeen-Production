@@ -61,7 +61,7 @@ const RewardsRegistrationView = ({ onComplete }) => {
 	const handleSubmit = (e) => {
 		e.preventDefault();
 		if (!validateForm()) return;
-		console.log("Submitting rewards:", formData);
+		// console.log("Submitting rewards:", formData);
 		setStep("success");
 		setTimeout(() => {
 			if (onComplete) onComplete(formData);

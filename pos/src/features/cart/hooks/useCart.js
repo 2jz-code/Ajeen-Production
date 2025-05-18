@@ -29,16 +29,16 @@ export const useCart = () => {
 
 	useEffect(() => {
 		const initializeCart = async () => {
-			console.log(
-				`[useCart] initializeCart called. Current orderId: ${orderId}, initializingRef: ${initializingOrderIdRef.current}`
-			);
+			// console.log(
+			// 	`[useCart] initializeCart called. Current orderId: ${orderId}, initializingRef: ${initializingOrderIdRef.current}`
+			// );
 
 			if (orderId) {
 				// If an initialization for THIS orderId is already in progress, skip.
 				if (initializingOrderIdRef.current === orderId) {
-					console.log(
-						`[useCart] Initialization for order ${orderId} already in progress. Skipping.`
-					);
+					// console.log(
+					// 	`[useCart] Initialization for order ${orderId} already in progress. Skipping.`
+					// );
 					return;
 				}
 				// Mark that we are now initializing this orderId
@@ -48,24 +48,25 @@ export const useCart = () => {
 					const {
 						isValid,
 						data,
+						// eslint-disable-next-line
 						error: checkStatusError,
 					} = await checkOrderStatus(orderId, axiosInstance);
 
 					// Ensure component is still mounted before updating state
 					if (!isMountedRef.current) {
-						console.log(
-							"[useCart] Component unmounted during initializeCart. Aborting state updates."
-						);
+						// console.log(
+						// 	"[useCart] Component unmounted during initializeCart. Aborting state updates."
+						// );
 						initializingOrderIdRef.current = null; // Reset ref on abort
 						return;
 					}
 
 					if (!isValid) {
-						console.log(
-							`[useCart] Order ${orderId} is not valid (status error: ${
-								checkStatusError?.message || "unknown reason"
-							}). Resetting cart state.`
-						);
+						// console.log(
+						// 	`[useCart] Order ${orderId} is not valid (status error: ${
+						// 		checkStatusError?.message || "unknown reason"
+						// 	}). Resetting cart state.`
+						// );
 						// Only reset if the current orderId in store is the one that failed validation
 						if (useCartStore.getState().orderId === orderId) {
 							useCartStore.setState({
@@ -76,9 +77,9 @@ export const useCart = () => {
 							});
 						}
 					} else {
-						console.log(
-							`[useCart] Order ${orderId} is valid. Setting cart and overlay.`
-						);
+						// console.log(
+						// 	`[useCart] Order ${orderId} is valid. Setting cart and overlay.`
+						// );
 						setShowOverlay(false);
 						setCart(data.items); // This will trigger saveCartToBackend in cartStore
 
@@ -129,21 +130,21 @@ export const useCart = () => {
 						isMountedRef.current &&
 						initializingOrderIdRef.current === orderId
 					) {
-						console.log(
-							`[useCart] Finished initialization attempt for order ${orderId}. Resetting ref.`
-						);
+						// console.log(
+						// 	`[useCart] Finished initialization attempt for order ${orderId}. Resetting ref.`
+						// );
 						initializingOrderIdRef.current = null;
 					}
 				}
 			} else {
 				// No orderId
-				console.log("[useCart] No orderId present. Ensuring overlay is shown.");
+				// console.log("[useCart] No orderId present. Ensuring overlay is shown.");
 				setShowOverlay(true);
 				// If there was a previous orderId being initialized, clear its ref
 				if (initializingOrderIdRef.current !== null) {
-					console.log(
-						`[useCart] No orderId, clearing initializingOrderIdRef (was ${initializingOrderIdRef.current}).`
-					);
+					// console.log(
+					// 	`[useCart] No orderId, clearing initializingOrderIdRef (was ${initializingOrderIdRef.current}).`
+					// );
 					initializingOrderIdRef.current = null;
 				}
 			}

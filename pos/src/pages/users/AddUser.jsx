@@ -155,7 +155,7 @@ export default function AddUser() {
 		setIsSubmitting(true);
 		try {
 			const userData = { ...formData };
-			console.log("Sending user data:", userData);
+			// console.log("Sending user data:", userData);
 			await userService.createUser(userData);
 			toast.success("User created successfully");
 			navigate("/users");

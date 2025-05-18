@@ -20,7 +20,7 @@ export const useCashDrawer = () => {
 				message._source?.category === "HARDWARE" &&
 				message._source?.endpoint === "CASH_DRAWER"
 			) {
-				console.log("Cash drawer message received:", message);
+				// console.log("Cash drawer message received:", message);
 
 				if (message.type === "drawer_operation") {
 					setDrawerState(message.state);
@@ -115,9 +115,9 @@ export const useCashDrawer = () => {
 				setError("Operation timed out");
 				reject(new Error("Operation timed out"));
 			}, 5000);
-
+			// eslint-disable-next-line
 			let processingReceived = false;
-			console.log(processingReceived);
+			// console.log(processingReceived);
 			const handleResponse = (event) => {
 				const message = event.detail;
 
@@ -129,7 +129,7 @@ export const useCashDrawer = () => {
 					return;
 				}
 
-				console.log("Drawer close response received:", message);
+				// console.log("Drawer close response received:", message);
 
 				if (
 					message.type === "drawer_operation" &&
@@ -146,7 +146,7 @@ export const useCashDrawer = () => {
 					setIsProcessing(false);
 
 					if (message.status === "success") {
-						console.log("Close drawer success");
+						// console.log("Close drawer success");
 						setDrawerState("closed");
 						setError(null);
 						resolve(true);
@@ -162,7 +162,7 @@ export const useCashDrawer = () => {
 
 			try {
 				window.addEventListener("websocket-message", handleResponse);
-				console.log("Sending close drawer message");
+				// console.log("Sending close drawer message");
 				sendMessage("HARDWARE", "CASH_DRAWER", { type: "close_drawer" });
 			} catch (err) {
 				console.error("Error sending close drawer message:", err);
@@ -207,7 +207,7 @@ export const useCashDrawer = () => {
 						return;
 					}
 
-					console.log("Print response received:", message);
+					// console.log("Print response received:", message);
 
 					if (message.type === "print_operation") {
 						// Handle processing state
@@ -223,7 +223,7 @@ export const useCashDrawer = () => {
 						setIsProcessing(false);
 
 						if (message.status === "success") {
-							console.log("Print operation success");
+							// console.log("Print operation success");
 							setError(null);
 							resolve(true);
 						} else {
@@ -237,7 +237,7 @@ export const useCashDrawer = () => {
 
 				try {
 					window.addEventListener("websocket-message", handleResponse);
-					console.log("Sending print receipt message", receiptData);
+					// console.log("Sending print receipt message", receiptData);
 
 					// IMPORTANT: Send to RECEIPT_PRINTER endpoint instead of CASH_DRAWER
 					sendMessage("HARDWARE", "RECEIPT_PRINTER", {

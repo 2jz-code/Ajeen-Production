@@ -318,10 +318,10 @@ export default function DiscountForm() {
 			if (submitData.apply_to !== "product") delete submitData.products;
 			if (submitData.apply_to !== "category") delete submitData.categories;
 
-			console.log(
-				"Submitting discount data:",
-				JSON.stringify(submitData, null, 2)
-			);
+			// console.log(
+			// 	"Submitting discount data:",
+			// 	JSON.stringify(submitData, null, 2)
+			// );
 
 			// Call API via useApi hook
 			if (isEditMode) {

@@ -32,7 +32,7 @@ export const PaymentFlowManager = ({ initialTotal, onComplete, onCancel }) => {
 	const handlePayment = useCallback(async (amount, paymentDetails) => {
 		try {
 			// In a real app, you would call your payment API here
-			console.log("Processing payment:", { amount, ...paymentDetails });
+			// console.log("Processing payment:", { amount, ...paymentDetails });
 
 			// Simulate successful payment processing
 			const transaction = {
@@ -64,11 +64,11 @@ export const PaymentFlowManager = ({ initialTotal, onComplete, onCancel }) => {
 	const completePaymentFlow = useCallback(async () => {
 		try {
 			// In a real app, finalize the transaction here
-			console.log("Completing payment flow:", {
-				total: initialTotal,
-				amountPaid: state.amountPaid,
-				transactions: state.transactions,
-			});
+			// console.log("Completing payment flow:", {
+			// 	total: initialTotal,
+			// 	amountPaid: state.amountPaid,
+			// 	transactions: state.transactions,
+			// });
 
 			// Notify parent component
 			onComplete({

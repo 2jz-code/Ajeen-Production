@@ -40,13 +40,13 @@ export const CompletionView = ({
 
 	// Effect to reset customer display after a delay (original logic)
 	useEffect(() => {
-		console.log(
-			"POS CompletionView mounted. Scheduling customer display reset."
-		);
+		// console.log(
+		// 	"POS CompletionView mounted. Scheduling customer display reset."
+		// );
 		const resetTimer = setTimeout(() => {
-			console.log(
-				"POS CompletionView: Delay finished. Resetting customer display."
-			);
+			// console.log(
+			// 	"POS CompletionView: Delay finished. Resetting customer display."
+			// );
 			try {
 				if (
 					customerDisplayManager.displayWindow &&
@@ -68,20 +68,20 @@ export const CompletionView = ({
 
 		return () => {
 			clearTimeout(resetTimer);
-			console.log(
-				"POS CompletionView unmounted, cleared customer display reset timer."
-			);
+			// console.log(
+			// 	"POS CompletionView unmounted, cleared customer display reset timer."
+			// );
 		};
 	}, []); // Run only on mount
 
 	useEffect(() => {
-		console.log("CompletionView: Checking if drawer needs to open.", {
-			involvedCash,
-		});
+		// console.log("CompletionView: Checking if drawer needs to open.", {
+		// 	involvedCash,
+		// });
 		if (involvedCash) {
-			console.log(
-				"CompletionView: Cash was involved, calling openCashDrawerAgent..."
-			);
+			// console.log(
+			// 	"CompletionView: Cash was involved, calling openCashDrawerAgent..."
+			// );
 			// Call the function to open the drawer - no need to await usually
 			openDrawerWithAgent().catch((err) => {
 				// Error is likely already handled by toast in the service,
@@ -98,7 +98,7 @@ export const CompletionView = ({
 		if (!receiptPayload || isPrinting) return;
 		setIsPrinting(true);
 		try {
-			console.log("CompletionView: Printing receipt via agent...");
+			// console.log("CompletionView: Printing receipt via agent...");
 			// Determine if drawer should open (only for cash payments)
 			const openDrawer =
 				state?.paymentMethod === "cash" ||
@@ -135,20 +135,20 @@ export const CompletionView = ({
 
 	const handleSkip = useCallback(() => {
 		if (isPrinting) return;
-		console.log("CompletionView: Skipping receipt print.");
+		// console.log("CompletionView: Skipping receipt print.");
 		setDecisionMade(true);
 	}, [isPrinting]);
 
 	// Handler for the "Start New Order" button
 	const handleStartNew = async () => {
-		console.log("Starting new order from completion view");
+		// console.log("Starting new order from completion view");
 		// Ensure customer display is reset before starting new order
 		try {
 			if (
 				customerDisplayManager.displayWindow &&
 				!customerDisplayManager.displayWindow.closed
 			) {
-				console.log("Sending welcome command before starting new order");
+				// console.log("Sending welcome command before starting new order");
 				customerDisplayManager.showWelcome();
 			}
 		} catch (err) {

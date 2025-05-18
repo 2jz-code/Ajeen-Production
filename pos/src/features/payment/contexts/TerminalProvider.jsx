@@ -31,9 +31,9 @@ export const TerminalProvider = ({ children }) => {
 					id: reader.id,
 				});
 
-				console.log(
-					`Terminal status: ${reader.status}, Device: ${reader.device_type}, ID: ${reader.id}`
-				);
+				// console.log(
+				// 	`Terminal status: ${reader.status}, Device: ${reader.device_type}, ID: ${reader.id}`
+				// );
 			} else {
 				setStatus("not_found");
 				setDeviceInfo(null);
@@ -89,14 +89,14 @@ export const TerminalProvider = ({ children }) => {
 
 			// Fallback - try to get reader info by making a direct API call
 			try {
-				console.log("Attempting to get reader info for cancellation");
+				// console.log("Attempting to get reader info for cancellation");
 				const response = await axiosInstance.get(
 					"payments/terminal/reader-status/"
 				);
 
 				if (response.data.success && response.data.reader) {
 					const readerId = response.data.reader.id;
-					console.log(`Found reader ID for cancellation: ${readerId}`);
+					// console.log(`Found reader ID for cancellation: ${readerId}`);
 
 					// Now try to cancel with this reader ID
 					const cancelResponse = await axiosInstance.post(
@@ -104,10 +104,10 @@ export const TerminalProvider = ({ children }) => {
 						{ reader_id: readerId }
 					);
 
-					console.log(
-						"Terminal cancellation response (fallback):",
-						cancelResponse.data
-					);
+					// console.log(
+					// 	"Terminal cancellation response (fallback):",
+					// 	cancelResponse.data
+					// );
 					return { success: true, data: cancelResponse.data };
 				}
 			} catch (fallbackError) {
@@ -118,14 +118,14 @@ export const TerminalProvider = ({ children }) => {
 		}
 
 		try {
-			console.log(
-				`Attempting to cancel terminal action on reader: ${deviceInfo.id}`
-			);
+			// console.log(
+			// 	`Attempting to cancel terminal action on reader: ${deviceInfo.id}`
+			// );
 			const response = await axiosInstance.post(
 				"payments/terminal/cancel-action/",
 				{ reader_id: deviceInfo.id }
 			);
-			console.log("Terminal cancellation response:", response.data);
+			// console.log("Terminal cancellation response:", response.data);
 			return { success: true, data: response.data };
 		} catch (error) {
 			console.error("Error cancelling terminal action:", error);

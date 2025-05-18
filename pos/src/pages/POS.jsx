@@ -132,7 +132,7 @@ export default function POS() {
 	const onBarcodeScannedHandler = useCallback(
 		async (barcode) => {
 			if (isFetchingProductByBarcode) return; // Prevent multiple simultaneous requests
-			console.log("Barcode scanned in POS:", barcode);
+			// console.log("Barcode scanned in POS:", barcode);
 			setIsFetchingProductByBarcode(true);
 			setSearchQuery(""); // Optionally clear manual search when barcode is used
 

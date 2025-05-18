@@ -62,14 +62,14 @@ export const useCartStore = create(
 
 			// Set the entire cart (e.g., when loading a held order)
 			setCart: (newCartItems) => {
-				console.log(
-					"[CART_ACTION] setCart CALLED. newCartItems from DB:",
-					newCartItems,
-					"Current OrderID:",
-					get().orderId,
-					"Cart BEFORE:",
-					JSON.parse(JSON.stringify(get().cart))
-				);
+				// console.log(
+				// 	"[CART_ACTION] setCart CALLED. newCartItems from DB:",
+				// 	newCartItems,
+				// 	"Current OrderID:",
+				// 	get().orderId,
+				// 	"Cart BEFORE:",
+				// 	JSON.parse(JSON.stringify(get().cart))
+				// );
 				const consolidatedItems = {};
 				if (Array.isArray(newCartItems)) {
 					newCartItems.forEach((rawItem) => {
@@ -96,24 +96,24 @@ export const useCartStore = create(
 					});
 				}
 				const finalCart = Object.values(consolidatedItems);
-				console.log(
-					"[CART_ACTION] setCart - finalCart to be set and saved:",
-					JSON.parse(JSON.stringify(finalCart))
-				);
+				// console.log(
+				// 	"[CART_ACTION] setCart - finalCart to be set and saved:",
+				// 	JSON.parse(JSON.stringify(finalCart))
+				// );
 				set({ cart: finalCart });
 				// Only save to backend if the cart isn't empty, to avoid an unnecessary empty save on initial load if cart is empty
 				if (finalCart.length > 0 || get().orderId !== null) {
 					get().saveCartToBackend(finalCart);
 				} else {
-					console.log(
-						"CartStore: setCart resulted in empty cart, skipping backend save for now."
-					);
+					// console.log(
+					// 	"CartStore: setCart resulted in empty cart, skipping backend save for now."
+					// );
 				}
 			},
 
 			// Update quantity or other properties of a specific item
 			updateItem: (itemId, updates) => {
-				console.log("Store updateItem called:", { itemId, updates });
+				// console.log("Store updateItem called:", { itemId, updates });
 				let itemFound = false;
 				set((state) => {
 					const updatedCart = state.cart.map((item) => {
@@ -157,10 +157,10 @@ export const useCartStore = create(
 
 			// Specific quantity update (delegates to updateItem for validation)
 			updateItemQuantity: (itemId, quantityUpdate) => {
-				console.log("updateItemQuantity called with:", {
-					itemId,
-					quantityUpdate,
-				});
+				// console.log("updateItemQuantity called with:", {
+				// 	itemId,
+				// 	quantityUpdate,
+				// });
 				const newQuantity =
 					typeof quantityUpdate === "object"
 						? quantityUpdate.quantity
@@ -170,14 +170,14 @@ export const useCartStore = create(
 
 			// Add a product to the cart
 			addToCart: (product) => {
-				console.log(
-					"[CART_ACTION] addToCart CALLED. Product:",
-					product,
-					"Current OrderID:",
-					get().orderId,
-					"Cart BEFORE:",
-					JSON.parse(JSON.stringify(get().cart))
-				);
+				// console.log(
+				// 	"[CART_ACTION] addToCart CALLED. Product:",
+				// 	product,
+				// 	"Current OrderID:",
+				// 	get().orderId,
+				// 	"Cart BEFORE:",
+				// 	JSON.parse(JSON.stringify(get().cart))
+				// );
 				const itemToAdd = get().normalizeItem(product);
 				if (!itemToAdd) {
 					toast.error("Could not add invalid product data to cart.");
@@ -288,7 +288,7 @@ export const useCartStore = create(
 							`Backend cart save failed with status: ${response.status}`
 						);
 					}
-					console.log("Cart auto-saved to backend for order:", orderId);
+					// console.log("Cart auto-saved to backend for order:", orderId);
 					return response.data; // Return data if needed
 				} catch (error) {
 					console.error("Failed to save cart to backend:", {
@@ -309,10 +309,10 @@ export const useCartStore = create(
 				const currentDiscountId = get().orderDiscount?.id;
 				const newDiscountId = discount?.id;
 
-				console.log(
-					`[cartStore setOrderDiscount] Attempting to set discount. Current ID: ${currentDiscountId}, New ID: ${newDiscountId}`,
-					JSON.parse(JSON.stringify(discount || {})) // Log clean copy
-				);
+				// console.log(
+				// 	`[cartStore setOrderDiscount] Attempting to set discount. Current ID: ${currentDiscountId}, New ID: ${newDiscountId}`,
+				// 	JSON.parse(JSON.stringify(discount || {})) // Log clean copy
+				// );
 
 				// Only proceed with backend sync if the discount ID is actually changing
 				// or if we are explicitly setting a discount when none was set before.
@@ -326,25 +326,25 @@ export const useCartStore = create(
 
 				// Only call saveOrderDiscount if the discount has actually changed
 				if (needsBackendSync && orderId && isHydrated) {
-					console.log(
-						`[cartStore setOrderDiscount] Discount ID changed (from ${currentDiscountId} to ${newDiscountId}). Calling saveOrderDiscount.`
-					);
+					// console.log(
+					// 	`[cartStore setOrderDiscount] Discount ID changed (from ${currentDiscountId} to ${newDiscountId}). Calling saveOrderDiscount.`
+					// );
 					get().saveOrderDiscount(orderId, discount); // Pass the new discount object (or null)
 				} else if (!needsBackendSync) {
-					console.log(
-						`[cartStore setOrderDiscount] Discount ID (${newDiscountId}) is the same as current. Skipping backend save.`
-					);
+					// console.log(
+					// 	`[cartStore setOrderDiscount] Discount ID (${newDiscountId}) is the same as current. Skipping backend save.`
+					// );
 				} else {
-					console.log(
-						`[cartStore setOrderDiscount] Skipping backend save. Needs Sync: ${needsBackendSync}, OrderID: ${orderId}, Hydrated: ${isHydrated}`
-					);
+					// console.log(
+					// 	`[cartStore setOrderDiscount] Skipping backend save. Needs Sync: ${needsBackendSync}, OrderID: ${orderId}, Hydrated: ${isHydrated}`
+					// );
 				}
 			},
 
 			// --- NEW ACTION ---
 			// Clear ONLY the local discount state, e.g., after order completion
 			clearLocalOrderDiscountState: () => {
-				console.log("[cartStore] Clearing local order discount state ONLY.");
+				// console.log("[cartStore] Clearing local order discount state ONLY.");
 				set({ orderDiscount: null });
 			},
 			// --- END NEW ACTION ---
@@ -352,13 +352,13 @@ export const useCartStore = create(
 			// removeOrderDiscount is now ONLY for explicit removal DURING an order
 			removeOrderDiscount: () => {
 				const currentDiscountId = get().orderDiscount?.id;
-				console.log(
-					`[cartStore removeOrderDiscount] Attempting removal. Current ID: ${currentDiscountId}`
-				);
+				// console.log(
+				// 	`[cartStore removeOrderDiscount] Attempting removal. Current ID: ${currentDiscountId}`
+				// );
 				if (currentDiscountId === null) {
-					console.log(
-						"[cartStore removeOrderDiscount] No discount to remove locally. Skipping backend call."
-					);
+					// console.log(
+					// 	"[cartStore removeOrderDiscount] No discount to remove locally. Skipping backend call."
+					// );
 					return; // No need to do anything if already null
 				}
 
@@ -367,9 +367,9 @@ export const useCartStore = create(
 
 				if (orderId) {
 					// Only call backend if an order is active
-					console.log(
-						"[cartStore removeOrderDiscount] Calling saveOrderDiscount with null to sync backend."
-					);
+					// console.log(
+					// 	"[cartStore removeOrderDiscount] Calling saveOrderDiscount with null to sync backend."
+					// );
 					get().saveOrderDiscount(orderId, null); // Sync removal with backend
 				} else {
 					console.warn(
@@ -387,13 +387,13 @@ export const useCartStore = create(
 					if (discount && discount.id) {
 						// Apply discount
 						await axiosInstance.post(endpoint, { discount_id: discount.id });
-						console.log(
-							`Discount ${discount.id} applied to order ${orderId} on backend.`
-						);
+						// console.log(
+						// 	`Discount ${discount.id} applied to order ${orderId} on backend.`
+						// );
 					} else {
 						// Remove discount
 						await axiosInstance.delete(endpoint);
-						console.log(`Discount removed from order ${orderId} on backend.`);
+						// console.log(`Discount removed from order ${orderId} on backend.`);
 					}
 				} catch (error) {
 					console.error("Failed to save order discount to backend:", {

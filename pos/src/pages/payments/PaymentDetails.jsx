@@ -205,7 +205,7 @@ export default function PaymentDetails() {
 					paymentService.getPaymentById(paymentId),
 					authService.checkStatus(), // Check if user is admin
 				]);
-				console.log("Fetched Payment Data:", paymentResponse); // Log fetched data for debugging
+				// console.log("Fetched Payment Data:", paymentResponse); // Log fetched data for debugging
 				setPayment(paymentResponse); // Store payment data
 				setIsAdmin(authResponse.is_admin); // Store admin status
 			} catch (err) {
@@ -276,16 +276,16 @@ export default function PaymentDetails() {
 				// Check if the original transaction being refunded was cash
 				const originalMethod =
 					transactionToRefund.payment_method?.toLowerCase(); // Safely access and lowercase
-				console.log(
-					`Refund successful. Original transaction method: ${originalMethod}`
-				);
+				// console.log(
+				// 	`Refund successful. Original transaction method: ${originalMethod}`
+				// );
 				if (originalMethod === "cash") {
-					console.log("Original transaction was cash, opening drawer...");
+					// console.log("Original transaction was cash, opening drawer...");
 					await openDrawerWithAgent(); // Open drawer only for cash refund
 				} else {
-					console.log(
-						"Original transaction was not cash, skipping drawer open."
-					);
+					// console.log(
+					// 	"Original transaction was not cash, skipping drawer open."
+					// );
 				}
 				// -----------------------------------------
 

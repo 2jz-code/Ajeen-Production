@@ -100,13 +100,13 @@ export const useCartActions = () => {
 				// throw new Error("Payment transaction details are missing.");
 			}
 
-			console.log(
-				`COMPLETE ORDER (Action - Step 1): Starting completion for Order ID: ${currentOrderId}`
-			);
-			console.log(
-				"COMPLETE ORDER (Action - Step 1): Received paymentInfo:",
-				JSON.stringify(paymentInfo, null, 2)
-			);
+			// console.log(
+			// 	`COMPLETE ORDER (Action - Step 1): Starting completion for Order ID: ${currentOrderId}`
+			// );
+			// console.log(
+			// 	"COMPLETE ORDER (Action - Step 1): Received paymentInfo:",
+			// 	JSON.stringify(paymentInfo, null, 2)
+			// );
 
 			// --- Construct Backend Payload DIRECTLY from paymentInfo ---
 			const payload = {
@@ -142,29 +142,29 @@ export const useCartActions = () => {
 				// transaction_id: ..., card_brand: ..., card_last4: ..., metadata: ...,
 			};
 
-			console.log(
-				"COMPLETE ORDER (Action - Step 2): Sending final payload to backend:",
-				JSON.stringify(payload, null, 2)
-			);
+			// console.log(
+			// 	"COMPLETE ORDER (Action - Step 2): Sending final payload to backend:",
+			// 	JSON.stringify(payload, null, 2)
+			// );
 
 			// Send to Backend
 			const response = await axiosInstance.post(
 				`orders/${currentOrderId}/complete/`,
 				payload
 			);
-			console.log(
-				"COMPLETE ORDER (Action - Step 3): Backend response:",
-				response.data
-			);
+			// console.log(
+			// 	"COMPLETE ORDER (Action - Step 3): Backend response:",
+			// 	response.data
+			// );
 
 			if (
 				response.status === 200 &&
 				response.data?.status === "success" &&
 				response.data?.order
 			) {
-				console.log(
-					"COMPLETE ORDER (Action): Order completed successfully in backend."
-				);
+				// console.log(
+				// 	"COMPLETE ORDER (Action): Order completed successfully in backend."
+				// );
 				storeState.setRewardsProfile(null);
 				// Clear cart/discount state AFTER successful completion & potential printing
 				storeState.clearCart();

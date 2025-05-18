@@ -15,7 +15,7 @@ export const useReceiptPrinter = () => {
 				message._source?.category === "HARDWARE" &&
 				message._source?.endpoint === "RECEIPT_PRINTER"
 			) {
-				console.log("Receipt printer message received:", message);
+				// console.log("Receipt printer message received:", message);
 				if (
 					message.type === "print_operation" ||
 					(message.type === "drawer_operation" && message.operation === "open")
@@ -38,7 +38,7 @@ export const useReceiptPrinter = () => {
 		(dataToSend) => {
 			// *** ADDED: Destructure to get both parts ***
 			const { receipt_data, open_drawer = false } = dataToSend || {}; // Default to empty object if dataToSend is null/undefined
-			console.log("useReceiptPrinter: printReceipt called with:", dataToSend);
+			// console.log("useReceiptPrinter: printReceipt called with:", dataToSend);
 
 			if (!isConnected) {
 				const errMsg = "Receipt printer not connected";
@@ -107,7 +107,7 @@ export const useReceiptPrinter = () => {
 						receipt_data: receipt_data, // Use destructured variable
 						open_drawer: !!open_drawer, // Ensure boolean true/false
 					};
-					console.log("useReceiptPrinter: Sending WS message:", payload);
+					// console.log("useReceiptPrinter: Sending WS message:", payload);
 					sendMessage("HARDWARE", "RECEIPT_PRINTER", payload);
 				} catch (err) {
 					window.removeEventListener("websocket-message", handleResponse);

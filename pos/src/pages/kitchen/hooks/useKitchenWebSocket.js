@@ -28,13 +28,13 @@ export const useKitchenWebSocket = () => {
 	// Request initial orders function
 	const requestInitialOrders = useCallback(() => {
 		if (!isConnected) {
-			console.log("Cannot request orders: Kitchen WebSocket not connected");
+			// console.log("Cannot request orders: Kitchen WebSocket not connected");
 			setLoading(false);
 			setError("WebSocket not connected. Please refresh the page.");
 			return false;
 		}
 
-		console.log("Requesting initial kitchen orders...");
+		// console.log("Requesting initial kitchen orders...");
 		setLoading(true);
 
 		// Clear any existing timeout
@@ -49,7 +49,7 @@ export const useKitchenWebSocket = () => {
 			// Set a timeout to clear loading state if we don't get a response
 			loadingTimeoutRef.current = setTimeout(() => {
 				if (!initialDataReceived.current) {
-					console.log("No response received for initial orders request");
+					// console.log("No response received for initial orders request");
 					setLoading(false);
 					setError("No response from kitchen service. Please try again.");
 				}
@@ -72,7 +72,7 @@ export const useKitchenWebSocket = () => {
 				detail._source?.category === "BUSINESS" &&
 				detail._source?.endpoint === "KITCHEN"
 			) {
-				console.log("Kitchen websocket message received:", detail);
+				// console.log("Kitchen websocket message received:", detail);
 
 				// Handle different message types
 				switch (detail.type) {
@@ -82,7 +82,7 @@ export const useKitchenWebSocket = () => {
 						setLoading(false);
 						setLastUpdate(new Date());
 						clearLoadingTimeout();
-						console.log("Initial orders loaded:", detail.orders?.length || 0);
+						// console.log("Initial orders loaded:", detail.orders?.length || 0);
 						break;
 
 					case "order_update":
@@ -121,7 +121,7 @@ export const useKitchenWebSocket = () => {
 
 					case "action_response":
 						// Handle responses to user actions
-						console.log("Action response:", detail);
+						// console.log("Action response:", detail);
 						break;
 
 					case "orders_update":
@@ -139,7 +139,7 @@ export const useKitchenWebSocket = () => {
 						break;
 
 					default:
-						console.log("Unhandled kitchen message type:", detail.type);
+						// console.log("Unhandled kitchen message type:", detail.type);
 				}
 			}
 		};

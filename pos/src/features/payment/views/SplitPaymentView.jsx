@@ -34,11 +34,11 @@ export const SplitPaymentView = ({
 
 	useEffect(() => {
 		if (state.splitMode && state.amountPaid > 0) {
-			console.log("SPLIT VIEW: Split view mounted after partial payment", {
-				amountPaid: state.amountPaid,
-				remainingAmount,
-				transactions: state.transactions.length,
-			});
+			// console.log("SPLIT VIEW: Split view mounted after partial payment", {
+			// 	amountPaid: state.amountPaid,
+			// 	remainingAmount,
+			// 	transactions: state.transactions.length,
+			// });
 
 			// Reset any "next" payment values to prevent auto-processing
 			setState((prev) => ({
@@ -55,16 +55,16 @@ export const SplitPaymentView = ({
 		const isFullyPaid = Math.abs(remainingAmount) < epsilon;
 
 		if (isFullyPaid && state.splitMode) {
-			console.log(
-				"SPLIT VIEW: Payment already complete, redirecting to completion",
-				{
-					remainingAmount,
-					amountPaid: state.amountPaid,
-					totalAmount: remainingAmount + state.amountPaid,
-					isFullyPaid,
-					epsilon,
-				}
-			);
+			// console.log(
+			// 	"SPLIT VIEW: Payment already complete, redirecting to completion",
+			// 	{
+			// 		remainingAmount,
+			// 		amountPaid: state.amountPaid,
+			// 		totalAmount: remainingAmount + state.amountPaid,
+			// 		isFullyPaid,
+			// 		epsilon,
+			// 	}
+			// );
 
 			// Add a slight delay to allow rendering to complete
 			const timer = setTimeout(() => {
@@ -120,9 +120,9 @@ export const SplitPaymentView = ({
 		//     currentSplitMethod: method,          // Keep this if needed, or pass via nav options
 		// }));
 
-		console.log(
-			`SPLIT VIEW: Navigating to ${method} with amount: ${amountForThisSplit}`
-		);
+		// console.log(
+		// 	`SPLIT VIEW: Navigating to ${method} with amount: ${amountForThisSplit}`
+		// );
 
 		// *** MODIFIED CALL: Pass amount in navigation options ***
 		handleNavigation(method, 1, { nextSplitAmount: amountForThisSplit });

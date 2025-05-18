@@ -18,14 +18,14 @@ export const printGenericTicketWithAgent = async (printJob) => {
 	if (!AGENT_BASE_URL) {
 		const errorMsg =
 			"Hardware Agent URL (VITE_HARDWARE_AGENT_URL) is not configured.";
-		console.error(errorMsg);
+		// console.error(errorMsg);
 		toast.error("Hardware Agent is not configured. Cannot print ticket.");
 		return { success: false, message: errorMsg };
 	}
 
 	// Ensure the new endpoint /print_ticket is used, or whatever you named it in the Python agent
 	const endpoint = `${AGENT_BASE_URL}/print_ticket`;
-	console.log(`Sending generic print job to agent: ${endpoint}`, printJob);
+	// console.log(`Sending generic print job to agent: ${endpoint}`, printJob);
 
 	try {
 		const response = await fetch(endpoint, {
@@ -42,26 +42,26 @@ export const printGenericTicketWithAgent = async (printJob) => {
 			const errorMessage =
 				result.message ||
 				`Agent error: ${response.status} ${response.statusText}`;
-			console.error(
-				`Hardware Agent print error for ${printJob.printer_id} (${printJob.ticket_type}): ${errorMessage}`,
-				result
-			);
+			// console.error(
+			// 	`Hardware Agent print error for ${printJob.printer_id} (${printJob.ticket_type}): ${errorMessage}`,
+			// 	result
+			// );
 			toast.error(`Print Failed (${printJob.ticket_type}): ${errorMessage}`);
 			return { success: false, message: errorMessage };
 		}
 
-		console.log(
-			`Hardware Agent print success for ${printJob.printer_id} (${printJob.ticket_type}):`,
-			result.message
-		);
+		// console.log(
+		// 	`Hardware Agent print success for ${printJob.printer_id} (${printJob.ticket_type}):`,
+		// 	result.message
+		// );
 		// Don't show a generic toast for every ticket type, or make it more specific
 		// toast.success(`Ticket (${printJob.ticket_type}) sent to printer ${printJob.printer_id}.`);
 		return { success: true, message: result.message, data: result };
 	} catch (error) {
-		console.error(
-			`Network or other error calling hardware agent for generic print (${printJob.printer_id}):`,
-			error
-		);
+		// console.error(
+		// 	`Network or other error calling hardware agent for generic print (${printJob.printer_id}):`,
+		// 	error
+		// );
 		let userMessage = `Could not connect to the hardware agent for ${printJob.ticket_type}. Is it running?`;
 		if (
 			error instanceof TypeError &&
@@ -115,15 +115,15 @@ export const printReceiptWithAgent = async (
  */
 export const openDrawerWithAgent = async () => {
 	if (!AGENT_BASE_URL) {
-		console.error(
-			"Hardware Agent URL (VITE_HARDWARE_AGENT_URL) is not configured."
-		);
+		// console.error(
+		// 	"Hardware Agent URL (VITE_HARDWARE_AGENT_URL) is not configured."
+		// );
 		toast.error("Hardware Agent is not configured. Cannot open drawer.");
 		return { success: false, message: "Hardware Agent URL not configured." };
 	}
 
 	const endpoint = `${AGENT_BASE_URL}/open_drawer`;
-	console.log(`Sending open drawer request to agent: ${endpoint}`);
+	// console.log(`Sending open drawer request to agent: ${endpoint}`);
 
 	try {
 		const response = await fetch(endpoint, {
@@ -138,19 +138,19 @@ export const openDrawerWithAgent = async () => {
 		if (!response.ok || result.status !== "success") {
 			const errorMessage =
 				result.message || `Agent error: ${response.statusText}`;
-			console.error(`Hardware Agent drawer error: ${errorMessage}`, result);
+			// console.error(`Hardware Agent drawer error: ${errorMessage}`, result);
 			toast.error(`Open Drawer Failed: ${errorMessage}`);
 			return { success: false, message: errorMessage };
 		}
 
-		console.log("Hardware Agent drawer success:", result.message);
+		// console.log("Hardware Agent drawer success:", result.message);
 		toast.info("Cash drawer open command sent.");
 		return { success: true, message: result.message };
 	} catch (error) {
-		console.error(
-			"Network or other error calling hardware agent for drawer:",
-			error
-		);
+		// console.error(
+		// 	"Network or other error calling hardware agent for drawer:",
+		// 	error
+		// );
 		let userMessage = "Could not connect to the hardware agent. Is it running?";
 		if (
 			error instanceof TypeError &&
@@ -175,16 +175,16 @@ export const openDrawerWithAgent = async () => {
  */
 export const checkAgentStatus = async () => {
 	if (!AGENT_BASE_URL) {
-		console.error(
-			"Hardware Agent URL (VITE_HARDWARE_AGENT_URL) is not configured."
-		);
+		// console.error(
+		// 	"Hardware Agent URL (VITE_HARDWARE_AGENT_URL) is not configured."
+		// );
 		return null;
 	}
 	const endpoint = `${AGENT_BASE_URL}/status`;
 	try {
 		const response = await fetch(endpoint);
 		if (!response.ok) {
-			console.warn(`Hardware agent status check failed: ${response.status}`);
+			// console.warn(`Hardware agent status check failed: ${response.status}`);
 			return {
 				status: "error",
 				message: `Agent status check failed: ${response.status}`,

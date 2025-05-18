@@ -99,7 +99,7 @@ export const WebSocketProvider = ({ children }) => {
 
 			try {
 				if (wsRefs.current[endpointKey]?.readyState === WebSocket.OPEN) {
-					console.log(`${endpointKey} WebSocket already connected`);
+					// console.log(`${endpointKey} WebSocket already connected`);
 					return;
 				}
 				if (wsRefs.current[endpointKey]) {
@@ -107,13 +107,13 @@ export const WebSocketProvider = ({ children }) => {
 				}
 
 				const wsUrl = getWebSocketUrl(category, endpointName);
-				console.log(`Connecting to ${wsUrl} for ${endpointKey}`);
+				// console.log(`Connecting to ${wsUrl} for ${endpointKey}`);
 
 				const ws = new WebSocket(wsUrl);
 				wsRefs.current[endpointKey] = ws;
 
 				ws.onopen = () => {
-					console.log(`${endpointKey} WebSocket Connected`);
+					// console.log(`${endpointKey} WebSocket Connected`);
 					setConnections((prev) => ({
 						...prev,
 						[category]: {
@@ -127,27 +127,27 @@ export const WebSocketProvider = ({ children }) => {
 				ws.onmessage = (e) => {
 					try {
 						const data = JSON.parse(e.data);
-						console.log(`${endpointKey} WebSocket received:`, data);
+						// console.log(`${endpointKey} WebSocket received:`, data);
 
 						// +++ Specific handler for print jobs from the POS endpoint +++
 						if (category === "BUSINESS" && endpointName === "POS") {
 							if (data.type === "new_website_order_for_printing") {
-								console.log(
-									`Received print jobs for order ${data.order_id}:`,
-									data.print_jobs
-								);
+								// console.log(
+								// 	`Received print jobs for order ${data.order_id}:`,
+								// 	data.print_jobs
+								// );
 								if (data.print_jobs && Array.isArray(data.print_jobs)) {
 									data.print_jobs.forEach((job) => {
-										console.log(
-											`Attempting to print job via agent for printer: ${job.printer_id}`,
-											job
-										);
+										// console.log(
+										// 	`Attempting to print job via agent for printer: ${job.printer_id}`,
+										// 	job
+										// );
 										printGenericTicketWithAgent(job) // Assuming printJob structure matches agent's expectation
 											.then((response) => {
 												if (response.success) {
-													console.log(
-														`Successfully sent print job for ${job.printer_id} (Order: ${data.order_id})`
-													);
+													// console.log(
+													// 	`Successfully sent print job for ${job.printer_id} (Order: ${data.order_id})`
+													// );
 													// Optionally, dispatch a success notification to UI
 												} else {
 													console.error(
@@ -188,11 +188,11 @@ export const WebSocketProvider = ({ children }) => {
 				};
 
 				ws.onclose = (event) => {
-					console.log(
-						`${endpointKey} WebSocket Disconnected:`,
-						event.code,
-						event.reason
-					);
+					// console.log(
+					// 	`${endpointKey} WebSocket Disconnected:`,
+					// 	event.code,
+					// 	event.reason
+					// );
 					setConnections((prev) => ({
 						...prev,
 						[category]: {
@@ -206,9 +206,9 @@ export const WebSocketProvider = ({ children }) => {
 					if (!event.wasClean) {
 						// Only attempt reconnect if not a clean closure
 						const delay = calculateReconnectDelay(endpointKey);
-						console.log(
-							`Will attempt to reconnect ${endpointKey} in ${delay}ms`
-						);
+						// console.log(
+						// 	`Will attempt to reconnect ${endpointKey} in ${delay}ms`
+						// );
 						setTimeout(() => {
 							if (document.visibilityState !== "hidden") {
 								connect(category, endpointName);
@@ -265,7 +265,7 @@ export const WebSocketProvider = ({ children }) => {
 				// id: Date.now().toString(), // Backend might not need these for messages from client
 				// timestamp: new Date().toISOString(),
 			};
-			console.log(`Sending message to ${endpointKey}:`, formattedMessage);
+			// console.log(`Sending message to ${endpointKey}:`, formattedMessage);
 			wsRefs.current[endpointKey].send(JSON.stringify(formattedMessage));
 			return true;
 		},
@@ -289,7 +289,7 @@ export const WebSocketProvider = ({ children }) => {
 	useEffect(() => {
 		const handleVisibilityChange = () => {
 			if (document.visibilityState === "visible") {
-				console.log("Tab is now visible, checking connections...");
+				// console.log("Tab is now visible, checking connections...");
 				Object.entries(WS_ENDPOINTS).forEach(([category, endpoints]) => {
 					Object.keys(endpoints).forEach((endpointName) => {
 						const endpointKey = `${category}.${endpointName}`;
@@ -298,9 +298,9 @@ export const WebSocketProvider = ({ children }) => {
 							wsRefs.current[endpointKey]?.readyState !== WebSocket.CONNECTING
 						) {
 							// Also check for CONNECTING
-							console.log(
-								`Reconnecting to ${endpointKey} after visibility change`
-							);
+							// console.log(
+							// 	`Reconnecting to ${endpointKey} after visibility change`
+							// );
 							connect(category, endpointName);
 						}
 					});

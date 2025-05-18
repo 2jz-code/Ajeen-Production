@@ -43,7 +43,7 @@ class HardwareService {
 			}
 		  );
 		  
-		  console.log('Hardware Service - Close Drawer Response:', response);
+		//   console.log('Hardware Service - Close Drawer Response:', response);
 	  
 		  return {
 			status: response.data?.status || response.status,
@@ -51,10 +51,10 @@ class HardwareService {
 			message: response.data?.message || 'Drawer closed successfully'
 		  };
 		} catch (error) {
-		  console.error('Hardware Service - Close Drawer Error:', {
-			message: error.message,
-			response: error.response
-		  });
+		//   console.error('Hardware Service - Close Drawer Error:', {
+		// 	message: error.message,
+		// 	response: error.response
+		//   });
 		  throw this.handleError(error, "Failed to close cash drawer");
 		}
 	  }

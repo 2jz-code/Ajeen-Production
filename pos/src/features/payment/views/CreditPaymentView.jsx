@@ -132,10 +132,10 @@ export const CreditPaymentView = ({
 		setError(null);
 		setFlowStarted(false);
 		setViewProcessingState(false);
-		console.log(`CreditPaymentView Mounted/Reset for total: ${totalAmount}`);
+		// console.log(`CreditPaymentView Mounted/Reset for total: ${totalAmount}`);
 		return () => {
 			isMountedRef.current = false;
-			console.log("CreditPaymentView Unmounted");
+			// console.log("CreditPaymentView Unmounted");
 		};
 	}, [totalAmount]);
 
@@ -149,7 +149,7 @@ export const CreditPaymentView = ({
 		try {
 			const orderId = state.orderId || useCartStore.getState().orderId;
 			if (!orderId) throw new Error("Order ID missing");
-			console.log("CREDIT VIEW: Starting POS and customer display flow...");
+			// console.log("CREDIT VIEW: Starting POS and customer display flow...");
 			const payloadForDisplay = {
 				orderData: {
 					total: currentPaymentAmountNum,
@@ -168,10 +168,10 @@ export const CreditPaymentView = ({
 				amountCharged: amountChargedThisTxnNum,
 			};
 			startFlow(startFlowArgs);
-			console.log(
-				"CREDIT VIEW: useCustomerFlow.startFlow called.",
-				startFlowArgs
-			);
+			// console.log(
+			// 	"CREDIT VIEW: useCustomerFlow.startFlow called.",
+			// 	startFlowArgs
+			// );
 			setFlowStarted(true);
 		} catch (err) {
 			console.error("CREDIT VIEW: Error starting customer display flow:", err);
@@ -197,9 +197,9 @@ export const CreditPaymentView = ({
 		const receiptStepSignalledComplete = stepData.receiptComplete === true;
 		const paymentSuccess = stepData.payment?.status === "success";
 
-		console.log(
-			`CREDIT_VIEW_EFFECT_MAIN: Step=${customerFlowStep}, ReceiptDone=${receiptStepSignalledComplete}, PaymentOK=${paymentSuccess}, PaymentProcessedRef=${paymentProcessedRef.current}, CompletionProcessedRef=${completionProcessedRef.current}`
-		);
+		// console.log(
+		// 	`CREDIT_VIEW_EFFECT_MAIN: Step=${customerFlowStep}, ReceiptDone=${receiptStepSignalledComplete}, PaymentOK=${paymentSuccess}, PaymentProcessedRef=${paymentProcessedRef.current}, CompletionProcessedRef=${completionProcessedRef.current}`
+		// );
 
 		if (
 			customerFlowStep === "receipt" &&
@@ -208,9 +208,9 @@ export const CreditPaymentView = ({
 			!paymentProcessedRef.current
 		) {
 			paymentProcessedRef.current = true;
-			console.log(
-				"CREDIT_VIEW_EFFECT_MAIN: Conditions MET. Processing payment update..."
-			);
+			// console.log(
+			// 	"CREDIT_VIEW_EFFECT_MAIN: Conditions MET. Processing payment update..."
+			// );
 			setViewProcessingState(true);
 
 			// Prepare transaction details
@@ -245,18 +245,18 @@ export const CreditPaymentView = ({
 						);
 					}
 
-					console.log(
-						"CREDIT_VIEW_EFFECT_MAIN: handlePayment succeeded:",
-						paymentResult
-					);
+					// console.log(
+					// 	"CREDIT_VIEW_EFFECT_MAIN: handlePayment succeeded:",
+					// 	paymentResult
+					// );
 					const { isNowComplete, updatedTransactions } = paymentResult;
 
 					// Check if the entire order is complete
 					if (isNowComplete && !completionProcessedRef.current) {
 						completionProcessedRef.current = true;
-						console.log(
-							"CREDIT_VIEW_EFFECT_MAIN: Order complete. Finalizing..."
-						);
+						// console.log(
+						// 	"CREDIT_VIEW_EFFECT_MAIN: Order complete. Finalizing..."
+						// );
 
 						// Finalize order with backend
 						(async () => {
@@ -269,15 +269,15 @@ export const CreditPaymentView = ({
 								if (!isMountedRef.current) return;
 
 								if (completedOrderData) {
-									console.log("CREDIT_VIEW_EFFECT_MAIN: Backend successful.");
+									// console.log("CREDIT_VIEW_EFFECT_MAIN: Backend successful.");
 									// *** Navigate directly to Completion, passing payload ***
 									const receiptPayload =
 										completedOrderData.receipt_payload || null;
-									console.log(
-										`CREDIT_VIEW_EFFECT_MAIN: Navigating to Completion. Payload ${
-											receiptPayload ? "exists" : "missing"
-										}.`
-									);
+									// console.log(
+									// 	`CREDIT_VIEW_EFFECT_MAIN: Navigating to Completion. Payload ${
+									// 		receiptPayload ? "exists" : "missing"
+									// 	}.`
+									// );
 									handleNavigation("Completion", 1, {
 										receiptPayload: receiptPayload,
 									});
@@ -319,9 +319,9 @@ export const CreditPaymentView = ({
 					) {
 						// Intermediate Split Logic (remains the same)
 						completionProcessedRef.current = true;
-						console.log(
-							"CREDIT_VIEW_EFFECT_MAIN: Intermediate split complete. Resetting..."
-						);
+						// console.log(
+						// 	"CREDIT_VIEW_EFFECT_MAIN: Intermediate split complete. Resetting..."
+						// );
 						completeCustomerDisplayFlow();
 						setFlowStarted(false);
 						const orderTotalAmount = totalAmount;
@@ -344,9 +344,9 @@ export const CreditPaymentView = ({
 						}, 50);
 						setViewProcessingState(false);
 					} else if (completionProcessedRef.current) {
-						console.log(
-							"CREDIT_VIEW_EFFECT_MAIN: Completion already processed. Skipping."
-						);
+						// console.log(
+						// 	"CREDIT_VIEW_EFFECT_MAIN: Completion already processed. Skipping."
+						// );
 						if (viewProcessingState) setViewProcessingState(false);
 					} else {
 						console.error("CREDIT_VIEW_EFFECT_MAIN: Unexpected state.");
@@ -371,9 +371,9 @@ export const CreditPaymentView = ({
 					setViewProcessingState(false);
 				});
 		} else {
-			console.log(
-				"CREDIT_VIEW_EFFECT_MAIN: Conditions NOT met or already processed. Skipping."
-			);
+			// console.log(
+			// 	"CREDIT_VIEW_EFFECT_MAIN: Conditions NOT met or already processed. Skipping."
+			// );
 		}
 	}, [
 		// Dependencies
@@ -399,12 +399,12 @@ export const CreditPaymentView = ({
 		if (viewProcessingState) return;
 		setViewProcessingState(true);
 		setError(null);
-		console.log("CREDIT VIEW: Attempting to cancel credit payment flow...");
+		// console.log("CREDIT VIEW: Attempting to cancel credit payment flow...");
 		try {
-			console.log("CREDIT VIEW: Calling cancelTerminalAction...");
+			// console.log("CREDIT VIEW: Calling cancelTerminalAction...");
 			const cancelResult = await cancelTerminalAction();
 			if (cancelResult.success) {
-				console.log("CREDIT VIEW: cancelTerminalAction request sent.");
+				// console.log("CREDIT VIEW: cancelTerminalAction request sent.");
 			} else {
 				console.warn(
 					"CREDIT VIEW: cancelTerminalAction failed.",
@@ -417,7 +417,7 @@ export const CreditPaymentView = ({
 				);
 			}
 			if (flowActive) {
-				console.log("CREDIT VIEW: Resetting customer display flow.");
+				// console.log("CREDIT VIEW: Resetting customer display flow.");
 				completeCustomerDisplayFlow();
 			}
 			handleNavigation(state.splitMode ? "Split" : "InitialOptions", -1);

@@ -66,7 +66,7 @@ const ReceiptView = ({ orderData, paymentData, onComplete, paymentMethod }) => {
 
 		// Signal completion quickly
 		completeTimerId = setTimeout(() => {
-			console.log("ReceiptView: Calling onComplete");
+			// console.log("ReceiptView: Calling onComplete");
 			if (onComplete) {
 				onComplete({ status: "complete", timestamp: new Date().toISOString() });
 			}
