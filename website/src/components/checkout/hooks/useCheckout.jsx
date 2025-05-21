@@ -1,272 +1,419 @@
 // File: combined/website/src/components/checkout/hooks/useCheckout.jsx
-import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import axiosInstance from "../../../api/api"; // Your API instance
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import axiosInstance from "../../../api/api";
 import { useAuth } from "../../../contexts/AuthContext";
-import { fetchCurrentCartData } from "../../utility/CartUtils"; // Ensure this path is correct
+import { fetchCurrentCartData } from "../../utility/CartUtils";
+
+const SURCHARGE_RATE_WEBSITE = 0.035;
+const TAX_RATE = 0.08125;
+
+const LOCAL_STORAGE_CHECKOUT_FORM_DATA_KEY = "checkoutFormData";
+const LOCAL_STORAGE_PENDING_ORDER_ID_KEY = "pendingOrderId";
 
 const useCheckout = () => {
-	const [cartItems, setCartItems] = useState([]);
-	const [step, setStep] = useState(1);
-	const [isLoading, setIsLoading] = useState(true); // For initial cart load
-	const [isCreatingOrder, setIsCreatingOrder] = useState(false); // When POSTing order to backend
-	const [error, setError] = useState(null);
 	const navigate = useNavigate();
+	const location = useLocation();
 	const { isAuthenticated, user, authChecked } = useAuth();
-	const [pendingOrderId, setPendingOrderId] = useState(null);
 
-	const [formData, setFormData] = useState({
-		first_name: "",
-		last_name: "",
-		email: "",
-		phone: "", // Ensure phone is part of the initial state
-		delivery_method: "pickup", // Fixed to pickup
-		payment_method: "card", // Default and only option now
-		notes: "",
+	const [cartItems, setCartItems] = useState([]);
+	const [formData, setFormData] = useState(() => {
+		const storedFormData = localStorage.getItem(
+			LOCAL_STORAGE_CHECKOUT_FORM_DATA_KEY
+		);
+		const defaultFormData = {
+			first_name: "",
+			// Corrected: lastName to last_name to match formData structure and backend expectations
+			last_name: "",
+			email: "",
+			phone: "",
+			delivery_method: "pickup",
+			payment_method: "card",
+			notes: "",
+		};
+		try {
+			const parsed = storedFormData ? JSON.parse(storedFormData) : {};
+			return { ...defaultFormData, ...parsed }; // Merge to ensure all keys exist
+		} catch (e) {
+			return defaultFormData;
+		}
 	});
 
+	const [pendingOrderId, setPendingOrderId] = useState(
+		() => localStorage.getItem(LOCAL_STORAGE_PENDING_ORDER_ID_KEY) || null
+	);
+
+	const [step, setStep] = useState(1);
+	const [isLoading, setIsLoading] = useState(true);
+	const [isProcessingOrder, setIsProcessingOrder] = useState(false);
+	const [error, setError] = useState(null);
+	const prevUserRef = useRef(user);
+
+	useEffect(() => {
+		localStorage.setItem(
+			LOCAL_STORAGE_CHECKOUT_FORM_DATA_KEY,
+			JSON.stringify(formData)
+		);
+	}, [formData]);
+
+	useEffect(() => {
+		if (pendingOrderId) {
+			localStorage.setItem(LOCAL_STORAGE_PENDING_ORDER_ID_KEY, pendingOrderId);
+		} else {
+			localStorage.removeItem(LOCAL_STORAGE_PENDING_ORDER_ID_KEY);
+		}
+	}, [pendingOrderId]);
+
 	const formatPrice = (price) => {
-		if (price === null || price === undefined) return "0.00";
-		const numericPrice = typeof price === "string" ? parseFloat(price) : price;
+		const numericPrice =
+			typeof price === "string" ? parseFloat(price) : Number(price);
 		return isNaN(numericPrice) ? "0.00" : numericPrice.toFixed(2);
 	};
 
 	const subtotal = cartItems.reduce(
-		(sum, item) => sum + (item.item_price || 0) * (item.quantity || 0),
+		(sum, item) => sum + (Number(item.item_price) || 0) * (item.quantity || 0),
 		0
 	);
-	const tax = subtotal * 0.1; // Assuming 10% tax
-	const total = subtotal + tax;
+	const surchargeAmount = parseFloat(
+		(subtotal * SURCHARGE_RATE_WEBSITE).toFixed(2)
+	);
+	const subtotalAfterSurcharge = subtotal + surchargeAmount;
+	const tax = parseFloat((subtotalAfterSurcharge * TAX_RATE).toFixed(2));
+	const tipAmount = 0.0;
+	const discountAmount = 0.0;
+	const total = parseFloat(
+		(subtotalAfterSurcharge + tax + tipAmount - discountAmount).toFixed(2)
+	);
+	const surchargePercentageDisplay = `${(SURCHARGE_RATE_WEBSITE * 100).toFixed(
+		1
+	)}%`;
+	const taxDisplay = `${(TAX_RATE * 100).toFixed(3)}%`;
 
 	const handleChange = (e) => {
 		const { name, value } = e.target;
 		setFormData((prev) => ({ ...prev, [name]: value }));
 	};
 
-	// handleRadioChange is no longer needed for payment_method if it's fixed.
-	// If you used it for delivery_method (though it's fixed to pickup), keep it.
-	// const handleRadioChange = (name, value) => { /* ... */ };
-
 	const nextStep = () => setStep((prev) => Math.min(prev + 1, 2));
 	const prevStep = () => setStep((prev) => Math.max(prev - 1, 1));
 
-	// This function creates the order on the backend before Stripe interaction
-	const createOrderBeforePayment = useCallback(async () => {
-		if (pendingOrderId || isCreatingOrder) return null;
+	const prepareOrderForPayment = useCallback(async () => {
+		// Check if already processing *inside* the function to prevent concurrent calls
+		// This check is important if the function is called from multiple places or rapidly.
+		if (isProcessingOrder) {
+			console.log(
+				"prepareOrderForPayment: Already processing, returning current pendingOrderId or null."
+			);
+			return pendingOrderId || null;
+		}
 
 		const { first_name, last_name, email, phone } = formData;
-		let requiredFieldsComplete = true;
 		let missingFieldNames = [];
-
 		if (!isAuthenticated) {
-			// For guests, these are essential from the form
-			if (!first_name) {
-				missingFieldNames.push("First Name");
-				requiredFieldsComplete = false;
-			}
-			if (!last_name) {
-				missingFieldNames.push("Last Name");
-				requiredFieldsComplete = false;
-			}
-			if (!email) {
-				missingFieldNames.push("Email");
-				requiredFieldsComplete = false;
-			}
+			if (!first_name) missingFieldNames.push("First Name");
+			if (!last_name) missingFieldNames.push("Last Name"); // Corrected key
+			if (!email) missingFieldNames.push("Email");
 		}
-		// Phone is always required now
-		if (!phone) {
-			missingFieldNames.push("Phone Number");
-			requiredFieldsComplete = false;
-		}
+		if (!phone) missingFieldNames.push("Phone Number");
 
-		if (!requiredFieldsComplete) {
+		if (missingFieldNames.length > 0) {
 			setError(
 				`Please fill in all required fields: ${missingFieldNames.join(", ")}.`
 			);
 			window.scrollTo(0, 0);
-			return null;
+			return null; // Return null to indicate failure/stop
 		}
 
-		setIsCreatingOrder(true);
+		setIsProcessingOrder(true); // Set processing to true
 		setError(null);
-
-		// Backend expects 'payment_method' in payload even if it's always 'card'
-		const payload = {
-			...formData, // Includes first_name, last_name, email, phone, notes
-			delivery_method: "pickup", // Fixed
-			payment_method: "card", // Fixed
-			// If your backend GuestCheckoutView or WebsiteCheckoutView expects items in payload:
-			// items: cartItems.map(item => ({ product_id: item.product_id || item.id, quantity: item.quantity })),
+		const financialPayload = {
+			subtotal: parseFloat(subtotal.toFixed(2)),
+			tax_amount: parseFloat(tax.toFixed(2)),
+			surcharge_amount: parseFloat(surchargeAmount.toFixed(2)),
+			surcharge_percentage: SURCHARGE_RATE_WEBSITE,
+			tip_amount: parseFloat(tipAmount.toFixed(2)),
+			discount_amount: parseFloat(discountAmount.toFixed(2)),
+			total_amount: parseFloat(total.toFixed(2)),
 		};
-		// Remove redundant/fixed fields if the backend doesn't need them explicitly for card orders
-		// delete payload.delivery_method;
-		// delete payload.payment_method; // Or send it as 'card'
 
-		const endpoint = isAuthenticated
-			? "website/checkout/"
-			: "website/guest-checkout/";
-		// console.log(`Creating order with payload to ${endpoint}:`, payload);
+		let orderDataPayload = { ...formData, ...financialPayload };
+		let response;
+		let orderIdToReturn = null;
 
 		try {
-			const response = await axiosInstance.post(endpoint, payload);
-			const orderId = response.data.id || response.data.order_id;
-
-			if (!orderId) {
-				console.error(
-					"No order ID in createOrderBeforePayment response:",
-					response.data
+			if (pendingOrderId) {
+				orderDataPayload.order_id = pendingOrderId;
+				console.log(
+					"Frontend: Calling backend to UPDATE order record. Payload:",
+					JSON.stringify(orderDataPayload, null, 2)
 				);
-				setError("Failed to prepare order for payment. Please try again.");
-				setIsCreatingOrder(false);
-				return null;
+				response = await axiosInstance.put(
+					"website/checkout/",
+					orderDataPayload
+				);
+			} else {
+				console.log(
+					"Frontend: Calling backend to CREATE order record. Payload:",
+					JSON.stringify(orderDataPayload, null, 2)
+				);
+				response = await axiosInstance.post(
+					"website/checkout/",
+					orderDataPayload
+				);
 			}
-			// console.log("Order record created successfully with ID:", orderId);
-			setPendingOrderId(orderId);
-			setIsCreatingOrder(false);
-			return orderId; // Crucial for PaymentForm
-		} catch (error) {
-			console.error(
-				"Failed to create order record:",
-				error.response?.data || error.message
-			);
+
+			const orderIdFromServer = response.data.id || response.data.order_id;
+			if (!orderIdFromServer) {
+				setError(
+					"Failed to prepare order for payment (no ID returned). Please try again."
+				);
+				orderIdToReturn = null;
+			} else {
+				if (!pendingOrderId || pendingOrderId !== orderIdFromServer) {
+					setPendingOrderId(orderIdFromServer);
+				}
+				orderIdToReturn = orderIdFromServer;
+			}
+		} catch (err) {
 			const errorMsg =
-				error.response?.data?.error ||
-				"Failed to prepare your order. Please check your information and try again.";
+				err.response?.data?.error || "Failed to prepare your order.";
 			setError(errorMsg);
 			window.scrollTo(0, 0);
-			setIsCreatingOrder(false);
-			return null;
+			orderIdToReturn = null;
+		} finally {
+			setIsProcessingOrder(false); // Set processing to false in finally block
 		}
-	}, [formData, isAuthenticated, pendingOrderId, isCreatingOrder, cartItems]); // cartItems if sending them
+		return orderIdToReturn; // Return the orderId or null
+	}, [
+		formData,
+		isAuthenticated,
+		pendingOrderId, // isProcessingOrder removed from here
+		subtotal,
+		tax,
+		surchargeAmount,
+		total,
+		tipAmount,
+		discountAmount,
+		// setPendingOrderId, setError, setIsProcessingOrder are stable setters
+	]);
 
 	const handlePaymentSuccess = (paymentResult) => {
-		// Called by PaymentForm
-		// console.log(
-		// 	"Stripe Payment successful from Stripe, client-side result:",
-		// 	paymentResult
-		// );
 		if (pendingOrderId) {
+			localStorage.removeItem(LOCAL_STORAGE_CHECKOUT_FORM_DATA_KEY);
+			localStorage.removeItem(LOCAL_STORAGE_PENDING_ORDER_ID_KEY);
+			setPendingOrderId(null);
+
 			const navigationState = {
 				orderId: pendingOrderId,
 				isGuest: !isAuthenticated,
-				// Pass all customer details that were used to create the order, for display on confirmation
-				customerDetails: {
-					firstName: formData.first_name,
-					lastName: formData.last_name,
-					email: formData.email,
-					phone: formData.phone, // Ensure phone is passed
-				},
-				// You can also pass paymentIntentId if needed on confirmation, e.g. from paymentResult
+				customerDetails: { ...formData },
 				paymentIntentId: paymentResult?.paymentIntent?.id,
 			};
 			navigate("/confirmation", { state: navigationState });
 		} else {
-			console.error(
-				"Stripe payment success reported, but no pendingOrderId was found in useCheckout state!"
-			);
-			setError(
-				"Payment succeeded but we encountered an issue finalizing your order details. Please contact support."
-			);
+			setError("Payment succeeded but order finalization issue occurred.");
 		}
 	};
 
 	useEffect(() => {
-		// Fetch cart and prefill form
 		if (!authChecked) return;
 		setIsLoading(true);
 		fetchCurrentCartData()
-			.then((cartData) => {
-				if (!cartData || !cartData.items || cartData.items.length === 0) {
-					navigate("/menu");
-					return;
-				}
-				setCartItems(cartData.items || []);
-				if (isAuthenticated && user) {
-					setFormData((prev) => ({
-						...prev,
-						first_name: user.first_name || "",
-						last_name: user.last_name || "",
-						email: user.email || "",
-						phone: user.phone_number || prev.phone || "", // Use profile phone, allow override if prev.phone has value
-						payment_method: "card", // Ensure default
-					}));
+			.then((backendCartData) => {
+				if (backendCartData?.items && backendCartData.items.length > 0) {
+					setCartItems(backendCartData.items);
 				} else {
-					// Guest or user data not yet loaded
-					setFormData((prev) => ({
-						...prev, // Keep any typed data
-						payment_method: "card", // Ensure default
-					}));
+					const storedFormDataExists = !!localStorage.getItem(
+						LOCAL_STORAGE_CHECKOUT_FORM_DATA_KEY
+					);
+					if (
+						!storedFormDataExists &&
+						(!backendCartData || backendCartData.items.length === 0)
+					) {
+						navigate("/menu");
+						return;
+					}
 				}
+
+				const C_PREV_USER = prevUserRef.current;
+				const lastSavedFormData = JSON.parse(
+					localStorage.getItem(LOCAL_STORAGE_CHECKOUT_FORM_DATA_KEY) || "{}"
+				);
+
+				if (isAuthenticated && user) {
+					setFormData((currentFormState) => {
+						const getFieldVal = (
+							profileVal,
+							currentValInForm,
+							prevProfileVal,
+							lsVal
+						) => {
+							if (
+								profileVal &&
+								(!currentValInForm ||
+									currentValInForm === prevProfileVal ||
+									currentValInForm === lsVal)
+							)
+								return profileVal;
+							return currentValInForm || lsVal || ""; // Ensure fallback to empty string
+						};
+						return {
+							// ...lastSavedFormData, // Start with LS data
+							first_name: getFieldVal(
+								user.first_name,
+								currentFormState.first_name,
+								C_PREV_USER?.first_name,
+								lastSavedFormData.first_name
+							),
+							last_name: getFieldVal(
+								user.last_name,
+								currentFormState.last_name,
+								C_PREV_USER?.last_name,
+								lastSavedFormData.last_name
+							),
+							email: getFieldVal(
+								user.email,
+								currentFormState.email,
+								C_PREV_USER?.email,
+								lastSavedFormData.email
+							),
+							phone: getFieldVal(
+								user.phone_number,
+								currentFormState.phone,
+								C_PREV_USER?.phone_number,
+								lastSavedFormData.phone
+							),
+							notes: currentFormState.notes || lastSavedFormData.notes || "",
+							delivery_method: lastSavedFormData.delivery_method || "pickup",
+							payment_method: lastSavedFormData.payment_method || "card",
+						};
+					});
+				} else if (!isAuthenticated && authChecked) {
+					if (C_PREV_USER) {
+						// User just logged out
+						setFormData({
+							first_name: "",
+							last_name: "",
+							email: "",
+							phone: "",
+							delivery_method: lastSavedFormData.delivery_method || "pickup",
+							payment_method: lastSavedFormData.payment_method || "card",
+							notes: lastSavedFormData.notes || "",
+						});
+					} else {
+						// Guest from start, formData already initialized from localStorage or default
+						setFormData((prev) => ({
+							...prev,
+							...lastSavedFormData,
+							payment_method: "card",
+							delivery_method: "pickup",
+						}));
+					}
+				}
+				prevUserRef.current = user;
 			})
 			.catch((err) => {
-				console.error("Failed to fetch cart items:", err);
-				setError("Unable to load your cart.");
+				setError("Unable to load your cart. Please try refreshing.");
 			})
 			.finally(() => setIsLoading(false));
-	}, [navigate, authChecked, isAuthenticated, user]);
+	}, [authChecked, isAuthenticated, user, navigate]);
 
-	// Auto-create order when user reaches payment step (step 2)
+	// Effect to call prepareOrderForPayment when moving to step 2 OR if cartItems/formData changes on step 2
 	useEffect(() => {
-		if (
-			step === 2 &&
-			!pendingOrderId &&
-			!isCreatingOrder &&
-			cartItems.length > 0 &&
-			authChecked // Ensure we know if user is auth or guest
-		) {
-			// Validation before auto-creating order
-			let canCreate = true;
-			const { first_name, last_name, email, phone } = formData;
-			if (!isAuthenticated) {
-				// Guest validation
-				if (!first_name || !last_name || !email || !phone) {
-					canCreate = false;
-					// console.log(
-					// "Guest form not complete, delaying auto order creation for card."
-					// );
+		if (step === 2 && cartItems.length > 0 && authChecked) {
+			// Check isProcessingOrder *inside* to prevent starting a new call if one is in progress
+			if (!isProcessingOrder) {
+				const { first_name, last_name, email, phone } = formData;
+				let canProceed = true;
+				if (!isAuthenticated) {
+					if (!first_name || !last_name || !email) canProceed = false;
 				}
-			} else if (isAuthenticated && !phone) {
-				// Authenticated user must also have phone
-				canCreate = false;
-				// console.log(
-				// "Authenticated user phone not provided, delaying auto order creation for card."
-				// );
-			}
+				if (!phone) canProceed = false;
 
-			if (canCreate) {
-				// console.log(
-				// // "Auto-creating order record for card payment (step 2 reached)."
-				// );
-				createOrderBeforePayment();
+				if (canProceed) {
+					console.log(
+						"useEffect [step, cartItems...]: Triggering prepareOrderForPayment. Current pendingOrderId:",
+						pendingOrderId
+					);
+					prepareOrderForPayment();
+				} else {
+					// Don't set error if already processing, error will be set by prepareOrderForPayment if needed
+					console.log(
+						"useEffect [step, cartItems...]: Contact info incomplete, not calling prepareOrderForPayment."
+					);
+					setError("Please complete your contact information to proceed.");
+				}
+			} else {
+				console.log(
+					"useEffect [step, cartItems...]: Skipped prepareOrderForPayment because isProcessingOrder is true."
+				);
 			}
 		}
 	}, [
 		step,
-		pendingOrderId,
-		isCreatingOrder,
-		cartItems.length,
+		cartItems, // If cart items change (e.g. quantity update in another tab, then totals change), re-prepare.
+		formData, // If form data changes (e.g. user edits phone number), re-validate and re-prepare.
 		authChecked,
-		formData,
 		isAuthenticated,
-		createOrderBeforePayment,
+		prepareOrderForPayment, // This is a dependency as it's called.
+		// isProcessingOrder is NOT a dependency here to break the loop.
+		// pendingOrderId is implicitly handled by prepareOrderForPayment logic.
 	]);
+
+	useEffect(() => {
+		const isCheckoutPage = location.pathname.includes("/checkout");
+		if (cartItems.length === 0 && !isLoading && authChecked && isCheckoutPage) {
+			if (
+				pendingOrderId ||
+				localStorage.getItem(LOCAL_STORAGE_PENDING_ORDER_ID_KEY)
+			) {
+				console.log(
+					"Cart is empty while on checkout, clearing pending order ID and form data."
+				);
+				localStorage.removeItem(LOCAL_STORAGE_PENDING_ORDER_ID_KEY);
+				localStorage.removeItem(LOCAL_STORAGE_CHECKOUT_FORM_DATA_KEY);
+				setPendingOrderId(null);
+				setFormData({
+					first_name: "",
+					last_name: "",
+					email: "",
+					phone: "",
+					delivery_method: "pickup",
+					payment_method: "card",
+					notes: "",
+				});
+				if (step === 2) setStep(1);
+			}
+		}
+	}, [
+		cartItems.length,
+		isLoading,
+		authChecked,
+		pendingOrderId,
+		location.pathname,
+		step,
+		navigate,
+	]); // Added navigate
 
 	return {
 		cartItems,
 		formData,
 		step,
 		isLoading,
-		isCreatingOrder,
+		isProcessingOrder,
 		error,
 		pendingOrderId,
 		subtotal,
+		surchargeAmount,
+		surchargePercentageDisplay,
+		taxDisplay,
 		tax,
 		total,
 		formatPrice,
 		handleChange,
 		nextStep,
 		prevStep,
-		createOrderBeforePayment, // Expose this if a button needs to manually trigger it
+		prepareOrderForPayment,
 		handlePaymentSuccess,
 		setError,
 		isAuthenticated,

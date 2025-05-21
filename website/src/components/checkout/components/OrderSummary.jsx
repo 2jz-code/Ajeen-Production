@@ -1,7 +1,15 @@
 // src/components/checkout/components/OrderSummary.jsx
 import React from "react";
 
-const OrderSummary = ({ subtotal, tax, total, formatPrice }) => {
+const OrderSummary = ({
+	subtotal,
+	tax,
+	total,
+	formatPrice,
+	surchargeAmount,
+	surchargePercentageDisplay,
+	taxDisplay,
+}) => {
 	return (
 		<div className="bg-gray-50 rounded-md p-4 mb-6 border border-gray-200">
 			<h3 className="font-medium mb-3">Order Summary</h3>
@@ -10,8 +18,16 @@ const OrderSummary = ({ subtotal, tax, total, formatPrice }) => {
 					<span className="text-gray-600">Subtotal</span>
 					<span>${formatPrice(subtotal)}</span>
 				</div>
+				{surchargeAmount > 0 && ( // Only display if there's a surcharge
+					<div className="flex justify-between">
+						<span className="text-gray-600">
+							Surcharge ({surchargePercentageDisplay || "N/A"})
+						</span>
+						<span>${formatPrice(surchargeAmount)}</span>
+					</div>
+				)}
 				<div className="flex justify-between">
-					<span className="text-gray-600">Tax (10%)</span>
+					<span className="text-gray-600">Tax ({taxDisplay || "N/A"})</span>
 					<span>${formatPrice(tax)}</span>
 				</div>
 				<div className="border-t border-gray-200 pt-2 mt-2 font-medium flex justify-between">

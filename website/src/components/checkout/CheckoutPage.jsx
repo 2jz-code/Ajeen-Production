@@ -5,7 +5,7 @@ import { FaArrowLeft } from "react-icons/fa";
 import useCheckout from "./hooks/useCheckout";
 import ProgressIndicator from "./components/ProgressIndicator";
 import CartReview from "./components/CartReview";
-import PaymentMethod from "./components/PaymentMethod";
+import PaymentMethod from "./components/PaymentMethod"; // This likely renders OrderSummary too or needs totals
 
 const CheckoutPage = () => {
 	const navigate = useNavigate();
@@ -14,19 +14,24 @@ const CheckoutPage = () => {
 		formData,
 		step,
 		isLoading,
-		isSubmitting,
+		// isSubmitting, // in useCheckout.jsx it is isCreatingOrder
+		isCreatingOrder, // Corrected name
 		error,
 		pendingOrderId,
-		isCreatingOrder,
+		// isCreatingOrder, // already listed
 		subtotal,
+		surchargeAmount, // Added
+		surchargePercentageDisplay, // Added
+		taxDisplay,
 		tax,
 		total,
 		formatPrice,
 		handleChange,
-		handleRadioChange,
+		// handleRadioChange, // Not used in useCheckout currently for payment_method fixed to 'card'
 		nextStep,
 		prevStep,
-		handleSubmit,
+		// handleSubmit, // This is likely part of PaymentMethod or createOrderBeforePayment
+		createOrderBeforePayment, // if PaymentMethod needs to call it directly.
 		handlePaymentSuccess,
 		setError,
 	} = useCheckout();
@@ -39,8 +44,11 @@ const CheckoutPage = () => {
 					<CartReview
 						cartItems={cartItems}
 						subtotal={subtotal}
+						surchargeAmount={surchargeAmount} // Pass down
+						surchargePercentageDisplay={surchargePercentageDisplay} // Pass down
 						tax={tax}
-						deliveryFee={0} // Set to 0 since delivery is not offered
+						taxDisplay={taxDisplay}
+						deliveryFee={0}
 						total={total}
 						formatPrice={formatPrice}
 						nextStep={nextStep}
@@ -51,19 +59,23 @@ const CheckoutPage = () => {
 					<PaymentMethod
 						formData={formData}
 						handleChange={handleChange}
-						handleRadioChange={handleRadioChange}
-						handleSubmit={handleSubmit}
-						isSubmitting={isSubmitting}
+						// handleRadioChange={handleRadioChange} // if re-enabled or used for something else
+						// handleSubmit={handleSubmit} // if PaymentMethod has its own internal submit distinct from createOrderBeforePayment
+						isSubmitting={isCreatingOrder} // Pass isCreatingOrder as isSubmitting
 						isCreatingOrder={isCreatingOrder}
 						pendingOrderId={pendingOrderId}
 						prevStep={prevStep}
 						subtotal={subtotal}
+						surchargeAmount={surchargeAmount} // Pass down
+						surchargePercentageDisplay={surchargePercentageDisplay} // Pass down
 						tax={tax}
-						deliveryFee={0} // Set to 0 since delivery is not offered
+						taxDisplay={taxDisplay}
+						deliveryFee={0}
 						total={total}
 						formatPrice={formatPrice}
 						handlePaymentSuccess={handlePaymentSuccess}
 						setError={setError}
+						createOrderBeforePayment={createOrderBeforePayment} // Pass if PaymentMethod needs it
 					/>
 				);
 			default:

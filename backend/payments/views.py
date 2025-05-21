@@ -9,7 +9,7 @@ from users.authentication import WebsiteCookieJWTAuthentication
 from django.conf import settings
 from .serializers import PaymentSerializer  # Use the updated serializer
 from django.shortcuts import get_object_or_404
-from orders.models import Order
+from orders.models import Order, Cart
 from hardware.controllers.receipt_printer import ReceiptPrinterController
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -30,6 +30,36 @@ logger = logging.getLogger(__name__)  # Setup logger
 
 
 # --- Views Refactored for New Transaction Model ---
+
+
+def mark_cart_as_checked_out(order):
+    """Helper function to mark the cart associated with an order as checked_out."""
+    try:
+        cart_to_checkout = None
+        if order.user:
+            cart_to_checkout = Cart.objects.filter(
+                user=order.user, checked_out=False
+            ).first()
+        elif order.guest_id:  # If it's a guest order
+            cart_to_checkout = Cart.objects.filter(
+                guest_id=order.guest_id, checked_out=False
+            ).first()
+
+        if cart_to_checkout:
+            cart_to_checkout.checked_out = True
+            cart_to_checkout.save()
+            logger.info(
+                f"Cart {cart_to_checkout.id} associated with Order {order.id} marked as checked_out."
+            )
+        else:
+            logger.warning(
+                f"No active cart found to mark as checked_out for Order {order.id}."
+            )
+    except Exception as e:
+        logger.error(
+            f"Error marking cart as checked_out for Order {order.id}: {e}",
+            exc_info=True,
+        )
 
 
 class CreatePaymentIntentView(APIView):
@@ -593,6 +623,8 @@ class ProcessPaymentView(APIView):
             # Save updated payment and order status
             payment.save()
             order.save()
+            if order.source == "website":
+                mark_cart_as_checked_out(order)
 
             # --- Response ---
             if payment_intent.status == "succeeded":
@@ -802,6 +834,8 @@ class ConfirmPaymentView(APIView):
             if payment.order.payment_status != "paid":
                 payment.order.payment_status = "paid"
                 payment.order.save()
+                if payment.order.source == "website":
+                    mark_cart_as_checked_out(payment.order)
         elif any(t.status == "failed" for t in transactions):
             payment.status = "failed"
             if payment.order.payment_status != "failed":

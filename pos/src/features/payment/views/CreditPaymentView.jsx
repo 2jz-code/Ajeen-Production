@@ -1,5 +1,4 @@
-// frontend/features/payment/views/CreditPaymentView.jsx
-
+// src/features/payment/views/CreditPaymentView.jsx
 import { motion } from "framer-motion";
 import { CreditCardIcon, XCircleIcon } from "@heroicons/react/24/solid";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
@@ -15,33 +14,29 @@ import { useTerminal } from "../hooks/useTerminal";
 import { Decimal } from "decimal.js";
 import customerDisplayManager from "../../customerDisplay/utils/windowManager";
 import { toast } from "react-toastify";
-// No longer need printReceiptWithAgent here
 
 const { pageVariants, pageTransition } = paymentAnimations;
 
-// Define PropTypes for the component's props for better type checking and documentation
 const commonPropTypes = {
 	state: PropTypes.shape({
 		orderId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
 		direction: PropTypes.number.isRequired,
 		paymentMethod: PropTypes.string,
 		splitMode: PropTypes.bool.isRequired,
-		amountPaid: PropTypes.number.isRequired, // Overall amount paid before this step
+		amountPaid: PropTypes.number.isRequired,
 		transactions: PropTypes.array.isRequired,
 		splitDetails: PropTypes.object,
-		nextSplitAmount: PropTypes.number, // Amount potentially set for the next split step
-		currentStepAmount: PropTypes.number, // Amount specifically due for *this* credit step
-		currentSplitMethod: PropTypes.string,
-		totalTipAmount: PropTypes.number, // Overall tip accumulated so far
+		nextSplitAmount: PropTypes.number,
+		currentStepAmount: PropTypes.number,
+		currentBaseForTipCalc: PropTypes.number, // Added this to propTypes
 	}).isRequired,
-	remainingAmount: PropTypes.number.isRequired, // Overall remaining amount for the *entire order*
-	handlePayment: PropTypes.func.isRequired, // Function from usePaymentFlow to process a payment step
-	completePaymentFlow: PropTypes.func.isRequired, // Function from usePaymentFlow to finalize the order
-	handleNavigation: PropTypes.func.isRequired, // Function from usePaymentFlow to change views
-	totalAmount: PropTypes.number.isRequired, // The total amount of the *entire order*
+	remainingAmount: PropTypes.number.isRequired,
+	handlePayment: PropTypes.func.isRequired,
+	completePaymentFlow: PropTypes.func.isRequired,
+	handleNavigation: PropTypes.func.isRequired,
+	totalAmount: PropTypes.number.isRequired,
 };
 
-// Define common animation properties for Framer Motion
 const commonMotionProps = {
 	variants: pageVariants,
 	initial: "enter",
@@ -50,13 +45,6 @@ const commonMotionProps = {
 	transition: pageTransition,
 };
 
-/**
- * CreditPaymentView Component
- * Handles the UI and logic for processing credit card payments,
- * including interaction with the customer display/terminal flow.
- * After successful finalization, it navigates to the CompletionView,
- * passing the receipt payload if available.
- */
 export const CreditPaymentView = ({
 	state,
 	remainingAmount: remainingAmountProp,
@@ -65,31 +53,25 @@ export const CreditPaymentView = ({
 	handleNavigation,
 	totalAmount,
 }) => {
-	// --- State Variables ---
-	const [error, setError] = useState(null); // Stores any error messages for display
-	const [viewProcessingState, setViewProcessingState] = useState(false); // Tracks if the view is busy (e.g., starting flow)
-	const [flowStarted, setFlowStarted] = useState(false); // Tracks if the customer display/terminal flow has been initiated
-	// *** Print decision state REMOVED ***
+	const [error, setError] = useState(null);
+	const [viewProcessingState, setViewProcessingState] = useState(false);
+	const [flowStarted, setFlowStarted] = useState(false);
 
-	// --- Hooks ---
-	const { cancelTerminalAction } = useTerminal(); // Hook for interacting with the payment terminal context
+	const { cancelTerminalAction } = useTerminal();
 	const {
-		flowActive, // Is the customer display flow currently active?
-		currentStep: customerFlowStep, // What step is the customer display on?
-		startFlow, // Function to initiate the customer display flow
-		completeFlow: completeCustomerDisplayFlow, // Function to end the customer display flow
-		stepData, // Data associated with the current customer display step
-		resetFlowForSplitContinuation, // Function to reset customer display state for the next split payment
-	} = useCustomerFlow(); // Hook for managing the customer-facing display flow
+		flowActive,
+		currentStep: customerFlowStep,
+		startFlow,
+		completeFlow: completeCustomerDisplayFlow,
+		stepData,
+		resetFlowForSplitContinuation,
+	} = useCustomerFlow();
 
-	// --- Refs ---
-	const paymentProcessedRef = useRef(false); // Tracks if handlePayment has been called for the current terminal signal
-	const completionProcessedRef = useRef(false); // Tracks if the finalization/navigation logic has started for the current completion event
-	const isMountedRef = useRef(false); // Tracks if the component is currently mounted
-	const epsilon = 0.01; // Tolerance for floating point comparisons
+	const paymentProcessedRef = useRef(false);
+	const completionProcessedRef = useRef(false);
+	const isMountedRef = useRef(false);
+	const epsilon = 0.01;
 
-	// --- Calculations --- (remain the same)
-	const currentRemainingAmount = remainingAmountProp;
 	const currentPaymentAmount = useMemo(() => {
 		if (
 			state.splitMode &&
@@ -109,22 +91,28 @@ export const CreditPaymentView = ({
 		const fallbackRemaining = Math.max(0, remainingAmountProp);
 		return parseFloat(fallbackRemaining.toFixed(2));
 	}, [state.splitMode, state.currentStepAmount, remainingAmountProp]);
+
+	// This is the amount (base + surcharge + tax) that the tip will be calculated on
+	const baseForTipCalculation = useMemo(() => {
+		return parseFloat(
+			(state.currentBaseForTipCalc || currentPaymentAmount || 0).toFixed(2)
+		);
+	}, [state.currentBaseForTipCalc, currentPaymentAmount]);
+
 	const tipForThisPayment = stepData?.tip?.tipAmount || 0;
 	const amountChargedThisTxnNum = parseFloat(
-		new Decimal(currentPaymentAmount)
+		new Decimal(baseForTipCalculation) // Tip is added to the baseForTipCalculation
 			.plus(new Decimal(tipForThisPayment))
 			.toFixed(2)
 	);
 	const currentPaymentAmountNum = parseFloat(
+		// This is base + surcharge + tax for the step
 		new Decimal(currentPaymentAmount).toFixed(2)
 	);
 	const tipForThisPaymentNum = parseFloat(
 		new Decimal(tipForThisPayment).toFixed(2)
 	);
 
-	// --- Effects ---
-
-	// Mount/Unmount Effect
 	useEffect(() => {
 		isMountedRef.current = true;
 		paymentProcessedRef.current = false;
@@ -132,14 +120,11 @@ export const CreditPaymentView = ({
 		setError(null);
 		setFlowStarted(false);
 		setViewProcessingState(false);
-		// console.log(`CreditPaymentView Mounted/Reset for total: ${totalAmount}`);
 		return () => {
 			isMountedRef.current = false;
-			// console.log("CreditPaymentView Unmounted");
 		};
 	}, [totalAmount]);
 
-	// Start Customer Display Flow (remains the same)
 	const startCreditPaymentFlow = useCallback(async () => {
 		if (flowStarted || viewProcessingState || !isMountedRef.current) return;
 		setViewProcessingState(true);
@@ -149,29 +134,27 @@ export const CreditPaymentView = ({
 		try {
 			const orderId = state.orderId || useCartStore.getState().orderId;
 			if (!orderId) throw new Error("Order ID missing");
-			// console.log("CREDIT VIEW: Starting POS and customer display flow...");
+
 			const payloadForDisplay = {
 				orderData: {
-					total: currentPaymentAmountNum,
+					total: currentPaymentAmountNum, // Amount for this step (base+surcharge+tax)
 					isSplitPayment: state.splitMode,
-					originalTotal: totalAmount,
+					originalTotal: totalAmount, // Overall order original total (subtotal-discount)
+					// Pass the correct base for tip calculation to the customer display
+					baseForTipCalculation: baseForTipCalculation,
 				},
 			};
 			const startFlowArgs = {
 				orderId: orderId,
 				initialStep: "tip",
 				paymentMethod: "credit",
-				amountDue: currentPaymentAmountNum,
+				amountDue: currentPaymentAmountNum, // Amount for this step (base+surcharge+tax)
+				baseForTipCalculation: baseForTipCalculation, // Explicitly pass this
 				isSplitPayment: state.splitMode,
 				splitDetails: state.splitMode ? state.splitDetails : null,
 				payload: payloadForDisplay,
-				amountCharged: amountChargedThisTxnNum,
 			};
 			startFlow(startFlowArgs);
-			// console.log(
-			// 	"CREDIT VIEW: useCustomerFlow.startFlow called.",
-			// 	startFlowArgs
-			// );
 			setFlowStarted(true);
 		} catch (err) {
 			console.error("CREDIT VIEW: Error starting customer display flow:", err);
@@ -185,21 +168,16 @@ export const CreditPaymentView = ({
 		state.splitMode,
 		state.splitDetails,
 		currentPaymentAmountNum,
+		baseForTipCalculation, // Use this for tip base
 		totalAmount,
-		amountChargedThisTxnNum,
 		flowStarted,
 		viewProcessingState,
 		startFlow,
 	]);
 
-	// --- Main Effect: Handles Payment Result, Finalization, and Navigation ---
 	useEffect(() => {
 		const receiptStepSignalledComplete = stepData.receiptComplete === true;
 		const paymentSuccess = stepData.payment?.status === "success";
-
-		// console.log(
-		// 	`CREDIT_VIEW_EFFECT_MAIN: Step=${customerFlowStep}, ReceiptDone=${receiptStepSignalledComplete}, PaymentOK=${paymentSuccess}, PaymentProcessedRef=${paymentProcessedRef.current}, CompletionProcessedRef=${completionProcessedRef.current}`
-		// );
 
 		if (
 			customerFlowStep === "receipt" &&
@@ -208,23 +186,19 @@ export const CreditPaymentView = ({
 			!paymentProcessedRef.current
 		) {
 			paymentProcessedRef.current = true;
-			// console.log(
-			// 	"CREDIT_VIEW_EFFECT_MAIN: Conditions MET. Processing payment update..."
-			// );
 			setViewProcessingState(true);
 
-			// Prepare transaction details
 			const paymentInfo = stepData.payment;
 			const nestedPaymentObject = {
 				status: "success",
 				transactionId: paymentInfo.transactionId,
-				amount: amountChargedThisTxnNum,
+				amount: amountChargedThisTxnNum, // Total charged including tip
 				timestamp: paymentInfo.timestamp || new Date().toISOString(),
 				cardInfo: paymentInfo.cardInfo || { brand: "Card", last4: "****" },
 				reader: paymentInfo.reader || null,
 				splitPayment: state.splitMode,
-				splitAmount: state.splitMode ? currentPaymentAmountNum : null,
-				originalTotal: currentPaymentAmountNum,
+				splitAmount: state.splitMode ? currentPaymentAmountNum : null, // Base + Surcharge + Tax for step
+				originalTotal: totalAmount, // Original order total (subtotal-discount)
 				orderId: state.orderId,
 				tipAmount: tipForThisPaymentNum,
 			};
@@ -233,9 +207,9 @@ export const CreditPaymentView = ({
 				cardInfo: paymentInfo.cardInfo,
 				transactionId: paymentInfo.transactionId,
 				flowData: { ...stepData, payment: nestedPaymentObject },
+				tipAmount: tipForThisPaymentNum, // Ensure tip is included here
 			};
 
-			// Update payment state via hook
 			handlePayment(amountChargedThisTxnNum, transactionDetails)
 				.then((paymentResult) => {
 					if (!isMountedRef.current) return;
@@ -244,56 +218,28 @@ export const CreditPaymentView = ({
 							paymentResult?.error || "Failed to record payment transaction."
 						);
 					}
-
-					// console.log(
-					// 	"CREDIT_VIEW_EFFECT_MAIN: handlePayment succeeded:",
-					// 	paymentResult
-					// );
 					const { isNowComplete, updatedTransactions } = paymentResult;
-
-					// Check if the entire order is complete
 					if (isNowComplete && !completionProcessedRef.current) {
 						completionProcessedRef.current = true;
-						// console.log(
-						// 	"CREDIT_VIEW_EFFECT_MAIN: Order complete. Finalizing..."
-						// );
-
-						// Finalize order with backend
 						(async () => {
 							let finalizationErrorOccurred = false;
-							let completedOrderData = null;
 							try {
-								completedOrderData = await completePaymentFlow(
+								const completedOrderData = await completePaymentFlow(
 									updatedTransactions
 								);
 								if (!isMountedRef.current) return;
-
 								if (completedOrderData) {
-									// console.log("CREDIT_VIEW_EFFECT_MAIN: Backend successful.");
-									// *** Navigate directly to Completion, passing payload ***
 									const receiptPayload =
 										completedOrderData.receipt_payload || null;
-									// console.log(
-									// 	`CREDIT_VIEW_EFFECT_MAIN: Navigating to Completion. Payload ${
-									// 		receiptPayload ? "exists" : "missing"
-									// 	}.`
-									// );
 									handleNavigation("Completion", 1, {
 										receiptPayload: receiptPayload,
 									});
 								} else {
-									console.error(
-										"CREDIT_VIEW_EFFECT_MAIN: Backend finalization failed."
-									);
-									toast.error("Failed to finalize order.");
 									finalizationErrorOccurred = true;
+									toast.error("Failed to finalize order.");
 								}
 							} catch (finalizationError) {
 								if (!isMountedRef.current) return;
-								console.error(
-									"CREDIT_VIEW_EFFECT_MAIN: Error during finalizeOrder:",
-									finalizationError
-								);
 								setError(
 									finalizationError.message || "Error finalizing order."
 								);
@@ -303,37 +249,34 @@ export const CreditPaymentView = ({
 								finalizationErrorOccurred = true;
 							} finally {
 								if (isMountedRef.current) {
-									// Reset completion ref only if an error occurred
-									if (finalizationErrorOccurred) {
+									if (finalizationErrorOccurred)
 										completionProcessedRef.current = false;
-									}
-									// Stop processing indicator after finalization attempt
 									setViewProcessingState(false);
 								}
 							}
-						})(); // End IIAFE
+						})();
 					} else if (
 						state.splitMode &&
 						!isNowComplete &&
 						!completionProcessedRef.current
 					) {
-						// Intermediate Split Logic (remains the same)
 						completionProcessedRef.current = true;
-						// console.log(
-						// 	"CREDIT_VIEW_EFFECT_MAIN: Intermediate split complete. Resetting..."
-						// );
 						completeCustomerDisplayFlow();
 						setFlowStarted(false);
-						const orderTotalAmount = totalAmount;
-						const amountPaidSoFar = paymentResult.newAmountPaid;
-						const remainingAfterThisSplit = Math.max(
+						const orderTotalPreTaxPreSurcharge = new Decimal(totalAmount)
+							.div(new Decimal(1).plus(0.1))
+							.toNumber(); // Assuming TAX_RATE is 0.10
+						const amountPaidSoFarPreTaxPreSurcharge =
+							paymentResult.newAmountPaid; // This is base (pre-tax, pre-surcharge)
+						const remainingAfterThisSplitPreTaxPreSurcharge = Math.max(
 							0,
-							orderTotalAmount - amountPaidSoFar
+							orderTotalPreTaxPreSurcharge - amountPaidSoFarPreTaxPreSurcharge
 						);
+
 						resetFlowForSplitContinuation({
-							amountPaid: amountPaidSoFar,
-							remainingAmount: remainingAfterThisSplit,
-							currentPaymentAmount: amountChargedThisTxnNum,
+							amountPaid: amountPaidSoFarPreTaxPreSurcharge, // Pass the base amount paid
+							remainingAmount: remainingAfterThisSplitPreTaxPreSurcharge, // Pass remaining base
+							currentPaymentAmount: amountChargedThisTxnNum, // Amount of this transaction
 						});
 						setTimeout(() => {
 							if (isMountedRef.current) {
@@ -344,12 +287,8 @@ export const CreditPaymentView = ({
 						}, 50);
 						setViewProcessingState(false);
 					} else if (completionProcessedRef.current) {
-						// console.log(
-						// 	"CREDIT_VIEW_EFFECT_MAIN: Completion already processed. Skipping."
-						// );
 						if (viewProcessingState) setViewProcessingState(false);
 					} else {
-						console.error("CREDIT_VIEW_EFFECT_MAIN: Unexpected state.");
 						setError("Unexpected payment state after processing.");
 						completionProcessedRef.current = false;
 						paymentProcessedRef.current = false;
@@ -357,12 +296,7 @@ export const CreditPaymentView = ({
 					}
 				})
 				.catch((err) => {
-					// Catch errors from handlePayment itself
 					if (!isMountedRef.current) return;
-					console.error(
-						"CREDIT_VIEW_EFFECT_MAIN: Error in handlePayment chain:",
-						err
-					);
 					setError(err.message || "Error processing payment.");
 					paymentProcessedRef.current = false;
 					completionProcessedRef.current = false;
@@ -370,13 +304,8 @@ export const CreditPaymentView = ({
 					setFlowStarted(false);
 					setViewProcessingState(false);
 				});
-		} else {
-			// console.log(
-			// 	"CREDIT_VIEW_EFFECT_MAIN: Conditions NOT met or already processed. Skipping."
-			// );
 		}
 	}, [
-		// Dependencies
 		customerFlowStep,
 		stepData.receiptComplete,
 		stepData.payment?.status,
@@ -388,10 +317,12 @@ export const CreditPaymentView = ({
 		resetFlowForSplitContinuation,
 		state.orderId,
 		state.splitMode,
+		state.splitDetails,
 		totalAmount,
 		amountChargedThisTxnNum,
 		currentPaymentAmountNum,
 		tipForThisPaymentNum,
+		viewProcessingState, // Added viewProcessingState
 	]);
 
 	// Cancel Payment (remains the same)
@@ -480,16 +411,17 @@ export const CreditPaymentView = ({
 				{/* Amount display */}
 				<div className="p-3 bg-blue-50 text-blue-700 rounded-lg shadow-sm border border-blue-100">
 					<div className="font-medium text-sm mb-0.5 text-blue-800">
-						Amount Due This Payment
+						Amount Due This Payment (Inc. Tax & Surcharge)
 					</div>
 					<div className="text-xl font-bold text-blue-900">
 						{formatPrice(currentPaymentAmountNum)}
 					</div>
 					{state.splitMode &&
-						Math.abs(currentRemainingAmount - currentPaymentAmountNum) >
+						Math.abs(remainingAmountProp - currentPaymentAmountNum) >
 							epsilon && (
 							<div className="text-xs mt-0.5 opacity-80 text-blue-600">
-								Total Order Remaining: {formatPrice(currentRemainingAmount)}
+								Total Order Remaining (Inc. Tax & Surcharge):{" "}
+								{formatPrice(remainingAmountProp)}
 							</div>
 						)}
 				</div>

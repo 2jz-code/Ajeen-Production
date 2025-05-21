@@ -159,14 +159,9 @@ class GuestOrderDetailView(APIView):
 
 
 class GuestCheckoutView(APIView):
-    """
-    Handles the checkout process for guest users.
-    Creates an order from the guest's cart.
-    """
+    permission_classes = []
 
-    permission_classes = []  # Allow guests
-
-    @transaction.atomic  # Wrap in a transaction to ensure atomicity
+    @transaction.atomic
     def post(self, request, *args, **kwargs):
         guest_id = request.COOKIES.get("guest_id")
         if not guest_id:
@@ -178,7 +173,6 @@ class GuestCheckoutView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Retrieve the guest's active cart
         try:
             cart = (
                 Cart.objects.select_related(None)
@@ -205,9 +199,16 @@ class GuestCheckoutView(APIView):
         first_name = request.data.get("first_name")
         last_name = request.data.get("last_name")
         email = request.data.get("email")
-        phone = request.data.get("phone")  # Get phone
+        phone = request.data.get("phone")
+        notes = request.data.get("notes", "")  # Added notes
 
-        # Enforce 'card' payment for website orders
+        surcharge_percentage_str = request.data.get("surcharge_percentage")
+        surcharge_percentage = (
+            Decimal(surcharge_percentage_str)
+            if surcharge_percentage_str
+            else Decimal("0.00")
+        )
+
         payment_method_from_request = request.data.get("payment_method", "card").lower()
         if payment_method_from_request not in ["card", "credit"]:
             logger.warning(
@@ -219,9 +220,7 @@ class GuestCheckoutView(APIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         actual_payment_method_for_db = "credit"
-        notes = request.data.get("notes", "")
 
         required_fields = {
             "first_name": first_name,
@@ -239,22 +238,23 @@ class GuestCheckoutView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # --- Create the Order ---
         try:
-            order = Order.objects.create(
-                user=None,
-                guest_id=guest_id,
-                guest_first_name=first_name,
-                guest_last_name=last_name,
-                guest_email=email,
-                guest_phone=phone,  # SAVE THE PHONE NUMBER
-                status="pending",
-                payment_status="pending",
-                source="website",
-                total_price=Decimal("0.00"),
-            )
+            order_creation_payload = {
+                "user": None,
+                "guest_id": guest_id,
+                "guest_first_name": first_name,
+                "guest_last_name": last_name,
+                "guest_email": email,
+                "guest_phone": phone,
+                "status": "pending",
+                "payment_status": "pending",
+                "source": "website",
+                "total_price": Decimal("0.00"),  # Will be recalculated
+                "surcharge_percentage": surcharge_percentage,  # Add surcharge percentage
+                # "notes": notes, # If you have a notes field on the Order model
+            }
+            order = Order.objects.create(**order_creation_payload)
 
-            # --- Create OrderItems from CartItems ---
             order_items = []
             for cart_item in cart.items.all():
                 order_items.append(
@@ -262,7 +262,7 @@ class GuestCheckoutView(APIView):
                         order=order,
                         product=cart_item.product,
                         quantity=cart_item.quantity,
-                        unit_price=cart_item.product.price,  # Store price at time of order
+                        unit_price=cart_item.product.price,
                     )
                 )
             OrderItem.objects.bulk_create(order_items)
@@ -270,22 +270,21 @@ class GuestCheckoutView(APIView):
                 f"GuestCheckoutView: Copied {len(order_items)} items from Cart (ID: {cart.id}) to Order (ID: {order.id})."
             )
 
-            # --- Calculate final price (subtotal + tax, no tip yet for web orders) ---
-            # Note: The calculate_total_price method saves the order instance
-            final_price = order.calculate_total_price()
+            # Recalculate total price which now includes surcharge logic in the model
+            final_price = order.calculate_total_price(
+                save_instance=True
+            )  # save_instance is True by default
             logger.info(
                 f"GuestCheckoutView: Calculated final price for Order (ID: {order.id}): {final_price}"
             )
 
-            # --- Create Payment Record ---
             Payment.objects.create(
                 order=order,
                 amount=final_price,
-                payment_method=actual_payment_method_for_db,  # 'credit'
+                payment_method=actual_payment_method_for_db,
                 status="pending",
             )
 
-            # --- Mark Cart as Checked Out ---
             cart.checked_out = True
             cart.save(update_fields=["checked_out"])
             serializer = WebsiteOrderSerializer(order, context={"request": request})
@@ -295,6 +294,6 @@ class GuestCheckoutView(APIView):
                 f"GuestCheckoutView: Error during checkout: {e}", exc_info=True
             )
             return Response(
-                {"error": "An unexpected error occurred."},
+                {"error": "An unexpected error occurred during guest checkout."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
