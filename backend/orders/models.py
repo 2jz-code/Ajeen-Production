@@ -14,14 +14,20 @@ class Order(models.Model):
         ("completed", "Completed"),
         ("voided", "Voided"),
         ("preparing", "Preparing"),
-        ("pending", "Pending"),
-        ("cancelled", "Cancelled"),
+        ("pending", "Pending"),  # General order status
+        ("cancelled", "Cancelled"),  # General order status
     ]
 
     PAYMENT_STATUS_CHOICES = [
         ("pending", "Pending"),
         ("paid", "Paid"),
+        ("failed", "Failed"),  # New or ensure it's used by webhook logic
         ("refunded", "Refunded"),
+        ("partially_refunded", "Partially Refunded"),  # New
+        ("disputed", "Disputed"),  # New
+        ("canceled", "Canceled"),  # New (for payment intent canceled)
+        ("refund_failed", "Refund Failed"),  # New
+        ("voided", "Voided"),  # New if payment is voided
     ]
 
     ORDER_SOURCE_CHOICES = [
@@ -36,9 +42,7 @@ class Order(models.Model):
     payment_status = models.CharField(
         max_length=20, choices=PAYMENT_STATUS_CHOICES, default="pending"
     )
-    total_price = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0.00
-    )  # Will be set from frontend
+    total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     rewards_profile_id = models.IntegerField(null=True, blank=True)
 
     guest_id = models.CharField(max_length=255, blank=True, null=True)
@@ -54,21 +58,16 @@ class Order(models.Model):
     discount = models.ForeignKey(
         "discounts.Discount", on_delete=models.SET_NULL, null=True, blank=True
     )
-    discount_amount = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0.00
-    )  # Will be set from frontend
-    tip_amount = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0.00
-    )  # Will be set from frontend
+    discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    tip_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
 
     surcharge_percentage = models.DecimalField(
         max_digits=5, decimal_places=4, default=0.0000
-    )  # Can be set from frontend
+    )
     surcharge_amount = models.DecimalField(
         max_digits=10, decimal_places=2, default=0.00
-    )  # Will be set from frontend
+    )
 
-    # New fields to store frontend calculated values
     subtotal_from_frontend = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True
     )
@@ -85,6 +84,7 @@ class Order(models.Model):
         help_text="Flag if print jobs for this order were sent to POS via WebSocket",
     )
 
+    # ... (rest of the Order model methods remain the same)
     def calculate_subtotal(self):
         """Calculate subtotal based on items' stored unit_price.
         For MVP, this might be overridden by frontend_subtotal."""
@@ -195,36 +195,28 @@ class Order(models.Model):
             return self.total_price
 
         # Original calculation logic if frontend_values are not provided
-        subtotal = (
-            self.calculate_subtotal()
-        )  # Uses self.subtotal_from_frontend if available
+        subtotal = self.calculate_subtotal()
 
-        # Use self.discount_amount if set from frontend, else calculate
         current_discount_amount = self.discount_amount
-        if (
-            current_discount_amount == Decimal("0.00") and self.discount
-        ):  # Only recalculate if not set by FE
+        if current_discount_amount == Decimal("0.00") and self.discount:
             current_discount_amount = self.calculate_discount(subtotal)
         self.discount_amount = current_discount_amount
 
         subtotal_after_discount = max(Decimal("0.00"), subtotal - self.discount_amount)
 
-        # Use self.surcharge_amount if set from frontend, else calculate
         current_surcharge_amount = self.surcharge_amount
         if (
             current_surcharge_amount == Decimal("0.00")
             and self.surcharge_percentage > 0
-        ):  # Only recalculate if not set by FE
+        ):
             current_surcharge_amount = self.calculate_surcharge(subtotal_after_discount)
         self.surcharge_amount = current_surcharge_amount
 
         amount_before_tax = subtotal_after_discount + self.surcharge_amount
 
-        # Use self.tax_amount_from_frontend if set, else calculate
         tax_amount = self.tax_amount_from_frontend
         if tax_amount is None:
             tax_amount = self.calculate_tax(amount_before_tax)
-        # self.tax_amount_from_frontend = tax_amount # Store it if calculated
 
         current_tip = (
             tip_to_add
@@ -240,11 +232,9 @@ class Order(models.Model):
                 update_fields=[
                     "total_price",
                     "discount_amount",
-                    "surcharge_percentage",  # ensure this is in update_fields if FE can change it
+                    "surcharge_percentage",
                     "surcharge_amount",
                     "tip_amount",
-                    # "subtotal_from_frontend", # Only if calculated and needs saving
-                    # "tax_amount_from_frontend", # Only if calculated and needs saving
                 ]
             )
         return self.total_price
