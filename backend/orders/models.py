@@ -1,7 +1,7 @@
+# combined/backend/orders/models.py
 from django.db import models
 from products.models import Product
 from django.contrib.auth import get_user_model
-from decimal import Decimal
 from decimal import Decimal, ROUND_HALF_UP
 
 User = get_user_model()
@@ -9,21 +9,25 @@ User = get_user_model()
 
 class Order(models.Model):
     STATUS_CHOICES = [
-        # POS-specific statuses
         ("saved", "Saved"),
         ("in-progress", "In Progress"),
         ("completed", "Completed"),
         ("voided", "Voided"),
-        # Website-specific statuses
         ("preparing", "Preparing"),
-        ("pending", "Pending"),
-        ("cancelled", "Cancelled"),
+        ("pending", "Pending"),  # General order status
+        ("cancelled", "Cancelled"),  # General order status
     ]
 
     PAYMENT_STATUS_CHOICES = [
         ("pending", "Pending"),
         ("paid", "Paid"),
+        ("failed", "Failed"),  # New or ensure it's used by webhook logic
         ("refunded", "Refunded"),
+        ("partially_refunded", "Partially Refunded"),  # New
+        ("disputed", "Disputed"),  # New
+        ("canceled", "Canceled"),  # New (for payment intent canceled)
+        ("refund_failed", "Refund Failed"),  # New
+        ("voided", "Voided"),  # New if payment is voided
     ]
 
     ORDER_SOURCE_CHOICES = [
@@ -41,14 +45,12 @@ class Order(models.Model):
     total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     rewards_profile_id = models.IntegerField(null=True, blank=True)
 
-    # Fields for website orders (guest checkout)
     guest_id = models.CharField(max_length=255, blank=True, null=True)
     guest_first_name = models.CharField(max_length=100, blank=True, null=True)
     guest_last_name = models.CharField(max_length=100, blank=True, null=True)
     guest_email = models.EmailField(blank=True, null=True)
     guest_phone = models.CharField(max_length=20, blank=True, null=True)
 
-    # Flag to identify the source of the order
     source = models.CharField(
         max_length=10, choices=ORDER_SOURCE_CHOICES, default="pos"
     )
@@ -59,6 +61,20 @@ class Order(models.Model):
     discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     tip_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
 
+    surcharge_percentage = models.DecimalField(
+        max_digits=5, decimal_places=4, default=0.0000
+    )
+    surcharge_amount = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0.00
+    )
+
+    subtotal_from_frontend = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True
+    )
+    tax_amount_from_frontend = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True
+    )
+
     kitchen_ticket_printed = models.BooleanField(
         default=False,
         help_text="Flag for direct backend printing, e.g., for POS orders",
@@ -68,30 +84,38 @@ class Order(models.Model):
         help_text="Flag if print jobs for this order were sent to POS via WebSocket",
     )
 
+    # ... (rest of the Order model methods remain the same)
     def calculate_subtotal(self):
-        """Calculate subtotal based on items' stored unit_price."""
+        """Calculate subtotal based on items' stored unit_price.
+        For MVP, this might be overridden by frontend_subtotal."""
+        if self.subtotal_from_frontend is not None:
+            return self.subtotal_from_frontend
         return sum(
             (item.unit_price or Decimal("0.00")) * item.quantity
-            for item in self.items.all()  # Use .all() to ensure QuerySet evaluation
+            for item in self.items.all()
         )
 
     def calculate_discount(self, subtotal):
-        """Calculate discount amount based on applied discount."""
+        """Calculate discount amount based on applied discount.
+        For MVP, this might be overridden by frontend discount_amount."""
+        # If discount_amount is provided by frontend, it will be used directly.
+        # This calculation can serve as a fallback or verification if needed later.
         if not self.discount:
             return Decimal("0.00")
-
+        # ... (rest of the discount calculation logic, can be kept for non-MVP scenarios)
+        # For MVP, ensure this doesn't interfere if discount_amount is set directly.
         calculated_discount = Decimal("0.00")
         if self.discount.apply_to == "order":
             calculated_discount = self.discount.calculate_discount_amount(subtotal)
         elif self.discount.apply_to == "product":
-            for item in self.items.all():  # Use .all()
+            for item in self.items.all():
                 if self.discount.products.filter(id=item.product.id).exists():
                     item_total = (item.unit_price or Decimal("0.00")) * item.quantity
                     calculated_discount += self.discount.calculate_discount_amount(
                         item_total
                     )
         elif self.discount.apply_to == "category":
-            for item in self.items.all():  # Use .all()
+            for item in self.items.all():
                 if (
                     hasattr(item.product, "category")
                     and item.product.category
@@ -103,58 +127,116 @@ class Order(models.Model):
                     calculated_discount += self.discount.calculate_discount_amount(
                         item_total
                     )
-
-        # Ensure discount doesn't exceed subtotal
         return min(calculated_discount, subtotal)
 
-    def calculate_tax(self, subtotal=None, discount_amount=None):
-        """Calculate tax (e.g., 10%) on the discounted subtotal."""
-        if subtotal is None:
-            subtotal = self.calculate_subtotal()
-        if discount_amount is None:
-            # Use the stored discount_amount if available, otherwise calculate it
-            discount_amount = (
-                self.discount_amount
-                if self.discount_amount is not None
-                else self.calculate_discount(subtotal)
+    def calculate_surcharge(self, subtotal_after_discount):
+        """Calculate surcharge. For MVP, this might be overridden by frontend surcharge_amount."""
+        if (
+            self.surcharge_amount is not None and self.surcharge_amount > 0
+        ):  # If FE sends it
+            return self.surcharge_amount
+        if self.surcharge_percentage > 0:
+            surcharge = (subtotal_after_discount * self.surcharge_percentage).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
             )
+            return surcharge
+        return Decimal("0.00")
 
-        discounted_subtotal = max(Decimal("0.00"), subtotal - discount_amount)
-        # Example: 10% tax rate
-        tax_rate = Decimal("0.10")
-        tax_amount = (discounted_subtotal * tax_rate).quantize(
+    def calculate_tax(self, amount_before_tax):
+        """Calculate tax. For MVP, this might be overridden by frontend_tax_amount."""
+        if self.tax_amount_from_frontend is not None:
+            return self.tax_amount_from_frontend
+        tax_rate = Decimal("0.10")  # Example: 10% tax rate
+        tax_amount = (amount_before_tax * tax_rate).quantize(
             Decimal("0.01"), rounding=ROUND_HALF_UP
         )
         return tax_amount
 
-    def calculate_total_price(self, save_instance=True, tip_to_add=None):
+    def calculate_total_price(
+        self, save_instance=True, tip_to_add=None, frontend_values=None
+    ):
         """
-        Recalculate order subtotal, discount, tax, and total_price.
-        Optionally saves the instance.
+        Recalculate order subtotal, discount, surcharge, tax, and total_price.
+        If frontend_values are provided (for MVP), it will prioritize them.
         """
-        subtotal = self.calculate_subtotal()
-        self.discount_amount = self.calculate_discount(subtotal)
-        tax_amount = self.calculate_tax(subtotal, self.discount_amount)
+        if frontend_values:
+            self.subtotal_from_frontend = frontend_values.get(
+                "subtotal", self.subtotal_from_frontend
+            )
+            self.discount_amount = frontend_values.get(
+                "discount_amount", self.discount_amount
+            )
+            self.surcharge_percentage = frontend_values.get(
+                "surcharge_percentage", self.surcharge_percentage
+            )
+            self.surcharge_amount = frontend_values.get(
+                "surcharge_amount", self.surcharge_amount
+            )
+            self.tax_amount_from_frontend = frontend_values.get(
+                "tax_amount", self.tax_amount_from_frontend
+            )
+            self.tip_amount = frontend_values.get(
+                "tip_amount", tip_to_add if tip_to_add is not None else self.tip_amount
+            )
+            self.total_price = frontend_values.get("total_price", self.total_price)
 
-        # Use tip_to_add if provided, otherwise use the currently stored tip_amount
+            if save_instance:
+                self.save(
+                    update_fields=[
+                        "total_price",
+                        "discount_amount",
+                        "surcharge_percentage",
+                        "surcharge_amount",
+                        "tip_amount",
+                        "subtotal_from_frontend",
+                        "tax_amount_from_frontend",
+                    ]
+                )
+            return self.total_price
+
+        # Original calculation logic if frontend_values are not provided
+        subtotal = self.calculate_subtotal()
+
+        current_discount_amount = self.discount_amount
+        if current_discount_amount == Decimal("0.00") and self.discount:
+            current_discount_amount = self.calculate_discount(subtotal)
+        self.discount_amount = current_discount_amount
+
+        subtotal_after_discount = max(Decimal("0.00"), subtotal - self.discount_amount)
+
+        current_surcharge_amount = self.surcharge_amount
+        if (
+            current_surcharge_amount == Decimal("0.00")
+            and self.surcharge_percentage > 0
+        ):
+            current_surcharge_amount = self.calculate_surcharge(subtotal_after_discount)
+        self.surcharge_amount = current_surcharge_amount
+
+        amount_before_tax = subtotal_after_discount + self.surcharge_amount
+
+        tax_amount = self.tax_amount_from_frontend
+        if tax_amount is None:
+            tax_amount = self.calculate_tax(amount_before_tax)
+
         current_tip = (
             tip_to_add
             if tip_to_add is not None
             else (self.tip_amount or Decimal("0.00"))
         )
-        self.tip_amount = current_tip  # Ensure tip_amount is updated on the instance
+        self.tip_amount = current_tip
 
-        # Calculate final total
-        self.total_price = (
-            max(Decimal("0.00"), subtotal - self.discount_amount)
-            + tax_amount
-            + current_tip
-        )
+        self.total_price = amount_before_tax + tax_amount + current_tip
 
         if save_instance:
-            # Save the calculated fields to the database instance
-            self.save(update_fields=["total_price", "discount_amount", "tip_amount"])
-
+            self.save(
+                update_fields=[
+                    "total_price",
+                    "discount_amount",
+                    "surcharge_percentage",
+                    "surcharge_amount",
+                    "tip_amount",
+                ]
+            )
         return self.total_price
 
     def __str__(self):
@@ -171,8 +253,6 @@ class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items")
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default=1)
-
-    # Store price at time of order (important for price changes)
     unit_price = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True
     )
@@ -181,13 +261,11 @@ class OrderItem(models.Model):
         unique_together = ("order", "product")
 
     def save(self, *args, **kwargs):
-        # Set the unit price from the product if not already set
         if self.unit_price is None and self.product:
             self.unit_price = self.product.price
         super().save(*args, **kwargs)
 
     def get_total_price(self):
-        """Calculate the total price for this item"""
         return (self.unit_price or self.product.price) * self.quantity
 
     def __str__(self):
@@ -208,7 +286,6 @@ class Cart(models.Model):
             return f"Cart for Guest ({self.guest_id})"
 
     def get_total_price(self):
-        """Calculate the total price of all items in the cart."""
         return sum(item.get_total_price() for item in self.items.all())
 
 

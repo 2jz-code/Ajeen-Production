@@ -1,5 +1,4 @@
-// features/customerDisplay/hooks/useCustomerFlow.js
-
+// src/features/customerDisplay/hooks/useCustomerFlow.js
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useCartStore } from "../../../store/cartStore";
 import customerDisplayManager from "../utils/windowManager";
@@ -9,12 +8,8 @@ export function useCustomerFlow() {
 	const [currentStep, setCurrentStep] = useState(null);
 	const [flowActive, setFlowActive] = useState(false);
 	const [stepData, setStepData] = useState({});
-	// const cart = useCartStore((state) => state.cart);
-
-	// Use a ref to store the latest stepData without causing re-renders
 	const stepDataRef = useRef(stepData);
 
-	// Update the ref whenever stepData changes
 	useEffect(() => {
 		stepDataRef.current = stepData;
 	}, [stepData]);
@@ -22,13 +17,13 @@ export function useCustomerFlow() {
 	const startFlow = useCallback((startFlowArgs = {}) => {
 		const {
 			orderId: inputOrderId,
-			initialStep: inputInitialStep, // Step display should start on
+			initialStep: inputInitialStep,
 			paymentMethod = "credit",
-			amountDue = 0, // Base amount for step
+			amountDue = 0, // This is (base_for_step + surcharge_for_step + tax_for_step)
+			baseForTipCalculation = 0, // This is (base_for_step + surcharge_for_step + tax_for_step)
 			isSplitPayment = false,
 			splitDetails = null,
-			payload = {}, // Contains orderData, cashData etc.
-			// Add amountCharged if needed for PI creation context (now handled elsewhere)
+			payload = {},
 		} = startFlowArgs;
 
 		const effectiveOrderId = inputOrderId || useCartStore.getState().orderId;
@@ -40,46 +35,37 @@ export function useCustomerFlow() {
 		setFlowActive(true);
 		const initialStep =
 			inputInitialStep || (paymentMethod === "cash" ? "payment" : "tip");
-		setCurrentStep(initialStep); // <<< Set local POS step state
+		setCurrentStep(initialStep);
 
-		// Initialize stepData for the flow
 		const initialData = {
 			orderId: effectiveOrderId,
 			paymentMethod,
 			isSplitPayment,
 			splitDetails,
-			currentPaymentAmount: amountDue, // Amount due this step
-			totalAmount: payload?.orderData?.originalTotal || amountDue, // Overall total
-			// Reset previous step results, keep PI ID if exists?
-			activePaymentIntentId: stepDataRef.current?.activePaymentIntentId, // Preserve? Or clear on new flow? Let's clear for now.
-			// activePaymentIntentId: null,
+			currentPaymentAmount: amountDue, // Amount due for this step (incl. tax, surcharge)
+			baseForTipCalculation: baseForTipCalculation, // Amount tip percentages are based on
+			totalAmount: payload?.orderData?.originalTotal || amountDue,
+			activePaymentIntentId: null,
 			clientSecret: null,
 			tip: null,
 			payment: null,
 			receiptComplete: null,
-			paymentError: null, // Clear results
-			...payload, // Spread payload containing initial orderData/cashData
+			paymentError: null,
+			...payload,
 		};
 		setStepData(initialData);
-		// console.log(
-		// 	`useCustomerFlow: Flow started. Initial Step: ${initialStep}. Initial Data:`,
-		// 	initialData
-		// );
+		// console.log(`useCustomerFlow: Flow started. Initial Step: ${initialStep}. Initial Data:`, initialData);
 
-		// *** Call the window manager to start the flow on the customer display ***
 		customerDisplayManager.startCustomerFlow({
-			// Pass necessary info to window manager's method
 			orderId: effectiveOrderId,
 			initialStep: initialStep,
 			paymentMethod: paymentMethod,
 			amountDue: amountDue,
+			baseForTipCalculation: baseForTipCalculation, // Pass this to window manager
 			isSplitPayment: isSplitPayment,
 			splitDetails: splitDetails,
 			payload: payload,
 		});
-		// console.log(
-		// 	"useCustomerFlow: Called customerDisplayManager.startCustomerFlow"
-		// );
 	}, []);
 
 	// Advance to the next step
@@ -126,78 +112,41 @@ export function useCustomerFlow() {
 		customerDisplayManager.showWelcome();
 	}, []);
 
-	// Listen for step completion from the customer display
 	useEffect(() => {
-		if (!flowActive) return () => {}; // Return an empty cleanup function if not active
+		if (!flowActive) return () => {};
 
 		const handleStepCompletion = (step, data) => {
-			// console.log(
-			// 	`useCustomerFlow: Received step completion for '${step}'`,
-			// 	data
-			// ); // Log received data
-
-			// Store the data from the completed step
+			// console.log(`useCustomerFlow: Received step completion for '${step}'`, data);
 			setStepData((prev) => {
-				// Create the updated state object, merging previous state with new data for the completed step
 				const updated = { ...prev, [step]: data };
-				// console.log(
-				// 	`useCustomerFlow: Updated stepData for step '${step}':`,
-				// 	updated
-				// );
+				// console.log(`useCustomerFlow: Updated stepData for step '${step}':`, updated);
 
-				// Determine the next step based on the completed step and payment method
 				let nextStepId = null;
+				const currentPaymentMethod = prev.paymentMethod || data.paymentMethod; // Ensure we have paymentMethod
 
-				// Handle flow based on payment method
-				if (prev.paymentMethod === "cash") {
-					// Cash Flow Logic (keep as is if it works for cash)
-					if (step === "payment" && updated.cashPaymentComplete === true) {
-						// console.log(
-						// 	"useCustomerFlow (Cash): Payment complete, moving to receipt."
-						// );
-						nextStepId = "receipt";
-					} else if (step === "receipt") {
-						// console.log(
-						// 	"useCustomerFlow (Cash): Receipt shown, cash flow complete."
-						// );
-						// Cash flow ends differently, maybe call completeFlow here for cash only?
-						// For consistency, maybe let the CashPaymentView handle its own final completion?
-						// Let's assume for now it stops here, or CashPaymentView triggers completion.
-						setTimeout(completeFlow, 500); // Keep if cash completion relies on this
-						return updated; // Return early for cash receipt completion
-					}
-				} else {
-					// Credit/Other Flow Logic
-					if (step === "rewards") {
-						// console.log(
-						// 	"useCustomerFlow (Credit): Rewards complete, moving to tip."
-						// );
-						nextStepId = "tip";
-					} else if (step === "tip" && data.tipAmount !== undefined) {
-						// console.log(
-						// 	"useCustomerFlow (Credit): Tip complete, moving to payment."
-						// );
-						updated.tipAmount = data.tipAmount; // Store tip amount
-						nextStepId = "payment";
-					} else if (step === "payment" && data.status === "success") {
-						// Ensure payment was successful
-						// console.log(
-						// 	"useCustomerFlow (Credit): Payment complete, moving to receipt."
-						// );
-						updated.payment = data; // Store payment details
+				if (currentPaymentMethod === "cash") {
+					if (step === "payment" && data.status === "success") {
+						// Assuming cash step returns success
 						nextStepId = "receipt";
 					} else if (step === "receipt" && data.status === "complete") {
-						// console.log(
-						// 	"useCustomerFlow (Credit): Receipt step complete signal received."
-						// );
-						// *** FIX: DO NOT call completeFlow() here for credit payments ***
-						// Simply mark the receipt step as done in the state.
-						// CreditPaymentView will react to this updated state.
-						updated.receiptComplete = true; // Mark receipt as done
-						// Do not determine a next step here; let CreditPaymentView handle it.
-						nextStepId = null; // Stop automatic step progression here
+						setTimeout(completeFlow, 500);
+						return updated;
+					}
+				} else {
+					// Credit/Other
+					if (step === "rewards") {
+						nextStepId = "tip";
+					} else if (step === "tip" && data.tipAmount !== undefined) {
+						updated.tipAmount = data.tipAmount; // Store tip amount from tip selection
+						updated.tipPercentage = data.tipPercentage;
+						nextStepId = "payment";
+					} else if (step === "payment" && data.status === "success") {
+						updated.payment = data;
+						nextStepId = "receipt";
+					} else if (step === "receipt" && data.status === "complete") {
+						updated.receiptComplete = true;
+						nextStepId = null; // Stop automatic progression for credit
 					} else {
-						// Default: Find the next step in sequence if none of the above match
 						const currentIndex = CUSTOMER_FLOW_STEPS.findIndex(
 							(s) => s.id === step
 						);
@@ -206,48 +155,31 @@ export function useCustomerFlow() {
 							currentIndex < CUSTOMER_FLOW_STEPS.length - 1
 						) {
 							nextStepId = CUSTOMER_FLOW_STEPS[currentIndex + 1].id;
-							// console.log(
-							// 	`useCustomerFlow: Defaulting to next step: ${nextStepId}`
-							// );
 						}
 					}
 				}
 
-				// If a next step was determined, update the customer display
 				if (nextStepId) {
-					// Use a microtask or short timeout to ensure state updates before sending message
 					setTimeout(() => {
-						// console.log(
-						// 	`useCustomerFlow: Navigating customer display to step: ${nextStepId}`
-						// );
-						setCurrentStep(nextStepId); // Update local currentStep state
-						// Update display manager with the state *before* adding the current step's data
+						setCurrentStep(nextStepId);
 						customerDisplayManager.updateCustomerFlowStep(nextStepId, {
 							...stepDataRef.current,
 							[step]: data,
 						});
 					}, 0);
 				}
-
-				// Return the updated state object for setStepData
 				return updated;
 			});
 		};
 
-		// Set up the listener using windowManager
-		// console.log("useCustomerFlow: Setting up listener for step completion.");
 		const cleanup =
 			customerDisplayManager.listenForCustomerFlowStepCompletion(
 				handleStepCompletion
 			);
-
-		// Return the cleanup function
 		return () => {
-			// console.log("useCustomerFlow: Cleaning up step completion listener.");
 			cleanup();
 		};
-		// React only when flow becomes active/inactive, or potentially if completeFlow definition changes (stable)
-	}, [flowActive, completeFlow]); // Remove stepData from dependencies
+	}, [flowActive, completeFlow]);
 
 	const updateFlowData = useCallback(
 		(newData) => {

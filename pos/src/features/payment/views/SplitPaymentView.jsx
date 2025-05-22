@@ -1,5 +1,5 @@
-// Enhanced SplitPaymentView.jsx
-import { useState, useEffect } from "react";
+// src/features/payment/views/SplitPaymentView.jsx
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
 	CreditCardIcon,
@@ -13,125 +13,117 @@ import { paymentAnimations } from "../../../animations/paymentAnimations";
 import PropTypes from "prop-types";
 import { ScrollableViewWrapper } from "./ScrollableViewWrapper";
 import { formatPrice } from "../../../utils/numberUtils";
+import { Decimal } from "decimal.js";
 
 const { pageVariants, pageTransition } = paymentAnimations;
+const TAX_RATE = 0.1; // Ensure this matches usePaymentFlow
 
 export const SplitPaymentView = ({
 	state,
-	remainingAmount,
+	// remainingAmount, // This was displayRemainingOverall (base+surcharge+tax remaining)
+	orderBaseRemainingPreTaxPreSurcharge, // NEW PROP: (Subtotal-Discount) remaining
 	handleNavigation,
-	setState,
+	setState: setParentState, // Renamed to avoid conflict
+	totalAmount, // Original (Subtotal-Discount)*(1+TAX_RATE)
 }) => {
-	// State for split configuration
-	const [splitAmount, setSplitAmount] = useState("");
-	const [splitMode, setSplitMode] = useState("remaining"); // "remaining", "equal" or "custom"
+	const [splitAmountInput, setSplitAmountInput] = useState(""); // For custom amount input
+	const [splitMode, setSplitModeState] = useState("remaining"); // "remaining", "equal", "custom"
 	const [numberOfSplits, setNumberOfSplits] = useState(2);
 
-	// Calculate equal split amounts
-	const equalSplitAmount = parseFloat(
-		(remainingAmount / numberOfSplits).toFixed(2)
+	// The amount SplitPaymentView should operate on is the pre-tax, pre-surcharge base remaining
+	const baseRemainingForSplitCalculations = parseFloat(
+		orderBaseRemainingPreTaxPreSurcharge || 0
 	);
 
+	const equalSplitAmountBase = useMemo(() => {
+		if (numberOfSplits <= 0 || baseRemainingForSplitCalculations <= 0) return 0;
+		return parseFloat(
+			(baseRemainingForSplitCalculations / numberOfSplits).toFixed(2)
+		);
+	}, [baseRemainingForSplitCalculations, numberOfSplits]);
+
+	// This is the tax-inclusive, pre-surcharge amount remaining for the whole order
+	const displayTotalRemainingWithTax = useMemo(() => {
+		return new Decimal(baseRemainingForSplitCalculations)
+			.times(new Decimal(1).plus(TAX_RATE))
+			.toNumber();
+	}, [baseRemainingForSplitCalculations]);
+
+	const epsilon = 0.01;
 	useEffect(() => {
 		if (state.splitMode && state.amountPaid > 0) {
-			// console.log("SPLIT VIEW: Split view mounted after partial payment", {
-			// 	amountPaid: state.amountPaid,
-			// 	remainingAmount,
-			// 	transactions: state.transactions.length,
-			// });
-
-			// Reset any "next" payment values to prevent auto-processing
-			setState((prev) => ({
+			setParentState((prev) => ({
 				...prev,
 				nextSplitAmount: null,
 				currentSplitMethod: null,
 			}));
 		}
-	}, []);
+	}, []); // Run once on mount
 
 	useEffect(() => {
-		// Check if payment is already complete (remaining amount is zero)
-		const epsilon = 0.01;
-		const isFullyPaid = Math.abs(remainingAmount) < epsilon;
-
-		if (isFullyPaid && state.splitMode) {
-			// console.log(
-			// 	"SPLIT VIEW: Payment already complete, redirecting to completion",
-			// 	{
-			// 		remainingAmount,
-			// 		amountPaid: state.amountPaid,
-			// 		totalAmount: remainingAmount + state.amountPaid,
-			// 		isFullyPaid,
-			// 		epsilon,
-			// 	}
-			// );
-
-			// Add a slight delay to allow rendering to complete
+		// If the pre-tax, pre-surcharge base remaining is effectively zero, payment is complete
+		if (baseRemainingForSplitCalculations < epsilon && state.splitMode) {
 			const timer = setTimeout(() => {
 				handleNavigation("Completion", 1);
 			}, 100);
-
 			return () => clearTimeout(timer);
 		}
-	}, [remainingAmount, state.splitMode, state.amountPaid, handleNavigation]);
+	}, [baseRemainingForSplitCalculations, state.splitMode, handleNavigation]);
 
-	// Update split mode in parent state
 	useEffect(() => {
-		setState((prev) => ({
+		setParentState((prev) => ({
 			...prev,
-			splitMode: true,
+			splitMode: true, // Ensure parent knows we are in split mode
 			splitDetails: {
 				mode: splitMode,
 				numberOfSplits: splitMode === "equal" ? numberOfSplits : null,
-				customAmount: splitMode === "custom" ? parseFloat(splitAmount) : null,
-				remainingAmount: splitMode === "remaining" ? remainingAmount : null,
-				currentSplitIndex: state.splitDetails?.currentSplitIndex || 0,
+				// Custom amount here is the pre-tax, pre-surcharge base
+				customAmount:
+					splitMode === "custom" ? parseFloat(splitAmountInput || 0) : null,
+				initialRemainingAmountForSplit: baseRemainingForSplitCalculations, // Store initial base for this split session
+				currentSplitIndex: prev.splitDetails?.currentSplitIndex || 0,
 			},
 		}));
-	}, [splitMode, numberOfSplits, splitAmount, remainingAmount, setState]);
+	}, [
+		splitMode,
+		numberOfSplits,
+		splitAmountInput,
+		baseRemainingForSplitCalculations,
+		setParentState,
+	]);
 
-	// Handle selecting a payment method for the current split
 	const handlePaymentMethodSelect = (method) => {
-		let amountForThisSplit;
+		let amountForThisSplit_PreTaxPreSurcharge;
 		if (splitMode === "remaining") {
-			amountForThisSplit = remainingAmount;
+			amountForThisSplit_PreTaxPreSurcharge = baseRemainingForSplitCalculations;
 		} else if (splitMode === "equal") {
-			amountForThisSplit = parseFloat(equalSplitAmount.toFixed(2)); // Ensure precision
+			amountForThisSplit_PreTaxPreSurcharge = equalSplitAmountBase;
 		} else {
 			// custom
-			amountForThisSplit = parseFloat(splitAmount || 0); // Ensure fallback if empty
-			// Add validation check here before proceeding if desired
+			amountForThisSplit_PreTaxPreSurcharge = parseFloat(splitAmountInput || 0);
 			const epsilon = 0.01;
 			if (
-				amountForThisSplit < epsilon ||
-				amountForThisSplit > remainingAmount + epsilon
+				amountForThisSplit_PreTaxPreSurcharge < epsilon ||
+				amountForThisSplit_PreTaxPreSurcharge >
+					baseRemainingForSplitCalculations + epsilon
 			) {
-				console.error("SPLIT VIEW: Invalid custom amount selected.");
-				// Optionally set an error state and return
+				console.error("Invalid custom split amount.");
 				return;
 			}
-			amountForThisSplit = parseFloat(amountForThisSplit.toFixed(2)); // Ensure precision
 		}
+		amountForThisSplit_PreTaxPreSurcharge = parseFloat(
+			amountForThisSplit_PreTaxPreSurcharge.toFixed(2)
+		);
 
-		// No longer need setState here to set nextSplitAmount, handleNavigation will do it.
-		// setState((prev) => ({
-		//     ...prev,
-		//     nextSplitAmount: amountForThisSplit, // REMOVE THIS LINE
-		//     currentSplitMethod: method,          // Keep this if needed, or pass via nav options
-		// }));
-
-		// console.log(
-		// 	`SPLIT VIEW: Navigating to ${method} with amount: ${amountForThisSplit}`
-		// );
-
-		// *** MODIFIED CALL: Pass amount in navigation options ***
-		handleNavigation(method, 1, { nextSplitAmount: amountForThisSplit });
+		handleNavigation(method, 1, {
+			nextSplitAmount: amountForThisSplit_PreTaxPreSurcharge,
+		});
 	};
 
 	return (
 		<motion.div
-			key="split-payment-ui" // Unique key
-			className="absolute inset-0 p-4 flex flex-col bg-slate-50" // Added background, flex-col
+			key="split-payment-ui"
+			className="absolute inset-0 p-4 flex flex-col bg-slate-50"
 			custom={state.direction}
 			variants={pageVariants}
 			initial="enter"
@@ -139,62 +131,57 @@ export const SplitPaymentView = ({
 			exit="exit"
 			transition={pageTransition}
 		>
-			{/* Scrollable main content area */}
 			<ScrollableViewWrapper className="flex-grow space-y-4 mb-4">
-				{" "}
-				{/* Added spacing and margin */}
-				{/* Header */}
 				<div className="text-center">
-					{" "}
-					{/* Removed mb-6 */}
 					<h3 className="text-xl font-semibold text-slate-800 mb-1">
-						{" "}
-						{/* Larger text */}
 						Split Payment
 					</h3>
 					<p className="text-slate-500 text-sm">
-						Choose how to split the remaining amount
+						Choose how to split the payment
 					</p>
 				</div>
-				{/* Payment summary - Styled like blue amount box */}
 				<motion.div
-					className="p-4 bg-blue-50 text-blue-700 rounded-lg space-y-2 shadow border border-blue-100" // Added border and shadow
-					initial={{ opacity: 0, y: 10 }} // Adjusted animation
+					className="p-4 bg-blue-50 text-blue-700 rounded-lg space-y-2 shadow border border-blue-100"
+					initial={{ opacity: 0, y: 10 }}
 					animate={{ opacity: 1, y: 0 }}
 					transition={{ delay: 0.1 }}
 				>
 					<div className="flex justify-between items-center">
-						<span className="font-medium text-blue-800">Total Due:</span>
-						{/* Use total amount for context */}
+						<span className="font-medium text-blue-800">
+							Total Order (Inc. Tax):
+						</span>
 						<span className="font-bold text-lg text-blue-900">
-							{formatPrice(state.amountPaid + remainingAmount)}
+							{formatPrice(totalAmount)}{" "}
+							{/* This is the original tax-inclusive order total */}
 						</span>
 					</div>
-					{state.amountPaid > 0 && (
+					{state.amountPaid > 0 && ( // state.amountPaid is sum of base pre-tax pre-surcharge paid
 						<div className="flex justify-between items-center text-sm text-emerald-700">
-							<span>Amount Paid:</span>
+							<span>Base Amount Paid:</span>
 							<span className="font-medium">
 								{formatPrice(state.amountPaid)}
 							</span>
 						</div>
 					)}
 					<div className="flex justify-between items-center text-lg text-blue-900 border-t border-blue-100 pt-2 mt-2">
-						<span className="font-semibold">Remaining:</span>
-						<span className="font-bold">{formatPrice(remainingAmount)}</span>
+						<span className="font-semibold">
+							Remaining (Inc. Tax, Pre-Surcharge):
+						</span>
+						<span className="font-bold">
+							{formatPrice(displayTotalRemainingWithTax)}
+						</span>
+					</div>
+					<div className="text-xs text-blue-600 text-right">
+						(Remaining Base Pre-Tax:{" "}
+						{formatPrice(baseRemainingForSplitCalculations)})
 					</div>
 				</motion.div>
-				{/* Split configuration options */}
+
 				<div className="space-y-4">
-					{" "}
-					{/* Removed mb-6 */}
 					<h4 className="text-base font-semibold text-slate-700 border-b pb-2">
 						Split Options
-					</h4>{" "}
-					{/* Styled heading */}
-					{/* Split type toggle - Improved styling */}
+					</h4>
 					<div className="flex flex-col sm:flex-row gap-2">
-						{" "}
-						{/* Stack on small screens */}
 						{[
 							{
 								mode: "remaining",
@@ -203,14 +190,14 @@ export const SplitPaymentView = ({
 							},
 							{ mode: "equal", label: "Equal Split", icon: ScaleIcon },
 							{ mode: "custom", label: "Custom Amount", icon: VariableIcon },
-						].map(({ mode, label, icon: Icon }) => (
+						].map(({ mode: btnMode, label, icon: Icon }) => (
 							<button
-								key={mode}
-								onClick={() => setSplitMode(mode)}
+								key={btnMode}
+								onClick={() => setSplitModeState(btnMode)}
 								className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg border text-sm font-medium transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500 ${
-									splitMode === mode
-										? "bg-blue-600 border-blue-600 text-white shadow-sm" // Active state
-										: "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400" // Inactive state
+									splitMode === btnMode
+										? "bg-blue-600 border-blue-600 text-white shadow-sm"
+										: "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400"
 								}`}
 							>
 								<Icon className="h-4 w-4" />
@@ -218,27 +205,17 @@ export const SplitPaymentView = ({
 							</button>
 						))}
 					</div>
-					{/* Conditional Options based on splitMode */}
+
 					<div className="p-4 bg-white border border-slate-200 rounded-lg shadow-sm min-h-[100px]">
-						{" "}
-						{/* Container for options */}
-						{/* Pay Remaining Info */}
 						{splitMode === "remaining" && (
 							<div className="space-y-2 text-sm">
-								<p className="text-slate-600">
-									This option will pay the full remaining amount.
-								</p>
+								<p className="text-slate-600">Pay the full remaining amount.</p>
 								<div className="flex justify-between font-medium text-slate-800">
-									<span>Amount to pay:</span>
-									<span>{formatPrice(remainingAmount)}</span>
-								</div>
-								<div className="flex justify-between text-xs text-slate-500">
-									<span>Balance after payment:</span>
-									<span>$0.00</span>
+									<span>Amount to pay (pre-tax, pre-surcharge):</span>
+									<span>{formatPrice(baseRemainingForSplitCalculations)}</span>
 								</div>
 							</div>
 						)}
-						{/* Equal Split Options */}
 						{splitMode === "equal" && (
 							<div className="space-y-3">
 								<label className="block text-sm font-medium text-slate-700">
@@ -261,22 +238,23 @@ export const SplitPaymentView = ({
 								</div>
 								<div className="text-sm space-y-1 pt-2 border-t border-slate-100 mt-2">
 									<div className="flex justify-between">
-										<span className="text-slate-600">Each payment:</span>
+										<span className="text-slate-600">
+											Each payment (pre-tax, pre-surcharge):
+										</span>
 										<span className="font-medium text-slate-800">
-											{formatPrice(equalSplitAmount)}
+											{formatPrice(equalSplitAmountBase)}
 										</span>
 									</div>
 								</div>
 							</div>
 						)}
-						{/* Custom Amount Input */}
 						{splitMode === "custom" && (
 							<div className="space-y-3">
 								<label
 									htmlFor="customSplitAmount"
 									className="block text-sm font-medium text-slate-700"
 								>
-									Amount for this payment:
+									Amount for this payment (pre-tax, pre-surcharge):
 								</label>
 								<div className="relative">
 									<span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 pointer-events-none">
@@ -285,22 +263,25 @@ export const SplitPaymentView = ({
 									<input
 										id="customSplitAmount"
 										type="number"
-										value={splitAmount}
-										onChange={(e) => setSplitAmount(e.target.value)}
-										className="block w-full pl-7 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm text-right" // Added text-right
+										value={splitAmountInput}
+										onChange={(e) => setSplitAmountInput(e.target.value)}
+										className="block w-full pl-7 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm text-right"
 										placeholder="0.00"
 										min="0.01"
-										max={remainingAmount}
+										max={baseRemainingForSplitCalculations.toFixed(2)}
 										step="0.01"
 									/>
 								</div>
-								{splitAmount && parseFloat(splitAmount) > 0 && (
+								{splitAmountInput && parseFloat(splitAmountInput) > 0 && (
 									<div className="text-sm space-y-1 pt-2 border-t border-slate-100 mt-2">
 										<div className="flex justify-between">
-											<span className="text-slate-600">Remaining after:</span>
+											<span className="text-slate-600">
+												Remaining base after this split:
+											</span>
 											<span className="font-medium text-slate-800">
 												{formatPrice(
-													remainingAmount - parseFloat(splitAmount || 0)
+													baseRemainingForSplitCalculations -
+														parseFloat(splitAmountInput || 0)
 												)}
 											</span>
 										</div>
@@ -310,52 +291,45 @@ export const SplitPaymentView = ({
 						)}
 					</div>
 				</div>
-				{/* Payment method selection for current split */}
+
 				<div className="space-y-3 pt-4 border-t border-slate-200">
-					{" "}
-					{/* Added border */}
 					<h4 className="text-base font-semibold text-slate-700">
-						{/* Dynamic heading based on split mode */}
 						{splitMode === "remaining"
 							? "Choose Payment Method"
-							: `Pay ${
+							: `Pay ${formatPrice(
 									splitMode === "equal"
-										? formatPrice(equalSplitAmount)
-										: splitMode === "custom" && splitAmount
-										? formatPrice(parseFloat(splitAmount))
-										: "..."
-							  } with:`}
+										? equalSplitAmountBase
+										: parseFloat(splitAmountInput || 0)
+							  )} (base) with:`}
 					</h4>
 					<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-						{" "}
-						{/* Responsive grid */}
 						<PaymentButton
 							icon={BanknotesIcon}
 							label="Cash"
 							onClick={() => handlePaymentMethodSelect("Cash")}
-							// Disable logic remains the same
 							disabled={
 								splitMode === "custom" &&
-								(!splitAmount ||
-									parseFloat(splitAmount) <= 0 ||
-									parseFloat(splitAmount) > remainingAmount)
+								(!splitAmountInput ||
+									parseFloat(splitAmountInput) <= 0 ||
+									parseFloat(splitAmountInput) >
+										baseRemainingForSplitCalculations + epsilon)
 							}
-							variant="default" // Use default style
-							className="py-3 text-base" // Consistent size
+							variant="default"
+							className="py-3 text-base"
 						/>
 						<PaymentButton
 							icon={CreditCardIcon}
 							label="Credit Card"
 							onClick={() => handlePaymentMethodSelect("Credit")}
-							// Disable logic remains the same
 							disabled={
 								splitMode === "custom" &&
-								(!splitAmount ||
-									parseFloat(splitAmount) <= 0 ||
-									parseFloat(splitAmount) > remainingAmount)
+								(!splitAmountInput ||
+									parseFloat(splitAmountInput) <= 0 ||
+									parseFloat(splitAmountInput) >
+										baseRemainingForSplitCalculations + epsilon)
 							}
-							variant="default" // Use default style
-							className="py-3 text-base" // Consistent size
+							variant="default"
+							className="py-3 text-base"
 						/>
 					</div>
 				</div>
@@ -399,21 +373,17 @@ SplitPaymentView.propTypes = {
 		direction: PropTypes.number.isRequired,
 		paymentMethod: PropTypes.string,
 		splitMode: PropTypes.bool.isRequired,
-		amountPaid: PropTypes.number.isRequired,
-		transactions: PropTypes.arrayOf(
-			PropTypes.shape({
-				method: PropTypes.oneOf(["cash", "credit"]).isRequired,
-				amount: PropTypes.number.isRequired,
-				cashTendered: PropTypes.number,
-				change: PropTypes.number,
-			})
-		).isRequired,
+		amountPaid: PropTypes.number.isRequired, // total base (pre-tax, pre-surcharge) paid so far
+		transactions: PropTypes.array.isRequired,
 		customAmount: PropTypes.string.isRequired,
 		splitDetails: PropTypes.object,
+		currentStepAmount: PropTypes.number, // Amount for current step (base+surcharge+tax)
 	}).isRequired,
-	remainingAmount: PropTypes.number.isRequired,
+	remainingAmount: PropTypes.number.isRequired, // Overall remaining (base+surcharge+tax) for the order
+	orderBaseRemainingPreTaxPreSurcharge: PropTypes.number.isRequired, // NEW: Remaining base (pre-tax, pre-surcharge) for the order
 	handleNavigation: PropTypes.func.isRequired,
 	setState: PropTypes.func.isRequired,
+	totalAmount: PropTypes.number.isRequired, // Original order total ( (Subtotal-Discount)*(1+TAX_RATE) )
 };
 
 export default SplitPaymentView;

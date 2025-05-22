@@ -9,12 +9,15 @@ import { useAuth } from "../../../contexts/AuthContext";
 const PaymentMethod = ({
 	formData,
 	handleChange,
-	// handleRadioChange, // No longer needed as payment method is fixed to card
 	isSubmitting,
 	isCreatingOrder,
 	pendingOrderId,
 	prevStep,
 	subtotal,
+	// Add these two props:
+	surchargeAmount,
+	surchargePercentageDisplay,
+	taxDisplay,
 	tax,
 	total,
 	formatPrice,
@@ -211,10 +214,14 @@ const PaymentMethod = ({
 
 			<OrderSummary
 				subtotal={subtotal}
+				// Pass the new props here:
+				surchargeAmount={surchargeAmount}
+				surchargePercentageDisplay={surchargePercentageDisplay}
 				tax={tax}
-				deliveryFee={0}
+				deliveryFee={0} // This was already present
 				total={total}
 				formatPrice={formatPrice}
+				taxDisplay={taxDisplay}
 			/>
 
 			<div className="mt-8 flex justify-between">

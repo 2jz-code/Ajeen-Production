@@ -461,40 +461,23 @@ class GetInProgressOrder(APIView):
 class CompleteOrder(APIView):
     permission_classes = [IsAuthenticated]
 
-    @transaction.atomic  # Wrap the entire completion process in a transaction
+    @transaction.atomic
     def post(self, request, pk, *args, **kwargs):
         try:
             print(f"--- Completing Order {pk} ---")
-            # Log the raw request body for debugging
-            try:
-                print(
-                    "Request Body RAW:", request.body.decode("utf-8")
-                )  # Decode bytes to string
-            except Exception as decode_err:
-                print("Request Body Decode Error:", decode_err)
-                print("Request Body (bytes):", request.body)
+            request_data = request.data
+            print(
+                "Request Body RAW:", json.dumps(request_data)
+            )  # Log request data for MVP
 
-            request_data = request.data  # Use a shorter variable name
+            order = get_object_or_404(
+                Order.objects.select_related("discount", "payment"),
+                id=pk,
+                user=request.user,
+            )
 
-            # --- FIX: Idempotency Check ---
-            # 1. Fetch the order first without status check
-            try:
-                order = get_object_or_404(
-                    Order.objects.select_related("discount", "payment"),
-                    id=pk,
-                    user=request.user,
-                )
-            except Order.DoesNotExist:
-                print(f"Error: Order {pk} not found for user {request.user.id}.")
-                return Response(
-                    {"status": "error", "message": "Order not found"},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-
-            # 2. Check current status
             if order.status == "completed":
                 print(f"Order {pk} is already completed. Returning success.")
-                # Return success, potentially with the existing order data
                 return Response(
                     {
                         "status": "success",
@@ -502,7 +485,7 @@ class CompleteOrder(APIView):
                         "order": OrderSerializer(order).data,
                     },
                     status=status.HTTP_200_OK,
-                )  # Use 200 OK for idempotency success
+                )
 
             if order.status != "in_progress":
                 print(
@@ -514,127 +497,132 @@ class CompleteOrder(APIView):
                         "message": f"Order cannot be completed from status '{order.status}'",
                     },
                     status=status.HTTP_400_BAD_REQUEST,
-                )  # Bad request if not in correct initial state
-            # --- END FIX ---
-
-            # If we reach here, the order exists, belongs to the user, and IS 'in_progress'
-            print(
-                f"Order {pk} found and is in 'in_progress' state. Proceeding with completion."
-            )
-
-            # Extract payment details from the request body
-            payment_details_data = request_data.get("payment_details", {})
-            transactions_data = payment_details_data.get("transactions", [])
-
-            print(
-                f"Order Status Before: {order.status}, Payment Status Before: {order.payment_status}"
-            )
-            print(
-                f"Transactions data received: {len(transactions_data)} transaction(s)"
-            )
-
-            # Extract Tip Amount
-            try:
-                frontend_tip_amount = Decimal(request_data.get("tip_amount", "0.00"))
-                if frontend_tip_amount < 0:
-                    frontend_tip_amount = Decimal("0.00")  # Ensure non-negative
-            except (TypeError, decimal.InvalidOperation):
-                print(
-                    f"Warning: Invalid tip_amount received ('{request_data.get('tip_amount')}'), defaulting to 0.00"
                 )
-                frontend_tip_amount = Decimal("0.00")
-            order.tip_amount = frontend_tip_amount  # Save tip
-            print(f"Extracted Tip Amount: {order.tip_amount}")
 
-            # Update Order Status and Details
+            print(
+                f"Order {pk} found and is 'in_progress'. Proceeding with MVP completion."
+            )
+
+            # --- MVP: Directly use frontend values ---
+            frontend_values = {}
+            try:
+                # Values from frontend for direct storage
+                order.subtotal_from_frontend = Decimal(
+                    request_data.get("subtotal", "0.00")
+                )
+                order.tax_amount_from_frontend = Decimal(
+                    request_data.get("tax_amount", "0.00")
+                )
+                order.surcharge_amount = Decimal(
+                    request_data.get("surcharge_amount", "0.00")
+                )
+                # surcharge_percentage might also be sent if it's used for display or record
+                order.surcharge_percentage = Decimal(
+                    request_data.get(
+                        "surcharge_percentage", order.surcharge_percentage or "0.0000"
+                    )
+                )
+                order.tip_amount = Decimal(request_data.get("tip_amount", "0.00"))
+                order.total_price = Decimal(
+                    request_data.get("total_amount", "0.00")
+                )  # grand_total from frontend
+                order.discount_amount = Decimal(
+                    request_data.get("discount_amount", "0.00")
+                )  # if frontend calculates this
+
+                frontend_values = {
+                    "subtotal": order.subtotal_from_frontend,
+                    "tax_amount": order.tax_amount_from_frontend,
+                    "surcharge_amount": order.surcharge_amount,
+                    "surcharge_percentage": order.surcharge_percentage,
+                    "tip_amount": order.tip_amount,
+                    "total_price": order.total_price,
+                    "discount_amount": order.discount_amount,
+                }
+                print(f"Order {pk}: Frontend values to be stored: {frontend_values}")
+
+            except (TypeError, decimal.InvalidOperation) as e:
+                logger.error(
+                    f"Error parsing decimal values from frontend for order {pk}: {e}. Data: {request_data}"
+                )
+                return Response(
+                    {
+                        "status": "error",
+                        "message": f"Invalid data format for financial values: {e}",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Update order status
             order.status = "completed"
             order.payment_status = (
                 "paid"  # Assume paid if this endpoint is hit successfully
             )
 
-            # Apply/Remove discount based on payload
+            # Handle discount linkage if discount_id is sent
             discount_id = request_data.get("discount_id")
             if discount_id:
                 try:
                     discount = Discount.objects.get(id=discount_id, is_active=True)
                     order.discount = discount
-                    try:
-                        order.discount_amount = Decimal(
-                            request_data.get("discount_amount", "0.00")
-                        )
-                        if order.discount_amount < 0:
-                            order.discount_amount = Decimal("0.00")
-                    except (TypeError, decimal.InvalidOperation):
-                        order.discount_amount = Decimal("0.00")
-
-                    # Increment usage count atomically
-                    discount.used_count = F("used_count") + 1
-                    discount.save(update_fields=["used_count"])
-                    print(
-                        f"Applied discount {discount_id}. Amount: {order.discount_amount}"
-                    )
+                    # discount.used_count = F("used_count") + 1 # This can still be done
+                    # discount.save(update_fields=["used_count"])
+                    print(f"Applied discount {discount_id} by ID.")
                 except Discount.DoesNotExist:
                     print(
-                        f"Warning: Discount ID {discount_id} not found or inactive, not applying discount."
+                        f"Warning: Discount ID {discount_id} not found or inactive. Storing discount_amount from frontend only."
                     )
-                    order.discount = None
-                    order.discount_amount = Decimal("0.00")
+                    order.discount = (
+                        None  # Ensure no discount is linked if ID is invalid
+                    )
             else:
                 order.discount = None
-                order.discount_amount = Decimal("0.00")
-                print("No discount applied.")
+                # order.discount_amount is already set from frontend_values
 
-            # Use the total_amount from the payload, verify against server calculation
-            try:
-                final_total_from_payload = Decimal(
-                    request_data.get("total_amount", "0.00")
-                )
-                server_calculated_total = order.calculate_total_price(
-                    tip_to_add=order.tip_amount
-                )  # Recalculate for verification
-                if abs(final_total_from_payload - server_calculated_total) > Decimal(
-                    "0.01"
-                ):
-                    print(
-                        f"Warning: Discrepancy between frontend total ({final_total_from_payload}) and server total ({server_calculated_total}). Using server calculated total."
-                    )
-                    order.total_price = server_calculated_total
-                else:
-                    order.total_price = (
-                        final_total_from_payload  # Trust frontend if close
-                    )
-            except (TypeError, decimal.InvalidOperation):
-                print(
-                    f"Warning: Invalid total_amount received ('{request_data.get('total_amount')}'), recalculating server-side."
-                )
-                order.total_price = order.calculate_total_price(
-                    tip_to_add=order.tip_amount
-                )  # Fallback
+            # Save the order with frontend-provided values
+            # The calculate_total_price method is NOT explicitly called here to recalculate.
+            # We are trusting the frontend_values for the final amounts.
+            fields_to_update = [
+                "status",
+                "payment_status",
+                "subtotal_from_frontend",
+                "tax_amount_from_frontend",
+                "surcharge_amount",
+                "surcharge_percentage",
+                "tip_amount",
+                "total_price",
+                "discount_amount",
+                "discount",
+            ]
+            order.save(update_fields=fields_to_update)
+            print(f"Order {pk} fields updated and saved with frontend values.")
 
-            order.save()  # Save order changes
-            print(f"Order {pk} marked as completed. Final total: {order.total_price}")
-
-            # Get or Create/Update Payment Record
+            # Payment record handling (ensure payment amount matches final total_price)
+            payment_details_data = request_data.get("payment_details", {})
             payment_method_str = payment_details_data.get("paymentMethod", "other")[:50]
             payment, created = Payment.objects.update_or_create(
                 order=order,
                 defaults={
-                    "status": "completed",
-                    "amount": order.total_price,
+                    "status": "completed",  # Assuming payment is completed
+                    "amount": order.total_price,  # Use the frontend-provided total_price
                     "payment_method": payment_method_str,
                     "is_split_payment": payment_details_data.get("splitPayment", False)
-                    or (len(transactions_data) > 1),
+                    or (len(payment_details_data.get("transactions", [])) > 1),
                 },
             )
             action_word = "Created" if created else "Updated"
             print(
-                f"{action_word} Payment {payment.id} for Order {pk}. Status: {payment.status}, Amount: {payment.amount}, Method: {payment.payment_method}, Split: {payment.is_split_payment}"
+                f"{action_word} Payment {payment.id} for Order {pk}. Amount: {payment.amount}"
             )
 
-            # Create PaymentTransaction records
+            # Create PaymentTransaction records (this logic can remain largely the same)
+            transactions_data = payment_details_data.get("transactions", [])
             if isinstance(transactions_data, list) and transactions_data:
+                # ... (rest of your transaction processing logic - ensure it uses amounts from payload)
+                # This part assumes transactions_data contains amounts that sum up to order.total_price
+                # You might want to add a server-side check here for MVP if total of transactions matches order.total_price
                 total_paid_in_transactions = Decimal(0)
-                payment.transactions.all().delete()  # Clear previous before adding final set
+                payment.transactions.all().delete()
                 print(
                     f"Cleared existing transactions for Payment {payment.id} before adding new ones."
                 )
@@ -656,7 +644,8 @@ class CompleteOrder(APIView):
                         continue
 
                     total_paid_in_transactions += amount
-                    metadata = {}
+                    # ... (rest of metadata and PaymentTransaction creation)
+                    metadata = {}  # Populate as before
                     card_info = txn_data.get("cardInfo", {})
                     flow_data = txn_data.get("flowData", {})
                     payment_in_flow = (
@@ -682,9 +671,6 @@ class CompleteOrder(APIView):
                         metadata["cashTendered"] = txn_data.get("cashTendered")
                         metadata["change"] = txn_data.get("change")
 
-                    if payment.is_split_payment:
-                        metadata["splitDetails"] = txn_data.get("splitDetails", {})
-
                     external_txn_id = (
                         txn_data.get("transactionId")
                         or txn_data.get("transaction_id")
@@ -696,7 +682,7 @@ class CompleteOrder(APIView):
                         parent_payment=payment,
                         payment_method=method,
                         amount=amount,
-                        status="completed",
+                        status="completed",  # Assuming transaction is completed
                         transaction_id=external_txn_id,
                         metadata_json=(
                             json.dumps(metadata, cls=DecimalEncoder)
@@ -705,40 +691,35 @@ class CompleteOrder(APIView):
                         ),
                     )
                     print(
-                        f"Created PaymentTransaction {payment_txn.id}: Method={method}, Amount={amount}, ExtID={external_txn_id or 'N/A'}"
+                        f"Created PaymentTransaction {payment_txn.id}: Method={method}, Amount={amount}"
                     )
 
-                # Final Verification
                 if abs(total_paid_in_transactions - order.total_price) > Decimal(
                     "0.01"
                 ):
-                    print(
-                        f"Warning: Discrepancy! Final Order total ({order.total_price}) != Sum of transactions ({total_paid_in_transactions})."
+                    logger.warning(
+                        f"Order {pk}: Discrepancy! Frontend total ({order.total_price}) != Sum of payment_details transactions ({total_paid_in_transactions})."
                     )
                 else:
                     print(
-                        f"Final amounts match: Order Total={order.total_price}, Transactions Sum={total_paid_in_transactions}"
+                        f"Order {pk}: Amounts match: Order Total={order.total_price}, Transactions Sum={total_paid_in_transactions}"
                     )
             else:
                 print(
-                    "No detailed transaction data provided in payload, skipping transaction record creation."
+                    "No detailed transaction data in payment_details, skipping PaymentTransaction creation."
                 )
 
-            # --- Response ---
-            order.refresh_from_db()  # Refresh to get latest state
-            print(f"Order {pk} completion process finished successfully.")
-
+            order.refresh_from_db()
+            print(f"Order {pk} completion process (MVP style) finished successfully.")
             return Response(
                 {
                     "status": "success",
-                    "message": "Order completed successfully",
-                    "order": OrderSerializer(order).data,  # Use the refreshed order
+                    "message": "Order completed successfully (MVP)",
+                    "order": OrderSerializer(order).data,
                 }
             )
 
-        # Removed the specific Order.DoesNotExist catch here as it's handled by the idempotency check above
-
-        except Discount.DoesNotExist:
+        except Discount.DoesNotExist:  # Keep this for discount ID validation
             print(
                 f"Error: Invalid Discount ID provided during completion of order {pk}."
             )
@@ -749,20 +730,14 @@ class CompleteOrder(APIView):
         except Exception as e:
             import traceback
 
-            print(f"--- Error Completing Order {pk} ---")
+            print(f"--- Error Completing Order {pk} (MVP) ---")
             traceback.print_exc()
-            error_message = str(e)
-            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-            if isinstance(e, (TypeError, ValueError, decimal.InvalidOperation)):
-                error_message = "Invalid data format received in request."
-                status_code = status.HTTP_400_BAD_REQUEST
-            # Return generic error for other exceptions
             return Response(
                 {
                     "status": "error",
-                    "message": "An internal error occurred during order completion.",
+                    "message": f"An internal error occurred during order completion: {str(e)}",
                 },
-                status=status_code,
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 

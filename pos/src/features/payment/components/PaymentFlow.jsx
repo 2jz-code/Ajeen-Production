@@ -1,181 +1,152 @@
 // src/features/payment/components/PaymentFlow.jsx
 import { AnimatePresence } from "framer-motion";
 import PropTypes from "prop-types";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react"; // Added useMemo
 import { PaymentHeader } from "./PaymentHeader";
 import { PaymentSummary } from "./PaymentSummary";
 import { PaymentStatus } from "./PaymentStatus";
 import { usePaymentFlow } from "../hooks/usePaymentFlow";
-import { calculatePaymentTotals as calculateDisplayTotals } from "../utils/paymentCalculations"; // Renamed import for clarity
 import { PaymentViews } from "../views";
 import { useCartActions } from "../../cart/hooks/useCartActions";
 import { useCartStore } from "../../../store/cartStore";
+import { Decimal } from "decimal.js";
+
+const TAX_RATE = 0.1; // Ensure this is consistent with usePaymentFlow's TAX_RATE
 
 export const PaymentFlow = ({ totalAmount, onBack }) => {
-	const cartActions = useCartActions();
+  const cartActions = useCartActions();
 
-	// Wrapper for onComplete to pass to usePaymentFlow
-	// This function now receives the already structured payload from usePaymentFlow.completePaymentFlow
-	const handleBackendComplete = useCallback(
-		async (orderId, paymentPayload) => {
-			// <<< Receive orderId and paymentPayload from usePaymentFlow
-			try {
-				if (!orderId) {
-					console.error(
-						"PAYMENT FLOW: Missing orderId when completing payment!"
-					);
-					return null; // Return null on failure
-				}
-				if (!paymentPayload) {
-					console.error(
-						"PAYMENT FLOW: Missing paymentPayload when completing payment!"
-					);
-					return null; // Return null on failure
-				}
+  const handleBackendComplete = useCallback(
+    async (orderId, paymentPayload) => {
+      try {
+        if (!orderId || !paymentPayload) {
+          console.error(
+            "PAYMENT FLOW: Missing orderId or paymentPayload for completion!"
+          );
+          return null;
+        }
+        const result = await cartActions.completeOrder(orderId, paymentPayload);
+        return result;
+      } catch (error) {
+        console.error(
+          "PAYMENT FLOW: Error calling cartActions.completeOrder:",
+          error
+        );
+        return null;
+      }
+    },
+    [cartActions]
+  );
 
-				// console.log("PAYMENT FLOW: handleBackendComplete received:", {
-				// 	orderId,
-				// 	paymentPayload,
-				// });
+  const handleNewOrderRequest = useCallback(async () => {
+    try {
+      useCartStore.getState().clearCart(); // This also resets orderId and shows overlay
+      onBack(); // Close the payment modal
+    } catch (error) {
+      console.error(
+        "Error handling new order request from PaymentFlow:",
+        error
+      );
+    }
+  }, [cartActions, onBack]); // cartActions was missing, added for consistency if startOrder was used from it
 
-				// Add/Confirm discount details in the payload before sending to cartActions.completeOrder
-				// Note: usePaymentFlow already includes discountId/Amount in its payload
-				const finalPayload = {
-					...paymentPayload, // Spread the payload received from usePaymentFlow
-					// Ensure discount details are up-to-date from store state if necessary,
-					// although usePaymentFlow should already have the correct ones in paymentPayload.
-					// If recalculation based on cart is absolutely needed here (less ideal):
-					// discount_id: orderDiscount?.id,
-					// discount_amount: orderDiscount
-					// 	? calculateCartTotals(currentCartItems, orderDiscount).discountAmount.toFixed(2)
-					// 	: "0.00",
-				};
+  const {
+    state,
+    setState,
+    error,
+    isCompleting,
+    handleNavigation,
+    handleBack,
+    processPayment,
+    completePaymentFlow,
+    isPaymentComplete,
+    handleStartNewOrder,
+    getDisplayTotals, // Function from usePaymentFlow to get UI display values
+  } = usePaymentFlow({
+    totalAmount, // This is the order's initial cash price (subtotal - discount + tax)
+    onComplete: handleBackendComplete,
+    onNewOrder: handleNewOrderRequest,
+  });
+  // console.log("[PaymentFlow] Hook state in PaymentFlow component:", state);
+  // console.log("[PaymentFlow] totalAmount prop (tax-inclusive, pre-surcharge):", totalAmount);
 
-				// *** Call cartActions.completeOrder (which handles backend API) ***
-				const result = await cartActions.completeOrder(
-					orderId,
-					finalPayload // Pass the correct, detailed payload
-				);
-				// console.log(
-				// 	"PAYMENT FLOW: cartActions.completeOrder result:",
-				// 	result ? "Order Data Received" : result
-				// );
+  const handleBackNavigation = () => {
+    const handledByHook = handleBack();
+    if (!handledByHook) {
+      onBack();
+    }
+  };
 
-				// *** MODIFIED: Return the result (order data or null) ***
-				return result;
-			} catch (error) {
-				console.error(
-					"PAYMENT FLOW: Error calling cartActions.completeOrder:",
-					error
-				);
-				return null; // Indicate failure by returning null
-			}
-		},
-		[cartActions] // Dependency array
-	);
+  const displayTotalsObject = getDisplayTotals();
+  // console.log("[PaymentFlow] Object received from getDisplayTotals():", displayTotalsObject);
 
-	// Wrapper for onNewOrder
-	const handleNewOrderRequest = useCallback(async () => {
-		try {
-			useCartStore.getState().clearCart();
-			useCartStore.getState().clearLocalOrderDiscountState();
-			useCartStore.getState().setRewardsProfile(null);
-			await cartActions.startOrder();
-			onBack();
-		} catch (error) {
-			console.error("Error handling new order request:", error);
-		}
-	}, [cartActions, onBack]);
+  const CurrentView = PaymentViews[state.currentView];
 
-	// Initialize the payment flow hook
-	const {
-		state,
-		setState,
-		error,
-		isCompleting, // Use isCompleting from the hook
-		handleNavigation,
-		handleBack,
-		processPayment,
-		completePaymentFlow, // This calls handleBackendComplete internally
-		isPaymentComplete,
-		handleStartNewOrder,
-	} = usePaymentFlow({
-		totalAmount,
-		onComplete: handleBackendComplete, // Pass the wrapper
-		onNewOrder: handleNewOrderRequest,
-	});
+  // Calculate the pre-tax, pre-surcharge base of the entire order
+  const orderBasePreTaxPreSurchargeTotal = useMemo(() => {
+    return new Decimal(totalAmount || 0)
+      .div(new Decimal(1).plus(TAX_RATE))
+      .toNumber();
+  }, [totalAmount]);
 
-	// Handle back navigation
-	const handleBackNavigation = () => {
-		const handledByHook = handleBack();
-		if (!handledByHook) {
-			onBack();
-		}
-	};
+  // Calculate the remaining pre-tax, pre-surcharge base of the order
+  const remainingBaseForSplitView = useMemo(() => {
+    return Math.max(
+      0,
+      orderBasePreTaxPreSurchargeTotal - (state.amountPaid || 0)
+    );
+  }, [orderBasePreTaxPreSurchargeTotal, state.amountPaid]);
+  // console.log("[PaymentFlow] remainingBaseForSplitView to pass to SplitPaymentView:", remainingBaseForSplitView);
 
-	// Calculate display totals
-	const { subtotal, taxAmount, payableAmount, remainingAmount } =
-		calculateDisplayTotals(totalAmount, state.amountPaid);
-
-	// Get the current view component
-	const CurrentView = PaymentViews[state.currentView];
-
-	return (
-		<div className="w-full h-full flex flex-col bg-slate-50">
-			<PaymentHeader
-				onBack={handleBackNavigation}
-				title={`Payment - Order #${state.orderId || "..."}`}
-			/>
-			<div className="flex-1 relative overflow-hidden p-4">
-				<AnimatePresence
-					initial={false}
-					custom={state.direction}
-					mode="wait"
-				>
-					<CurrentView
-						key={state.currentView}
-						state={state} // Pass the whole state
-						setState={setState}
-						remainingAmount={remainingAmount}
-						handleNavigation={handleNavigation}
-						handlePayment={processPayment}
-						isPaymentComplete={isPaymentComplete}
-						completePaymentFlow={completePaymentFlow}
-						onStartNewOrder={handleStartNewOrder}
-						totalAmount={totalAmount}
-						isCompleting={isCompleting}
-						// --- ADDED/MODIFIED PROP for CompletionView ---
-						// Pass the specific data needed by CompletionView
-						paymentResult={
-							state.currentView === "Completion"
-								? state.completionResultData
-								: undefined
-						}
-						// Optionally pass the full result if needed
-						// paymentResult={state.currentView === 'Completion' ? state.completionResultData : undefined}
-					/>
-				</AnimatePresence>
-				{/* Use error/isCompleting from the hook */}
-				<PaymentStatus
-					error={error}
-					isProcessing={isCompleting}
-				/>
-			</div>
-			{state.currentView !== "Completion" && (
-				<PaymentSummary
-					totalAmount={subtotal}
-					taxAmount={taxAmount}
-					payableAmount={payableAmount}
-					amountPaid={state.amountPaid}
-				/>
-			)}
-		</div>
-	);
+  return (
+    <div className="w-full h-full flex flex-col bg-slate-50">
+      <PaymentHeader
+        onBack={handleBackNavigation}
+        title={`Payment - Order #${state.orderId || "..."}`}
+      />
+      <div className="flex-1 relative overflow-hidden p-4">
+        <AnimatePresence initial={false} custom={state.direction} mode="wait">
+          <CurrentView
+            key={state.currentView}
+            state={state}
+            setState={setState}
+            remainingAmount={displayTotalsObject.displayRemainingOverall} // For general display in payment views
+            orderBaseRemainingPreTaxPreSurcharge={remainingBaseForSplitView} // Specifically for SplitPaymentView logic
+            handleNavigation={handleNavigation}
+            handlePayment={processPayment}
+            isPaymentComplete={isPaymentComplete}
+            completePaymentFlow={completePaymentFlow}
+            onStartNewOrder={handleStartNewOrder}
+            totalAmount={totalAmount} // Original tax-inclusive, pre-surcharge total for context
+            isCompleting={isCompleting}
+            paymentResult={
+              state.currentView === "Completion"
+                ? state.completionResultData
+                : undefined
+            }
+          />
+        </AnimatePresence>
+        <PaymentStatus error={error} isProcessing={isCompleting} />
+      </div>
+      {state.currentView !== "Completion" && (
+        <PaymentSummary
+          subtotal={displayTotalsObject.displayCartSubtotal}
+          taxAmount={displayTotalsObject.displayTaxAmount}
+          discountAmount={displayTotalsObject.displayCartDiscountAmount}
+          surchargeAmount={displayTotalsObject.displaySurchargeAmount}
+          tipAmount={displayTotalsObject.displayTipAmount}
+          grandTotal={displayTotalsObject.displayGrandTotal}
+          amountPaid={displayTotalsObject.displayAmountPaidToBaseOrder}
+          remainingAfterPayments={displayTotalsObject.displayRemainingOverall}
+        />
+      )}
+    </div>
+  );
 };
 
 PaymentFlow.propTypes = {
-	totalAmount: PropTypes.number.isRequired,
-	onBack: PropTypes.func.isRequired,
+  totalAmount: PropTypes.number.isRequired,
+  onBack: PropTypes.func.isRequired,
 };
 
 export default PaymentFlow;

@@ -10,6 +10,9 @@ const CartReview = ({
 	total,
 	formatPrice,
 	nextStep,
+	surchargeAmount,
+	surchargePercentageDisplay,
+	taxDisplay,
 }) => {
 	const navigate = useNavigate();
 
@@ -70,8 +73,16 @@ const CartReview = ({
 							<span className="text-gray-600">Subtotal</span>
 							<span>${formatPrice(subtotal)}</span>
 						</div>
+						{surchargeAmount > 0 && ( // Only display if there's a surcharge
+							<div className="flex justify-between">
+								<span className="text-gray-600">
+									Surcharge ({surchargePercentageDisplay || "N/A"})
+								</span>
+								<span>${formatPrice(surchargeAmount)}</span>
+							</div>
+						)}
 						<div className="flex justify-between py-2">
-							<span className="text-gray-600">Tax (10%)</span>
+							<span className="text-gray-600">Tax ({taxDisplay || "N/A"})</span>
 							<span>${formatPrice(tax)}</span>
 						</div>
 						<div className="flex justify-between py-2 font-semibold text-lg">
