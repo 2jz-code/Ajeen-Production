@@ -1,120 +1,80 @@
-import { useState, useEffect } from "react";
+// src/pages/products/EditProduct.jsx
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axiosInstance from "../../api/config/axiosConfig";
-import { ENDPOINTS } from "../../api/config/apiEndpoints"; // Import ENDPOINTS
+import { ENDPOINTS } from "../../api/config/apiEndpoints";
 import {
 	ArrowLeftIcon,
 	CheckIcon,
-	XMarkIcon,
+	XMarkIcon, // For cancel button in form
 	ExclamationTriangleIcon,
 	PhotoIcon,
-	QrCodeIcon, // Icon for barcode
+	QrCodeIcon,
+	ArrowPathIcon,
 } from "@heroicons/react/24/outline";
-import LoadingSpinner from "../reports/components/LoadingSpinner"; // Assuming you have this
-import { toast } from "react-toastify"; // For user feedback
+import { PackageIcon } from "lucide-react";
+import LoadingSpinner from "../reports/components/LoadingSpinner";
+import { toast } from "react-toastify";
+import MainLayout from "../layout/MainLayout";
 
-const EditProduct = () => {
-	const { name: productNameParam } = useParams(); // Renamed to avoid conflict with product.name
+export default function EditProduct() {
+	const { name: productNameParam } = useParams();
 	const navigate = useNavigate();
-
-	const [product, setProduct] = useState({
-		name: "",
-		price: "",
-		description: "",
-		category: "",
-		image: "",
-		barcode: "", // <-- Initialize barcode field
-	});
+	const [product, setProduct] = useState(null); // Initialize as null
 	const [categories, setCategories] = useState([]);
 	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState(null); // General error for the page
-	const [fieldErrors, setFieldErrors] = useState({}); // For individual field errors
+	const [error, setError] = useState(null);
+	const [fieldErrors, setFieldErrors] = useState({});
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
-	useEffect(() => {
-		let isMounted = true;
+	const fetchProductData = useCallback(async () => {
+		// Renamed and wrapped in useCallback
 		setLoading(true);
 		setError(null);
 		setFieldErrors({});
+		try {
+			const response = await axiosInstance.get(
+				ENDPOINTS.PRODUCTS.DETAIL(productNameParam)
+			);
+			const fetchedProduct = response.data;
+			fetchedProduct.category =
+				fetchedProduct.category?.id ?? fetchedProduct.category ?? ""; // Handle category object or ID
+			fetchedProduct.barcode = fetchedProduct.barcode || "";
+			setProduct(fetchedProduct);
+		} catch (err) {
+			console.error("Error fetching product:", err);
+			setError(
+				"Failed to fetch product details. It might have been deleted or the name changed."
+			);
+			toast.error("Failed to load product details.");
+			setProduct(null); // Ensure product is null on error
+		} finally {
+			setLoading(false);
+		}
+	}, [productNameParam]);
 
-		const fetchProduct = axiosInstance
-			.get(ENDPOINTS.PRODUCTS.DETAIL(productNameParam)) // Use ENDPOINTS and param
-			.then((response) => {
-				if (isMounted) {
-					const fetchedProduct = response.data;
-					if (
-						fetchedProduct.category &&
-						typeof fetchedProduct.category === "object"
-					) {
-						fetchedProduct.category = fetchedProduct.category.id;
-					} else if (
-						fetchedProduct.category === null ||
-						fetchedProduct.category === undefined
-					) {
-						fetchedProduct.category = "";
-					}
-					// Ensure barcode is a string, default to empty if null/undefined
-					fetchedProduct.barcode = fetchedProduct.barcode || "";
-					setProduct(fetchedProduct);
-				}
-			})
+	useEffect(() => {
+		fetchProductData();
+		axiosInstance
+			.get(ENDPOINTS.PRODUCTS.CATEGORIES)
+			.then((response) => setCategories(response.data))
 			.catch((err) => {
-				// Catch block for fetchProduct
-				console.error("Error fetching product:", err);
-				if (isMounted) {
-					setError(
-						"Failed to fetch product details. It might have been deleted or the name changed."
-					);
-					toast.error("Failed to load product details.");
-				}
-			});
-
-		const fetchCategories = axiosInstance
-			.get(ENDPOINTS.PRODUCTS.CATEGORIES) // Use ENDPOINTS
-			.then((response) => {
-				if (isMounted) setCategories(response.data);
-			})
-			.catch((err) => {
-				// Catch block for fetchCategories
 				console.error("Error fetching categories:", err);
-				if (isMounted) {
-					// Don't overwrite product fetch error unless it's the only error
-					if (!error) setError("Failed to load categories.");
-					toast.error("Failed to load categories.");
-				}
+				toast.error("Could not load categories.");
 			});
-
-		Promise.all([fetchProduct, fetchCategories])
-			.catch((err) => {
-				// This catch is for Promise.all itself, e.g., if one of the promises is already rejected
-				console.error(
-					"Error in Promise.all while fetching product/category data:",
-					err
-				);
-				if (isMounted && !error) {
-					// Avoid overwriting more specific errors
-					setError("An unexpected error occurred while loading data.");
-				}
-			})
-			.finally(() => {
-				if (isMounted) setLoading(false);
-			});
-
-		return () => {
-			isMounted = false;
-		};
-	}, [productNameParam, error]); // Added `error` to dependency array to avoid potential stale closure issues if setError was called inside
+	}, [fetchProductData]); // Depend on the memoized fetch function
 
 	const handleChange = (e) => {
+		if (!product) return; // Guard against product not being loaded
 		const { name, value } = e.target;
 		setProduct({ ...product, [name]: value });
-		if (fieldErrors[name]) {
+		if (fieldErrors[name])
 			setFieldErrors((prev) => ({ ...prev, [name]: null }));
-		}
-		if (error) setError(null); // Clear general page error on input change
+		if (error) setError(null);
 	};
 
 	const validateForm = () => {
+		if (!product) return false;
 		const errors = {};
 		if (!product.name.trim()) errors.name = "Product name is required.";
 		if (!product.price.toString().trim()) errors.price = "Price is required.";
@@ -123,31 +83,23 @@ const EditProduct = () => {
 		if (!product.description.trim())
 			errors.description = "Description is required.";
 		if (!product.category) errors.category = "Category is required.";
-		// Optional barcode validation
-		// if (product.barcode.trim() && product.barcode.trim().length < 6) errors.barcode = "Barcode seems too short.";
 		setFieldErrors(errors);
 		return Object.keys(errors).length === 0;
 	};
 
 	const handleSubmit = async (e) => {
 		e.preventDefault();
+		if (!product) return;
 		setError(null);
 		setFieldErrors({});
 		if (!validateForm()) {
 			toast.error("Please correct the errors in the form.");
 			return;
 		}
-
 		setIsSubmitting(true);
 		const updatedProductData = { ...product };
-		delete updatedProductData.image; // Remove image URL before sending
-
-		if (updatedProductData.category === "") {
-			delete updatedProductData.category;
-		} else {
-			updatedProductData.category = parseInt(updatedProductData.category, 10);
-		}
-		// Ensure barcode is null if empty, otherwise send the trimmed string
+		delete updatedProductData.image;
+		updatedProductData.category = parseInt(updatedProductData.category, 10);
 		updatedProductData.barcode =
 			updatedProductData.barcode.trim() === ""
 				? null
@@ -155,7 +107,7 @@ const EditProduct = () => {
 
 		try {
 			await axiosInstance.put(
-				ENDPOINTS.PRODUCTS.EDIT(productNameParam), // Use original name for endpoint
+				ENDPOINTS.PRODUCTS.EDIT(productNameParam),
 				updatedProductData
 			);
 			toast.success("Product updated successfully!");
@@ -166,24 +118,20 @@ const EditProduct = () => {
 			if (errorData && typeof errorData === "object") {
 				const backendFieldErrors = {};
 				for (const key in errorData) {
-					if (Array.isArray(errorData[key])) {
-						backendFieldErrors[key] = errorData[key].join(" ");
-					} else {
-						backendFieldErrors[key] = String(errorData[key]);
-					}
+					backendFieldErrors[key] = Array.isArray(errorData[key])
+						? errorData[key].join(" ")
+						: String(errorData[key]);
 				}
 				setFieldErrors(backendFieldErrors);
-
 				if (errorData.detail) {
-					// General detail error from backend
 					setError(errorData.detail);
 					toast.error(errorData.detail);
 				} else {
-					toast.error("Failed to update product. Please check the details.");
+					toast.error("Failed to update product. Check details.");
 				}
 			} else {
 				const errorMsg =
-					"Failed to update product. Check details or ensure you have admin rights.";
+					"Failed to update product. Check details or ensure admin rights.";
 				setError(errorMsg);
 				toast.error(errorMsg);
 			}
@@ -192,50 +140,74 @@ const EditProduct = () => {
 		}
 	};
 
+	const inputBaseClass =
+		"block w-full rounded-md border-0 px-3 py-1.5 text-slate-900 shadow-sm ring-1 ring-inset placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6";
+	const inputNormalClass = `${inputBaseClass} ring-slate-300`;
+	const inputErrorClass = `${inputBaseClass} ring-red-500 focus:ring-red-600 text-red-800 placeholder-red-300`;
+	const selectClass = `${inputNormalClass} appearance-none bg-white bg-no-repeat bg-right-3`;
+	const labelClass = "block text-xs font-medium text-slate-600 mb-1";
+	const primaryButtonClass =
+		"inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500";
+	const secondaryButtonClass =
+		"inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 focus:ring-slate-500";
+
 	if (loading) {
 		return (
-			<div className="flex items-center justify-center h-screen bg-slate-100">
-				<LoadingSpinner />
-				<p className="text-slate-500 ml-3">Loading product details...</p>
-			</div>
+			<MainLayout pageTitle="Loading Product...">
+				<div className="flex items-center justify-center h-full">
+					<LoadingSpinner size="lg" />
+				</div>
+			</MainLayout>
 		);
 	}
-	// If there's a general page error (e.g. product not found) and no product data loaded
-	if (error && !product?.name) {
+	if (error && !product) {
+		// If fetch failed and product is still null
 		return (
-			<div className="flex flex-col items-center justify-center h-screen bg-slate-100 p-6">
-				<div className="bg-white p-8 rounded-lg shadow-md text-center max-w-md">
-					<ExclamationTriangleIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
-					<p className="text-red-600 mb-4">{error}</p>
+			<MainLayout pageTitle="Error">
+				<div className="flex flex-col items-center justify-center h-full p-6 text-center">
+					<ExclamationTriangleIcon className="mb-4 h-12 w-12 text-red-400" />
+					<h1 className="mb-2 text-xl font-semibold text-slate-800">
+						Error Loading Product
+					</h1>
+					<p className="mb-6 text-slate-600">{error}</p>
 					<button
+						className={secondaryButtonClass}
 						onClick={() => navigate("/products")}
-						className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors"
 					>
-						Back to Products
+						<ArrowLeftIcon className="h-4 w-4 mr-1.5" /> Back to Products
 					</button>
 				</div>
-			</div>
+			</MainLayout>
+		);
+	}
+	if (!product) {
+		// Fallback if product is still null after loading (should be caught by error state ideally)
+		return (
+			<MainLayout pageTitle="Product Not Found">
+				<div className="p-8 text-center">Product data could not be loaded.</div>
+			</MainLayout>
 		);
 	}
 
 	return (
-		<div className="min-h-screen flex flex-col bg-slate-100 text-slate-900 p-4 sm:p-6">
-			<header className="flex justify-between items-center mb-6 pb-4 border-b border-slate-200">
-				<h1 className="text-xl sm:text-2xl font-bold text-slate-800">
-					Edit Product
-				</h1>
-				<button
-					onClick={() => navigate("/products")}
-					disabled={isSubmitting}
-					className="px-3 py-2 bg-white text-slate-700 border border-slate-300 rounded-lg text-sm hover:bg-slate-50 transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
-				>
-					<ArrowLeftIcon className="h-4 w-4" />
-					Back to Products
-				</button>
-			</header>
-
-			<div className="flex-grow flex items-center justify-center py-6">
-				<div className="flex flex-col md:flex-row max-w-4xl w-full bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden">
+		<MainLayout pageTitle={`Edit: ${product.name || "Product"}`}>
+			<div className="max-w-4xl mx-auto">
+				{" "}
+				{/* Centered content with more width */}
+				<div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+					<h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
+						<PackageIcon className="h-6 w-6 text-slate-600" />
+						Modify Product
+					</h2>
+					<button
+						className={secondaryButtonClass}
+						onClick={() => navigate("/products")}
+						disabled={isSubmitting}
+					>
+						<ArrowLeftIcon className="h-4 w-4" /> Cancel
+					</button>
+				</div>
+				<div className="flex flex-col md:flex-row bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden">
 					<div className="w-full md:w-1/3 p-5 flex flex-col justify-center items-center bg-slate-50 border-b md:border-b-0 md:border-r border-slate-200">
 						<label className="block text-sm font-medium text-slate-700 mb-2 self-start">
 							Product Image
@@ -248,8 +220,7 @@ const EditProduct = () => {
 									className="w-full h-full object-cover"
 									onError={(e) => {
 										e.target.onerror = null;
-										e.target.src =
-											"https://placehold.co/300x300/e2e8f0/94a3b8?text=No+Image";
+										e.target.src = `https://placehold.co/300x300/e2e8f0/94a3b8?text=No+Image`;
 									}}
 								/>
 							) : (
@@ -268,24 +239,24 @@ const EditProduct = () => {
 					</div>
 
 					<div className="w-full md:w-2/3 p-6 sm:p-8">
-						<h3 className="text-lg font-semibold mb-5 text-slate-700">
-							Edit Product Details
-						</h3>
-						{error &&
-							!fieldErrors.detail && ( // Show general error if not a field-specific detail error
-								<div className="mb-5 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md flex items-center gap-2 text-sm shadow-sm">
-									<ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0" />
-									<span>{error}</span>
-								</div>
-							)}
+						{error && !fieldErrors.detail && (
+							<div
+								role="alert"
+								className="mb-5 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 shadow-sm"
+							>
+								<ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0" />
+								<span>{error}</span>
+							</div>
+						)}
 						<form
 							onSubmit={handleSubmit}
 							className="flex flex-col space-y-4"
 						>
+							{/* Form fields from AddProduct, adapted for EditProduct */}
 							<div>
 								<label
 									htmlFor="product-name-edit"
-									className="block text-sm font-medium text-slate-700 mb-1.5"
+									className={labelClass}
 								>
 									Product Name <span className="text-red-500">*</span>
 								</label>
@@ -295,11 +266,9 @@ const EditProduct = () => {
 									name="name"
 									value={product.name}
 									onChange={handleChange}
-									className={`w-full px-3 py-2 border rounded-md focus:ring-1 transition-shadow duration-150 ease-in-out shadow-sm placeholder-slate-400 ${
-										fieldErrors.name
-											? "border-red-500 ring-red-500"
-											: "border-slate-300 focus:ring-blue-500 focus:border-blue-500"
-									}`}
+									className={
+										fieldErrors.name ? inputErrorClass : inputNormalClass
+									}
 									required
 								/>
 								{fieldErrors.name && (
@@ -308,27 +277,23 @@ const EditProduct = () => {
 									</p>
 								)}
 							</div>
-
-							{/* Barcode Field */}
 							<div>
 								<label
 									htmlFor="product-barcode-edit"
-									className="flex items-center text-sm font-medium text-slate-700 mb-1.5"
+									className="flex items-center text-xs font-medium text-slate-600 mb-1"
 								>
-									<QrCodeIcon className="h-4 w-4 mr-1 text-slate-500" /> Barcode
-									(Optional)
+									<QrCodeIcon className="h-3.5 w-3.5 mr-1 text-slate-500" />
+									Barcode (Optional)
 								</label>
 								<input
 									id="product-barcode-edit"
 									type="text"
 									name="barcode"
-									value={product.barcode || ""} // Ensure controlled component even if barcode is null
+									value={product.barcode || ""}
 									onChange={handleChange}
-									className={`w-full px-3 py-2 border rounded-md focus:ring-1 transition-shadow duration-150 ease-in-out shadow-sm placeholder-slate-400 ${
-										fieldErrors.barcode
-											? "border-red-500 ring-red-500"
-											: "border-slate-300 focus:ring-blue-500 focus:border-blue-500"
-									}`}
+									className={
+										fieldErrors.barcode ? inputErrorClass : inputNormalClass
+									}
 									placeholder="Scan or type product barcode"
 								/>
 								{fieldErrors.barcode && (
@@ -337,11 +302,10 @@ const EditProduct = () => {
 									</p>
 								)}
 							</div>
-
 							<div>
 								<label
 									htmlFor="product-price-edit"
-									className="block text-sm font-medium text-slate-700 mb-1.5"
+									className={labelClass}
 								>
 									Price <span className="text-red-500">*</span>
 								</label>
@@ -357,10 +321,8 @@ const EditProduct = () => {
 										name="price"
 										value={product.price}
 										onChange={handleChange}
-										className={`w-full pl-7 pr-3 py-2 border rounded-md focus:ring-1 transition-shadow duration-150 ease-in-out shadow-sm placeholder-slate-400 ${
-											fieldErrors.price
-												? "border-red-500 ring-red-500"
-												: "border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+										className={`pl-7 pr-3 ${
+											fieldErrors.price ? inputErrorClass : inputNormalClass
 										}`}
 										required
 										placeholder="0.00"
@@ -372,11 +334,10 @@ const EditProduct = () => {
 									</p>
 								)}
 							</div>
-
 							<div>
 								<label
 									htmlFor="product-description-edit"
-									className="block text-sm font-medium text-slate-700 mb-1.5"
+									className={labelClass}
 								>
 									Description <span className="text-red-500">*</span>
 								</label>
@@ -385,10 +346,8 @@ const EditProduct = () => {
 									name="description"
 									value={product.description}
 									onChange={handleChange}
-									className={`w-full px-3 py-2 border rounded-md focus:ring-1 transition-shadow duration-150 ease-in-out shadow-sm h-24 resize-none placeholder-slate-400 ${
-										fieldErrors.description
-											? "border-red-500 ring-red-500"
-											: "border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+									className={`h-24 resize-none ${
+										fieldErrors.description ? inputErrorClass : inputNormalClass
 									}`}
 									required
 									placeholder="Enter description..."
@@ -399,11 +358,10 @@ const EditProduct = () => {
 									</p>
 								)}
 							</div>
-
 							<div>
 								<label
 									htmlFor="product-category-edit"
-									className="block text-sm font-medium text-slate-700 mb-1.5"
+									className={labelClass}
 								>
 									Category <span className="text-red-500">*</span>
 								</label>
@@ -412,10 +370,10 @@ const EditProduct = () => {
 									name="category"
 									value={product.category || ""}
 									onChange={handleChange}
-									className={`w-full px-3 py-2 border rounded-md focus:ring-1 transition-shadow duration-150 ease-in-out shadow-sm appearance-none bg-white bg-no-repeat bg-right-3 text-slate-700 ${
+									className={`${selectClass} ${
 										fieldErrors.category
-											? "border-red-500 ring-red-500"
-											: "border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+											? "ring-red-500 border-red-500"
+											: "ring-slate-300 border-slate-300"
 									}`}
 									required
 								>
@@ -440,32 +398,34 @@ const EditProduct = () => {
 									</p>
 								)}
 							</div>
-
-							<div className="flex space-x-3 pt-2">
-								<button
-									type="submit"
-									disabled={isSubmitting}
-									className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 active:bg-blue-800 transition-colors font-medium flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-sm disabled:opacity-50"
-								>
-									<CheckIcon className="h-5 w-5" />
-									{isSubmitting ? "Saving..." : "Save Changes"}
-								</button>
+							<div className="flex justify-end space-x-3 pt-2">
 								<button
 									type="button"
-									disabled={isSubmitting}
 									onClick={() => navigate("/products")}
-									className="flex-1 px-4 py-2.5 bg-white text-slate-700 border border-slate-300 rounded-md hover:bg-slate-50 active:bg-slate-100 transition-colors font-medium flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 shadow-sm disabled:opacity-50"
+									className={secondaryButtonClass}
+									disabled={isSubmitting}
 								>
-									<XMarkIcon className="h-5 w-5" />
-									Cancel
+									<XMarkIcon className="h-5 w-5" /> Cancel
+								</button>
+								<button
+									type="submit"
+									disabled={isSubmitting || loading}
+									className={`${primaryButtonClass} min-w-[140px]`}
+								>
+									{isSubmitting ? (
+										<ArrowPathIcon className="h-4 w-4 animate-spin" />
+									) : (
+										<CheckIcon className="h-5 w-5" />
+									)}
+									{isSubmitting ? "Saving..." : "Save Changes"}
 								</button>
 							</div>
 						</form>
 					</div>
 				</div>
 			</div>
-		</div>
+		</MainLayout>
 	);
-};
+}
 
-export default EditProduct;
+// EditProduct doesn't take direct props from router, so PropTypes isn't essential for the component itself

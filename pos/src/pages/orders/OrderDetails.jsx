@@ -1,15 +1,15 @@
-import { useState, useEffect, useCallback } from "react"; // Added React import
+// src/pages/orders/OrderDetails.jsx
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import axiosInstance from "../../api/config/axiosConfig"; // Original import
-import { authService } from "../../api/services/authService"; // Original import
-import { resumeOrder, updateOnlineOrderStatus } from "../../utils/orderActions"; // Original import
-// import { orderService } from "../../api/services/orderService"; // Original import
+import PropTypes from "prop-types";
+import axiosInstance from "../../api/config/axiosConfig";
+import { authService } from "../../api/services/authService";
+import { resumeOrder, updateOnlineOrderStatus } from "../../utils/orderActions";
 import { printReceiptWithAgent } from "../../api/services/localHardwareService";
 import { toast } from "react-toastify";
-// Icons for UI
 import {
 	ArrowLeftIcon,
-	UserCircleIcon,
+	// UserCircleIcon, // For customer name, can be generic UserIcon
 	ShoppingBagIcon,
 	CreditCardIcon,
 	PrinterIcon,
@@ -17,9 +17,8 @@ import {
 	XCircleIcon,
 	CheckCircleIcon,
 	ExclamationTriangleIcon,
-	ClockIcon,
+	ClockIcon as ClockOutlineIcon, // Renamed to avoid conflict
 	InformationCircleIcon,
-	HashtagIcon,
 	UserIcon,
 	EnvelopeIcon,
 	CalendarDaysIcon,
@@ -27,64 +26,74 @@ import {
 	DocumentTextIcon,
 	TagIcon,
 	ListBulletIcon,
-} from "@heroicons/react/24/outline"; // Using outline icons
-import LoadingSpinner from "../reports/components/LoadingSpinner"; // Assuming path is correct
-import PropTypes from "prop-types";
+	// BuildingStorefrontIcon, // Not directly used
+	// GlobeAltIcon, // Not directly used
+} from "@heroicons/react/24/outline";
+import LoadingSpinner from "../reports/components/LoadingSpinner";
 import { formatPrice } from "../../utils/numberUtils";
-/**
- * OrderDetails Component (Logic Preserved from User Provided Code)
- *
- * Displays detailed information about a specific order.
- * UI updated for a modern look and feel; Logic remains unchanged.
- */
+import MainLayout from "../layout/MainLayout";
+
+// DetailItem helper component (can be moved to a shared location)
+const DetailItem = ({ label, value, icon: IconComponent, children }) => (
+	<div>
+		<dt className="text-xs font-medium text-slate-500 mb-0.5 flex items-center gap-1">
+			{IconComponent && (
+				<IconComponent className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+			)}
+			{label}
+		</dt>
+		<dd className="text-sm text-slate-800 break-words">
+			{children || value || <span className="italic text-slate-400">N/A</span>}
+		</dd>
+	</div>
+);
+DetailItem.propTypes = {
+	label: PropTypes.string.isRequired,
+	value: PropTypes.node,
+	icon: PropTypes.elementType,
+	children: PropTypes.node,
+};
+
 export default function OrderDetails() {
-	// --- ORIGINAL LOGIC (UNCHANGED from user provided code) ---
 	const { orderId } = useParams();
 	const [order, setOrder] = useState(null);
 	const [isAdmin, setIsAdmin] = useState(false);
 	const [isReprinting, setIsReprinting] = useState(false);
-	const [loading, setLoading] = useState(true); // Added loading state
-	const [error, setError] = useState(null); // Added error state
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState(null);
 	const navigate = useNavigate();
 
-	useEffect(() => {
-		let isMounted = true; // Prevent state update on unmounted component
+	const fetchOrderDetails = useCallback(async () => {
+		// Wrapped in useCallback
 		setLoading(true);
 		setError(null);
+		try {
+			const [orderResponse, authResponse] = await Promise.all([
+				axiosInstance.get(`orders/${orderId}/`),
+				authService.checkStatus(),
+			]);
+			setOrder(orderResponse.data);
+			setIsAdmin(authResponse.is_admin);
+		} catch (error) {
+			console.error("Error fetching order details:", error);
+			setError("Could not load order details.");
+			toast.error("Could not load order details.");
+		} finally {
+			setLoading(false);
+		}
+	}, [orderId]); // Added orderId to dependency array
 
-		const fetchOrderDetails = async () => {
-			try {
-				const [orderResponse, authResponse] = await Promise.all([
-					axiosInstance.get(`orders/${orderId}/`),
-					authService.checkStatus(),
-				]);
-				if (isMounted) {
-					setOrder(orderResponse.data);
-					setIsAdmin(authResponse.is_admin);
-				}
-			} catch (error) {
-				console.error("Error fetching order details:", error);
-				if (isMounted) {
-					setError("Could not load order details.");
-					toast.error("Could not load order details.");
-				}
-			} finally {
-				if (isMounted) setLoading(false);
-			}
-		};
-
+	useEffect(() => {
 		fetchOrderDetails();
-		return () => {
-			isMounted = false;
-		}; // Cleanup
-	}, [orderId]); // Removed navigate from dependency array as it's stable
+	}, [fetchOrderDetails]); // Effect depends on fetchOrderDetails
 
-	const updateOrderStatus = (newStatus) => {
+	const updateOrderStatusLocal = (newStatus) => {
+		// Renamed to avoid conflict
 		updateOnlineOrderStatus(
 			orderId,
 			newStatus,
 			(updatedOrder) => {
-				setOrder(updatedOrder); // Update local state
+				setOrder(updatedOrder);
 				toast.success(`Order status updated to ${newStatus.replace("_", " ")}`);
 			},
 			(error) => {
@@ -100,41 +109,30 @@ export default function OrderDetails() {
 				dateStyle: "medium",
 				timeStyle: "short",
 			});
-			// eslint-disable-next-line no-unused-vars
+			//eslint-disable-next-line
 		} catch (e) {
 			return "Invalid Date";
 		}
 	};
 
 	const handleReprintReceipt = useCallback(async () => {
-		if (!order || isReprinting) return;
-
-		// Check if receipt_payload exists
-		if (!order.receipt_payload) {
-			toast.error("Receipt data not available for this order. Cannot reprint.");
-			console.error(
-				"Reprint failed: Missing receipt_payload in order data",
-				order
-			);
+		if (!order || isReprinting || !order.receipt_payload) {
+			if (!order.receipt_payload)
+				toast.error("Receipt data not available for this order.");
 			return;
 		}
-
 		setIsReprinting(true);
-		const toastId = toast.loading("Sending reprint request to agent...");
-
+		const toastId = toast.loading("Sending reprint request...");
 		try {
-			// Call the local hardware agent service
-			const result = await printReceiptWithAgent(order.receipt_payload, false); // false = don't open drawer
-
+			const result = await printReceiptWithAgent(order.receipt_payload, false);
 			if (result.success) {
 				toast.update(toastId, {
-					render: "Reprint sent to printer successfully!",
+					render: "Reprint sent to printer!",
 					type: "success",
 					isLoading: false,
 					autoClose: 3000,
 				});
 			} else {
-				// Error message comes from printReceiptWithAgent
 				toast.update(toastId, {
 					render: `Reprint Failed: ${result.message}`,
 					type: "error",
@@ -143,8 +141,6 @@ export default function OrderDetails() {
 				});
 			}
 		} catch (error) {
-			// Catch unexpected errors during the agent call
-			console.error("Error calling hardware agent for reprint:", error);
 			toast.update(toastId, {
 				render: `Reprint Failed: ${error.message || "Unknown error"}`,
 				type: "error",
@@ -154,22 +150,64 @@ export default function OrderDetails() {
 		} finally {
 			setIsReprinting(false);
 		}
-	}, [order, isReprinting]); // Dependencies
+	}, [order, isReprinting]);
 
-	// Function to generate action buttons based on order state (Original logic)
+	const getStatusBadgeClass = (status) => {
+		switch (status) {
+			case "completed":
+			case "paid":
+				return "bg-emerald-100 text-emerald-700 border border-emerald-200";
+			case "voided":
+			case "cancelled":
+			case "refunded":
+				return "bg-red-100 text-red-700 border border-red-200";
+			case "preparing":
+			case "in_progress":
+				return "bg-blue-100 text-blue-700 border border-blue-200";
+			case "pending":
+				return "bg-yellow-100 text-yellow-700 border border-yellow-200";
+			case "saved":
+				return "bg-amber-100 text-amber-700 border border-amber-200";
+			default:
+				return "bg-slate-100 text-slate-700 border border-slate-200";
+		}
+	};
+
+	const getStatusIcon = (status) => {
+		const iconClasses = "h-4 w-4";
+		switch (status?.toLowerCase()) {
+			case "completed":
+			case "paid":
+				return (
+					<CheckCircleIcon className={`${iconClasses} text-emerald-500`} />
+				);
+			case "voided":
+			case "cancelled":
+			case "refunded":
+				return <XCircleIcon className={`${iconClasses} text-red-500`} />;
+			case "preparing":
+			case "in_progress":
+			case "pending":
+				return <ClockOutlineIcon className={`${iconClasses} text-sky-500`} />; // Changed from ClockSolidIcon
+			default:
+				return (
+					<InformationCircleIcon className={`${iconClasses} text-slate-400`} />
+				);
+		}
+	};
+
 	const getOrderActions = () => {
 		const actions = [];
 		const buttonBaseStyle =
-			"px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed shadow-sm border"; // Compact buttons
-		const primaryButtonStyle = `${buttonBaseStyle} bg-blue-600 text-white border-blue-700 hover:bg-blue-700 active:bg-blue-800`;
-		const secondaryButtonStyle = `${buttonBaseStyle} bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200 active:bg-slate-300`;
-		const dangerButtonStyle = `${buttonBaseStyle} bg-red-600 text-white border-red-700 hover:bg-red-700 active:bg-red-800`;
-		const successButtonStyle = `${buttonBaseStyle} bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700 active:bg-emerald-800`;
-		const warningButtonStyle = `${buttonBaseStyle} bg-amber-500 text-white border-amber-600 hover:bg-amber-600 active:bg-amber-700`;
+			"px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed shadow-sm border";
+		const primaryButtonStyle = `${buttonBaseStyle} bg-blue-600 text-white border-blue-700 hover:bg-blue-700`;
+		const secondaryButtonStyle = `${buttonBaseStyle} bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200`;
+		const dangerButtonStyle = `${buttonBaseStyle} bg-red-600 text-white border-red-700 hover:bg-red-700`;
+		const successButtonStyle = `${buttonBaseStyle} bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700`;
+		const warningButtonStyle = `${buttonBaseStyle} bg-amber-500 text-white border-amber-600 hover:bg-amber-600`;
 
-		if (!order) return null; // Should not happen if loading/error handled
+		if (!order) return null;
 
-		// --- POS Actions ---
 		if (order.source === "pos") {
 			if (order.status === "in_progress" || order.status === "saved") {
 				actions.push(
@@ -191,13 +229,14 @@ export default function OrderDetails() {
 					<button
 						key="void"
 						className={dangerButtonStyle}
-						onClick={() => updateOrderStatus("voided")}
+						onClick={() => updateOrderStatusLocal("voided")}
 					>
 						<XCircleIcon className="h-4 w-4" /> Void
 					</button>
 				);
 			}
-			if (order.status === "completed") {
+			if (order.status === "completed" && order.receipt_payload) {
+				// Check for receipt_payload
 				actions.push(
 					<button
 						key="reprint"
@@ -214,17 +253,16 @@ export default function OrderDetails() {
 					</button>
 				);
 			}
-		}
-		// --- Website Actions ---
-		else {
+		} else {
+			// website orders
 			if (order.status === "pending") {
 				actions.push(
 					<button
 						key="prepare"
 						className={warningButtonStyle}
-						onClick={() => updateOrderStatus("preparing")}
+						onClick={() => updateOrderStatusLocal("preparing")}
 					>
-						<ClockIcon className="h-4 w-4" /> Prepare
+						<ClockOutlineIcon className="h-4 w-4" /> Prepare
 					</button>
 				);
 			}
@@ -233,7 +271,7 @@ export default function OrderDetails() {
 					<button
 						key="complete"
 						className={successButtonStyle}
-						onClick={() => updateOrderStatus("completed")}
+						onClick={() => updateOrderStatusLocal("completed")}
 					>
 						<CheckCircleIcon className="h-4 w-4" /> Complete
 					</button>
@@ -248,154 +286,91 @@ export default function OrderDetails() {
 					<button
 						key="cancel"
 						className={dangerButtonStyle}
-						onClick={() => updateOrderStatus("cancelled")}
+						onClick={() => updateOrderStatusLocal("cancelled")}
 					>
 						<XCircleIcon className="h-4 w-4" /> Cancel
 					</button>
 				);
 			}
 		}
-
-		if (actions.length > 0) {
-			return (
-				<div className="flex flex-wrap gap-2 mt-4 border-t border-slate-100 pt-4">
-					{actions}
-				</div>
-			);
-		}
-		return null; // No actions available
+		return actions.length > 0 ? (
+			<div className="flex flex-wrap gap-2 mt-4 border-t border-slate-100 pt-4">
+				{actions}
+			</div>
+		) : null;
 	};
-	// --- END OF ORIGINAL LOGIC ---
 
-	// --- UPDATED UI (JSX Structure and Styling Only) ---
-	// Loading State
+	const pageTitle = order ? `Order #${order.id}` : "Order Details";
+
 	if (loading) {
 		return (
-			<div className="flex items-center justify-center h-screen bg-slate-100">
-				<LoadingSpinner size="lg" />
-				<p className="text-slate-500 ml-3">Loading order details...</p>
-			</div>
+			<MainLayout pageTitle="Loading Order...">
+				<div className="flex items-center justify-center h-full">
+					<LoadingSpinner size="lg" />
+				</div>
+			</MainLayout>
 		);
 	}
-
-	// Error State
 	if (error || !order) {
-		// Check for !order as well
 		return (
-			<div className="flex flex-col items-center justify-center h-screen bg-slate-100 p-6">
-				<div className="bg-white p-8 rounded-lg shadow-md text-center max-w-md">
-					<ExclamationTriangleIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
-					<p className="text-red-600 mb-4">{error || "Order not found."}</p>
+			<MainLayout pageTitle="Error Loading Order">
+				<div className="flex flex-col items-center justify-center h-full p-6 text-center">
+					<ExclamationTriangleIcon className="mb-4 h-12 w-12 text-red-400" />
+					<p className="mb-6 text-slate-600">{error || "Order not found."}</p>
 					<button
-						className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors"
-						onClick={() => navigate("/orders")} // Original handler
+						className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
+						onClick={() => navigate("/orders")}
 					>
-						Back to Orders List
+						<ArrowLeftIcon className="h-4 w-4" /> Back to Orders
 					</button>
 				</div>
-			</div>
+			</MainLayout>
 		);
 	}
 
-	// Helper to get status badge color
-	const getStatusBadgeClass = (status) => {
-		switch (status) {
-			case "completed":
-				return "bg-emerald-100 text-emerald-700 border border-emerald-200";
-			case "paid":
-				return "bg-emerald-100 text-emerald-700 border border-emerald-200"; // Added for payment status
-			case "voided":
-			case "cancelled":
-			case "refunded":
-				return "bg-red-100 text-red-700 border border-red-200";
-			case "preparing":
-			case "in_progress":
-				return "bg-blue-100 text-blue-700 border border-blue-200";
-			case "pending":
-				return "bg-yellow-100 text-yellow-700 border border-yellow-200";
-			case "saved":
-				return "bg-amber-100 text-amber-700 border border-amber-200";
-			default:
-				return "bg-slate-100 text-slate-700 border border-slate-200";
-		}
-	};
-
-	// Helper for detail item display
-	const DetailItem = ({ label, value, icon: IconComponent }) => (
-		<div>
-			<dt className="text-xs font-medium text-slate-500 mb-0.5 flex items-center gap-1">
-				{IconComponent && (
-					<IconComponent className="h-3.5 w-3.5 text-slate-400" />
-				)}
-				{label}
-			</dt>
-			<dd className="text-sm text-slate-800">
-				{value || <span className="italic text-slate-400">N/A</span>}
-			</dd>
-		</div>
-	);
-	DetailItem.propTypes = {
-		label: PropTypes.string,
-		value: PropTypes.node,
-		icon: PropTypes.elementType,
-	};
-
 	return (
-		<div className="w-screen h-screen flex flex-col bg-slate-100 text-slate-900 p-4 sm:p-6 overflow-hidden">
-			{/* Header Section - Styled */}
-			<header className="flex flex-wrap justify-between items-center mb-4 pb-4 border-b border-slate-200 gap-3 flex-shrink-0">
-				<div className="flex items-center space-x-3">
-					<h1 className="text-xl sm:text-2xl font-bold text-slate-800">
-						Order Details
-					</h1>
-					{/* Order ID Badge */}
-					<span className="px-2.5 py-1 bg-slate-200 text-slate-700 rounded-full text-xs font-medium flex items-center">
-						<HashtagIcon className="w-3 h-3 mr-1" />
-						{orderId}
-					</span>
-					{/* Source Badge */}
+		<MainLayout pageTitle={pageTitle}>
+			<div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+				<div className="flex items-center gap-3">
+					<h2 className="text-xl font-semibold text-slate-800">
+						Order Information
+					</h2>
 					<span
 						className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center ${
 							order.source === "website"
 								? "bg-purple-100 text-purple-700"
-								: "bg-cyan-100 text-cyan-700" // Different color for POS
+								: "bg-cyan-100 text-cyan-700"
 						}`}
 					>
 						{order.source === "website" ? "ONLINE" : "POS"}
 					</span>
 				</div>
-				{/* Back Button */}
 				<button
-					className="px-3 py-2 bg-white text-slate-700 border border-slate-300 rounded-lg text-sm hover:bg-slate-50 transition-colors flex items-center gap-1.5 shadow-sm"
-					onClick={() => navigate("/orders")} // Original handler
+					className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+					onClick={() => navigate("/orders")}
 				>
-					<ArrowLeftIcon className="h-4 w-4" />
-					Back to Orders
+					<ArrowLeftIcon className="h-4 w-4" /> Back
 				</button>
-			</header>
+			</div>
 
-			{/* Main Content Area - Scrollable */}
-			<div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 overflow-y-auto custom-scrollbar pb-6 min-h-0">
-				{/* Left Column: Order Summary & Customer Info */}
+			<div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
 				<div className="lg:col-span-1 space-y-4 sm:space-y-6">
-					{/* Order Summary Card - Styled */}
 					<div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 sm:p-5">
-						<h2 className="text-base font-semibold text-slate-700 mb-3 flex items-center gap-2">
-							<InformationCircleIcon className="w-5 h-5 text-slate-400" /> Order
-							Summary
-						</h2>
+						<h3 className="text-base font-semibold text-slate-700 mb-3 flex items-center gap-2">
+							<InformationCircleIcon className="w-5 h-5 text-slate-400" />
+							Order Summary
+						</h3>
 						<dl className="space-y-2.5 text-sm">
-							{" "}
-							{/* Use definition list */}
 							<div className="flex justify-between items-center">
 								<dt className="font-medium text-slate-500">Status:</dt>
 								<dd>
 									<span
-										className={`font-semibold px-2 py-0.5 rounded text-xs ${getStatusBadgeClass(
+										className={`inline-flex items-center gap-1 font-semibold px-2 py-0.5 rounded-full text-xs shadow-sm ${getStatusBadgeClass(
 											order.status
 										)}`}
 									>
-										{order.status.replace("_", " ").toUpperCase()}
+										{getStatusIcon(order.status)}
+										{order.status?.replace("_", " ").toUpperCase() || "N/A"}
 									</span>
 								</dd>
 							</div>
@@ -415,7 +390,7 @@ export default function OrderDetails() {
 							<DetailItem
 								label="Last Updated"
 								value={formatDate(order.updated_at)}
-								icon={ClockIcon}
+								icon={ClockOutlineIcon}
 							/>
 							{order.source === "pos" && (
 								<DetailItem
@@ -425,16 +400,14 @@ export default function OrderDetails() {
 								/>
 							)}
 						</dl>
-						{/* Order Actions */}
 						{getOrderActions()}
 					</div>
 
-					{/* Customer Details (Website Orders) - Styled */}
 					{order.source === "website" && (
 						<div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 sm:p-5">
 							<h3 className="text-base font-semibold text-slate-700 mb-3 flex items-center gap-2">
-								<UserCircleIcon className="w-5 h-5 text-slate-400" /> Customer
-								Information
+								<UserIcon className="w-5 h-5 text-slate-400" />
+								Customer Information
 							</h3>
 							<dl className="space-y-2.5 text-sm">
 								<DetailItem
@@ -446,12 +419,6 @@ export default function OrderDetails() {
 									value={order.customer_display_email}
 									icon={EnvelopeIcon}
 								/>
-								{/* <DetailItem
-									label="Phone" // ADDED for Phone
-									value={order.customer_display_phone} // ADDED
-									icon={PhoneIcon} // Make sure to import PhoneIcon from heroicons if not already
-								/> */}
-								{/* Keep existing payment status display if needed */}
 								{order.payment_status && (
 									<div className="flex justify-between items-center">
 										<dt className="font-medium text-slate-500">
@@ -459,11 +426,12 @@ export default function OrderDetails() {
 										</dt>
 										<dd>
 											<span
-												className={`font-semibold px-2 py-0.5 rounded text-xs ${getStatusBadgeClass(
+												className={`inline-flex items-center gap-1 font-semibold px-2 py-0.5 rounded-full text-xs shadow-sm ${getStatusBadgeClass(
 													order.payment_status
 												)}`}
 											>
-												{order.payment_status.toUpperCase()}
+												{getStatusIcon(order.payment_status)}
+												{order.payment_status?.toUpperCase() || "N/A"}
 											</span>
 										</dd>
 									</div>
@@ -473,12 +441,11 @@ export default function OrderDetails() {
 					)}
 				</div>
 
-				{/* Right Column: Order Items & Payment Info */}
 				<div className="lg:col-span-2 space-y-4 sm:space-y-6">
-					{/* Order Items Card - Styled */}
-					<div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col max-h-[calc(50vh-3rem)]">
-						{" "}
-						{/* Limit height */}
+					<div
+						className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col"
+						style={{ maxHeight: "calc(50vh - 2rem)" }}
+					>
 						<div className="p-4 border-b border-slate-200 flex items-center gap-2 flex-shrink-0">
 							<ShoppingBagIcon className="w-5 h-5 text-slate-400" />
 							<h2 className="text-base font-semibold text-slate-700">
@@ -525,10 +492,10 @@ export default function OrderDetails() {
 						</div>
 					</div>
 
-					{/* Payment Information Card - Styled */}
-					<div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col max-h-[calc(50vh-3rem)]">
-						{" "}
-						{/* Limit height */}
+					<div
+						className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col"
+						style={{ maxHeight: "calc(50vh - 2rem)" }}
+					>
 						<div className="p-4 border-b border-slate-200 flex items-center gap-2 flex-shrink-0">
 							<CreditCardIcon className="w-5 h-5 text-slate-400" />
 							<h2 className="text-base font-semibold text-slate-700">
@@ -553,20 +520,18 @@ export default function OrderDetails() {
 												</span>
 											}
 										/>
-										<div>
-											<dt className="text-xs font-medium text-slate-500 mb-0.5">
-												Status
-											</dt>
-											<dd>
-												<span
-													className={`font-semibold px-2 py-0.5 rounded text-xs ${getStatusBadgeClass(
-														order.payment.status
-													)}`}
-												>
-													{order.payment.status.toUpperCase()}
-												</span>
-											</dd>
-										</div>
+										<DetailItem label="Status">
+											<span
+												className={`inline-flex items-center gap-1 font-semibold px-2 py-0.5 rounded-full text-xs shadow-sm ${getStatusBadgeClass(
+													order.payment?.status
+												)}`}
+											>
+												{getStatusIcon(order.payment?.status)}
+												{order.payment?.status
+													?.replace("_", " ")
+													.toUpperCase() || "N/A"}
+											</span>
+										</DetailItem>
 										<DetailItem
 											label="Amount Paid"
 											value={
@@ -585,8 +550,6 @@ export default function OrderDetails() {
 											icon={CalendarDaysIcon}
 										/>
 									</div>
-
-									{/* Discount Details */}
 									{order.discount_details && (
 										<div className="pt-3 border-t border-slate-100">
 											<label className="text-xs font-medium text-slate-500 mb-1.5 flex items-center gap-1">
@@ -614,8 +577,6 @@ export default function OrderDetails() {
 											</div>
 										</div>
 									)}
-
-									{/* Split Payment Details */}
 									{order.payment.is_split_payment &&
 										order.payment.transactions?.length > 0 && (
 											<div className="pt-3 border-t border-slate-100">
@@ -653,8 +614,6 @@ export default function OrderDetails() {
 												</div>
 											</div>
 										)}
-
-									{/* Payment Intent ID */}
 									{order.payment.payment_intent_id && (
 										<div className="pt-3 border-t border-slate-100">
 											<label className="text-xs font-medium text-slate-500 mb-1 flex items-center gap-1">
@@ -679,7 +638,6 @@ export default function OrderDetails() {
 					</div>
 				</div>
 			</div>
-		</div>
+		</MainLayout>
 	);
-	// --- END OF UPDATED UI ---
 }

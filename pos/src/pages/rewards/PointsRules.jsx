@@ -5,46 +5,59 @@ import { rewardsService } from "../../api/services/rewardsService";
 import { useApi } from "../../api/hooks/useApi";
 import { toast } from "react-toastify";
 import {
-	ArrowLeftIcon,
-	PlusIcon,
-	PencilSquareIcon, // Updated Icon
-	TrashIcon,
-	ScaleIcon, // For Points Rules title
-	CheckCircleIcon, // For Active status
-	XCircleIcon, // For Inactive status
-	ExclamationTriangleIcon, // For errors
-	ArrowPathIcon, // For retry
-	InformationCircleIcon, // For info/help text
-	SparklesIcon, // For promotion multiplier
-	CubeIcon, // For product specific
-} from "@heroicons/react/24/outline";
+	ArrowLeft,
+	Plus,
+	Edit2,
+	Trash2,
+	Scale,
+	CheckCircle2,
+	XCircle,
+	AlertTriangle,
+	RefreshCw,
+	Info,
+	Sparkles,
+	Box,
+} from "lucide-react";
 import LoadingSpinner from "../reports/components/LoadingSpinner";
-import ConfirmationModal from "../../components/ConfirmationModal"; // Assuming this is styled
-import Modal from "../../components/common/Modal"; // Use the common Modal component
+import ConfirmationModal from "../../components/ConfirmationModal";
+import Modal from "../../components/common/Modal";
+import MainLayout from "../layout/MainLayout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 // Helper: Format Rule Type/Value Display
 const formatRuleValue = (rule) => {
-	if (!rule) return <span className="italic text-slate-400">N/A</span>;
+	if (!rule) return <span className="italic text-muted-foreground">N/A</span>;
 	if (rule.is_product_specific) {
 		return (
-			<span className="inline-flex items-center gap-1 text-indigo-700">
-				<CubeIcon className="h-3.5 w-3.5" />
+			<span className="inline-flex items-center gap-1.5 text-indigo-600">
+				<Box className="h-4 w-4" />
 				{rule.product_points || 0} points / Product #{rule.product_id || "?"}
 			</span>
 		);
 	}
 	if (rule.is_promotion) {
 		return (
-			<span className="inline-flex items-center gap-1 text-amber-700">
-				<SparklesIcon className="h-3.5 w-3.5" />
+			<span className="inline-flex items-center gap-1.5 text-amber-600">
+				<Sparkles className="h-4 w-4" />
 				{rule.multiplier || 1}x Points Multiplier
 			</span>
 		);
 	}
-	// Standard Rule
 	return (
-		<span className="inline-flex items-center gap-1 text-emerald-700">
-			<ScaleIcon className="h-3.5 w-3.5" />
+		<span className="inline-flex items-center gap-1.5 text-emerald-600">
+			<Scale className="h-4 w-4" />
 			{rule.points_per_dollar || 0} points / $
 			{rule.minimum_order_amount > 0 && ` (min $${rule.minimum_order_amount})`}
 		</span>
@@ -54,21 +67,21 @@ const formatRuleValue = (rule) => {
 // Helper: Get status pill styling
 const getStatusPill = (isActive) => {
 	const baseClasses =
-		"px-2 py-0.5 rounded-full text-[10px] font-medium inline-flex items-center gap-1 border";
+		"px-2.5 py-1 rounded-full text-xs font-semibold inline-flex items-center gap-1.5 border";
 	if (isActive) {
 		return (
 			<span
-				className={`${baseClasses} bg-emerald-50 text-emerald-700 border-emerald-200`}
+				className={`${baseClasses} bg-green-500/10 text-green-700 border-green-500/20`}
 			>
-				<CheckCircleIcon className="h-3 w-3" /> ACTIVE
+				<CheckCircle2 className="h-3.5 w-3.5" /> ACTIVE
 			</span>
 		);
 	} else {
 		return (
 			<span
-				className={`${baseClasses} bg-rose-50 text-rose-700 border-rose-200`}
+				className={`${baseClasses} bg-red-500/10 text-red-700 border-red-500/20`}
 			>
-				<XCircleIcon className="h-3 w-3" /> INACTIVE
+				<XCircle className="h-3.5 w-3.5" /> INACTIVE
 			</span>
 		);
 	}
@@ -77,7 +90,7 @@ const getStatusPill = (isActive) => {
 // Helper: Format promotion dates
 const formatPromoDates = (start, end) => {
 	if (!start && !end)
-		return <span className="italic text-slate-400">Always Active</span>;
+		return <span className="italic text-muted-foreground">Always Active</span>;
 	const formatDate = (dateStr) =>
 		dateStr
 			? new Date(dateStr).toLocaleString(undefined, {
@@ -87,13 +100,16 @@ const formatPromoDates = (start, end) => {
 			: "N/A";
 	return (
 		<div className="text-xs space-y-0.5">
-			{start && <div>Start: {formatDate(start)}</div>}
-			{end && <div>End: {formatDate(end)}</div>}
+			{start && (
+				<div className="text-muted-foreground">Start: {formatDate(start)}</div>
+			)}
+			{end && (
+				<div className="text-muted-foreground">End: {formatDate(end)}</div>
+			)}
 		</div>
 	);
 };
 
-// Helper component for form fields
 const FormField = ({
 	label,
 	id,
@@ -101,24 +117,22 @@ const FormField = ({
 	required = false,
 	helpText = null,
 	error = null,
+	className = "",
 }) => (
-	<div className="mb-4">
-		<label
-			htmlFor={id}
-			className="mb-1 block text-sm font-medium text-slate-700"
-		>
-			{label} {required && <span className="text-red-500">*</span>}
-		</label>
+	<div className={`space-y-1.5 ${className}`}>
+		<Label htmlFor={id}>
+			{label} {required && <span className="text-destructive">*</span>}
+		</Label>
 		{children}
 		{helpText && !error && (
-			<p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
-				<InformationCircleIcon className="h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
+			<p className="text-xs text-muted-foreground flex items-center gap-1">
+				<Info className="h-3 w-3 flex-shrink-0" />
 				{helpText}
 			</p>
 		)}
 		{error && (
-			<p className="mt-1 flex items-center gap-1 text-xs text-red-600">
-				<ExclamationTriangleIcon className="h-3.5 w-3.5 flex-shrink-0" />
+			<p className="text-xs text-destructive flex items-center gap-1">
+				<AlertTriangle className="h-3 w-3 flex-shrink-0" />
 				{error}
 			</p>
 		)}
@@ -131,38 +145,36 @@ FormField.propTypes = {
 	required: PropTypes.bool,
 	helpText: PropTypes.string,
 	error: PropTypes.string,
+	className: PropTypes.string,
 };
 
 export default function PointsRules() {
 	const navigate = useNavigate();
-	const { execute, isLoading: isApiLoading } = useApi(); // Use isApiLoading for API calls
+	const { execute, isLoading: isApiLoading, error: apiErrorHook } = useApi();
 
-	// State
 	const [rules, setRules] = useState([]);
-	const [showAddEditModal, setShowAddEditModal] = useState(false); // Combined modal state
+	const [showAddEditModal, setShowAddEditModal] = useState(false);
 	const [isEditMode, setIsEditMode] = useState(false);
 	const [showDeleteModal, setShowDeleteModal] = useState(false);
-	const [currentRule, setCurrentRule] = useState(null); // Rule being edited or deleted
+	const [currentRule, setCurrentRule] = useState(null);
 	const [ruleForm, setRuleForm] = useState({
-		// Initial form state
 		name: "",
 		description: "",
-		points_per_dollar: "1", // Default for standard
-		minimum_order_amount: "0", // Default for standard
+		points_per_dollar: "1",
+		minimum_order_amount: "0",
 		is_product_specific: false,
 		product_id: "",
 		product_points: "",
 		is_promotion: false,
 		multiplier: "",
-		promotion_start: "", // Use datetime-local format YYYY-MM-DDTHH:mm
-		promotion_end: "", // Use datetime-local format YYYY-MM-DDTHH:mm
+		promotion_start: "",
+		promotion_end: "",
 		is_active: true,
 	});
-	const [formErrors, setFormErrors] = useState({}); // Frontend validation errors
-	const [isSubmitting, setIsSubmitting] = useState(false); // Separate submitting state
-	const [fetchError, setFetchError] = useState(null); // Fetch-specific error
+	const [formErrors, setFormErrors] = useState({});
+	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [fetchError, setFetchError] = useState(null);
 
-	// Fetch rules on mount
 	const fetchRules = useCallback(async () => {
 		setFetchError(null);
 		try {
@@ -171,19 +183,19 @@ export default function PointsRules() {
 		} catch (error) {
 			console.error("Error fetching points rules:", error);
 			const message =
-				error.message || "Failed to load points rules. Please try again.";
+				apiErrorHook ||
+				error.message ||
+				"Failed to load points rules. Please try again.";
 			setFetchError(message);
 			toast.error(message);
 			setRules([]);
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [execute]); // execute is stable
+	}, [execute, apiErrorHook]);
 
 	useEffect(() => {
 		fetchRules();
 	}, [fetchRules]);
 
-	// --- Modal Handling ---
 	const resetForm = () => {
 		setRuleForm({
 			name: "",
@@ -212,19 +224,17 @@ export default function PointsRules() {
 	const handleOpenEditModal = (rule) => {
 		if (!rule) return;
 		setCurrentRule(rule);
-		// Format dates for datetime-local input (YYYY-MM-DDTHH:mm)
 		const formatDateTimeLocal = (dateStr) => {
 			if (!dateStr) return "";
 			try {
 				const date = new Date(dateStr);
-				// Adjust for timezone offset before formatting
-				const tzoffset = date.getTimezoneOffset() * 60000; //offset in milliseconds
+				const tzoffset = date.getTimezoneOffset() * 60000;
 				const localISOTime = new Date(date.getTime() - tzoffset)
 					.toISOString()
 					.slice(0, 16);
 				return localISOTime;
 			} catch {
-				return ""; // Handle invalid date string
+				return "";
 			}
 		};
 		setRuleForm({
@@ -255,17 +265,15 @@ export default function PointsRules() {
 	const handleCloseModal = () => {
 		setShowAddEditModal(false);
 		setShowDeleteModal(false);
-		setTimeout(resetForm, 300); // Delay reset
+		setTimeout(resetForm, 300);
 	};
 
-	// --- Form Handling ---
 	const handleFormChange = (e) => {
 		const { name, value, type, checked } = e.target;
 		let newValue = value;
 
 		if (type === "checkbox") {
 			newValue = checked;
-			// Logic to ensure only one rule type (product or promotion) is active
 			if (name === "is_product_specific" && checked) {
 				setRuleForm((prev) => ({
 					...prev,
@@ -277,7 +285,7 @@ export default function PointsRules() {
 					multiplier: null,
 					promotion_start: null,
 					promotion_end: null,
-				})); // Clear promo errors
+				}));
 				return;
 			}
 			if (name === "is_promotion" && checked) {
@@ -290,29 +298,41 @@ export default function PointsRules() {
 					...prev,
 					product_id: null,
 					product_points: null,
-				})); // Clear product errors
+				}));
 				return;
 			}
 		}
+		if (type === "radio" && name === "rule_type_selector") {
+			const isProduct = value === "product";
+			const isPromo = value === "promotion";
+			setRuleForm((prev) => ({
+				...prev,
+				is_product_specific: isProduct,
+				is_promotion: isPromo,
+			}));
+			setFormErrors((prev) => ({
+				...prev,
+				multiplier: null,
+				promotion_start: null,
+				promotion_end: null,
+				product_id: null,
+				product_points: null,
+			})); // Clear errors for other types
+			return;
+		}
 
-		// Update form state
 		setRuleForm((prev) => ({ ...prev, [name]: newValue }));
-
-		// Clear validation error for the field being changed
 		if (formErrors[name]) {
 			setFormErrors((prev) => ({ ...prev, [name]: null }));
 		}
-		// Clear dependent validation errors if applicable
 		if (name === "promotion_start" && formErrors.promotion_end) {
 			setFormErrors((prev) => ({ ...prev, promotion_end: null }));
 		}
 	};
 
-	// --- Frontend Validation ---
 	const validateForm = () => {
 		const errors = {};
 		if (!ruleForm.name.trim()) errors.name = "Rule Name is required.";
-
 		if (ruleForm.is_product_specific) {
 			if (
 				ruleForm.product_id === "" ||
@@ -366,12 +386,10 @@ export default function PointsRules() {
 					"Minimum Order Amount must be a non-negative number.";
 			}
 		}
-
 		setFormErrors(errors);
 		return Object.keys(errors).length === 0;
 	};
 
-	// --- Form Submission ---
 	const handleSubmitForm = async (e) => {
 		e.preventDefault();
 		if (!validateForm()) {
@@ -379,11 +397,7 @@ export default function PointsRules() {
 			return;
 		}
 		setIsSubmitting(true);
-
-		// Prepare data for API
 		const payload = { ...ruleForm };
-
-		// Convert numbers, handle nulls
 		payload.points_per_dollar =
 			payload.is_product_specific || payload.is_promotion
 				? null
@@ -409,7 +423,6 @@ export default function PointsRules() {
 				? Number(payload.multiplier)
 				: null
 			: null;
-		// Format dates to ISO string for backend, handle nulls
 		payload.promotion_start =
 			payload.is_promotion && payload.promotion_start
 				? new Date(payload.promotion_start).toISOString()
@@ -423,27 +436,17 @@ export default function PointsRules() {
 		payload.is_promotion = Boolean(payload.is_promotion);
 
 		try {
-			let result;
 			if (isEditMode && currentRule) {
-				result = await execute(
+				await execute(
 					() => rewardsService.updatePointsRule(currentRule.id, payload),
-					{
-						successMessage: "Points rule updated successfully!",
-					}
+					{ successMessage: "Points rule updated successfully!" }
 				);
-				if (result) {
-					setRules((prev) =>
-						prev.map((r) => (r.id === currentRule.id ? result : r))
-					);
-				}
 			} else {
-				result = await execute(() => rewardsService.createPointsRule(payload), {
+				await execute(() => rewardsService.createPointsRule(payload), {
 					successMessage: "Points rule created successfully!",
 				});
-				if (result) {
-					setRules((prev) => [...prev, result]);
-				}
 			}
+			fetchRules();
 			handleCloseModal();
 		} catch (error) {
 			console.error(
@@ -455,340 +458,316 @@ export default function PointsRules() {
 		}
 	};
 
-	// --- Delete Confirmation ---
 	const handleConfirmDelete = async () => {
 		if (!currentRule?.id) return;
+		setIsSubmitting(true);
 		try {
 			await execute(() => rewardsService.deletePointsRule(currentRule.id), {
 				successMessage: `Rule "${currentRule.name}" deleted.`,
 			});
-			setRules((prev) => prev.filter((r) => r.id !== currentRule.id));
+			fetchRules();
 			handleCloseModal();
 		} catch (error) {
 			console.error("Error deleting points rule:", error);
+		} finally {
+			setIsSubmitting(false);
 		}
 	};
 
-	// --- UI Rendering ---
 	const isLoadingPage = isApiLoading && rules.length === 0 && !fetchError;
 
 	return (
-		<div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-100 p-4 text-slate-900 sm:p-6">
-			{/* Header */}
-			<header className="mb-4 flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
-				<h1 className="flex items-center gap-2 text-xl font-bold text-slate-800 sm:text-2xl">
-					<ScaleIcon className="h-6 w-6 text-blue-600" />
+		<MainLayout pageTitle="Points Rules">
+			<div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+				<h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
+					<Scale className="h-6 w-6 text-primary" />
 					Manage Points Rules
 				</h1>
-				<div className="flex items-center gap-3">
-					<button
+				<div className="flex items-center gap-2">
+					<Button
 						onClick={handleOpenAddModal}
-						className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+						disabled={isApiLoading || isSubmitting}
 					>
-						<PlusIcon className="h-4 w-4" />
+						<Plus className="h-4 w-4 mr-2" />
 						Add Rule
-					</button>
-					<button
-						className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+					</Button>
+					<Button
+						variant="outline"
 						onClick={() => navigate("/rewards")}
+						disabled={isApiLoading || isSubmitting}
 					>
-						<ArrowLeftIcon className="h-4 w-4" />
-						Back
-					</button>
+						<ArrowLeft className="h-4 w-4 mr-2" />
+						Back to Rewards Hub
+					</Button>
 				</div>
-			</header>
-
-			{/* Main Content Area */}
-			<div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-				{isLoadingPage ? (
-					<div className="flex h-full items-center justify-center">
-						<LoadingSpinner size="md" />
-					</div>
-				) : fetchError ? (
-					<div className="flex h-full flex-col items-center justify-center p-6 text-center">
-						<ExclamationTriangleIcon className="mb-2 h-8 w-8 text-red-400" />
-						<p className="mb-3 text-sm text-red-600">{fetchError}</p>
-						<button
-							onClick={fetchRules}
-							disabled={isApiLoading}
-							className="flex items-center gap-1 rounded-md border border-red-300 bg-red-100 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 disabled:opacity-50"
-						>
-							<ArrowPathIcon className="h-3.5 w-3.5" /> Retry
-						</button>
-					</div>
-				) : (
-					<div className="custom-scrollbar h-full overflow-auto">
-						<table className="min-w-full divide-y divide-slate-100">
-							<thead className="sticky top-0 z-10 bg-slate-50">
-								<tr>
-									<Th>Rule Name</Th>
-									<Th>Details / Value</Th>
-									<Th>Promotion Dates</Th>
-									<Th>Status</Th>
-									<Th align="right">Actions</Th>
-								</tr>
-							</thead>
-							<tbody className="divide-y divide-slate-100 bg-white">
-								{rules.length === 0 ? (
-									<tr>
-										<td
-											colSpan="5"
-											className="p-8 text-center text-sm text-slate-500"
-										>
-											No points rules found. Click &quot;Add Rule&quot; to
-											create one.
-										</td>
-									</tr>
-								) : (
-									rules.map((rule) => (
-										<tr
-											key={rule.id}
-											className="transition-colors hover:bg-slate-50/50"
-										>
-											<Td>
-												<div className="font-medium text-slate-800">
-													{rule.name}
-												</div>
-												<div
-													className="mt-0.5 text-xs text-slate-500 line-clamp-1"
-													title={rule.description}
-												>
-													{rule.description || (
-														<span className="italic">No description</span>
-													)}
-												</div>
-											</Td>
-											<Td>{formatRuleValue(rule)}</Td>
-											<Td>
-												{rule.is_promotion ? (
-													formatPromoDates(
-														rule.promotion_start,
-														rule.promotion_end
-													)
-												) : (
-													<span className="italic text-slate-400">N/A</span>
-												)}
-											</Td>
-											<Td>{getStatusPill(rule.is_active)}</Td>
-											<Td align="right">
-												<button
-													onClick={() => handleOpenEditModal(rule)}
-													className="mr-1 rounded p-1.5 text-slate-500 transition-colors hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
-													title="Edit Rule"
-													disabled={isApiLoading || isSubmitting}
-												>
-													<PencilSquareIcon className="h-4 w-4" />
-												</button>
-												<button
-													onClick={() => handleOpenDeleteModal(rule)}
-													className="rounded p-1.5 text-slate-500 transition-colors hover:bg-red-50 hover:text-red-700 focus:outline-none focus:ring-1 focus:ring-red-400"
-													title="Delete Rule"
-													disabled={isApiLoading || isSubmitting}
-												>
-													<TrashIcon className="h-4 w-4" />
-												</button>
-											</Td>
-										</tr>
-									))
-								)}
-							</tbody>
-						</table>
-					</div>
-				)}
 			</div>
 
-			{/* Add/Edit Rule Modal */}
+			{isLoadingPage ? (
+				<div className="flex h-[calc(100vh-250px)] items-center justify-center">
+					<LoadingSpinner size="lg" />
+				</div>
+			) : fetchError ? (
+				<Card className="border-destructive/50 bg-destructive/10">
+					<CardHeader>
+						<CardTitle className="text-destructive flex items-center gap-2">
+							<AlertTriangle className="h-5 w-5" />
+							Error Loading Rules
+						</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<p className="text-sm text-destructive mb-3">{fetchError}</p>
+						<Button
+							variant="destructive"
+							size="sm"
+							onClick={fetchRules}
+							disabled={isApiLoading || isSubmitting}
+						>
+							<RefreshCw className="h-4 w-4 mr-2" /> Retry
+						</Button>
+					</CardContent>
+				</Card>
+			) : (
+				<Card>
+					<CardHeader>
+						<CardTitle>Configured Points Rules</CardTitle>
+					</CardHeader>
+					<CardContent className="p-0">
+						<div className="overflow-x-auto">
+							<Table>
+								<TableHeader>
+									<TableRow>
+										<TableHead>Rule Name</TableHead>
+										<TableHead>Details / Value</TableHead>
+										<TableHead>Promotion Dates</TableHead>
+										<TableHead>Status</TableHead>
+										<TableHead className="text-right">Actions</TableHead>
+									</TableRow>
+								</TableHeader>
+								<TableBody>
+									{rules.length === 0 ? (
+										<TableRow>
+											<TableCell
+												colSpan="5"
+												className="h-24 text-center text-muted-foreground"
+											>
+												No points rules found. Click &quot;Add Rule&quot; to
+												create one.
+											</TableCell>
+										</TableRow>
+									) : (
+										rules.map((rule) => (
+											<TableRow
+												key={rule.id}
+												className="hover:bg-muted/50"
+											>
+												<TableCell>
+													<div className="font-medium text-foreground">
+														{rule.name}
+													</div>
+													<div
+														className="text-xs text-muted-foreground line-clamp-1"
+														title={rule.description}
+													>
+														{rule.description || (
+															<span className="italic">No description</span>
+														)}
+													</div>
+												</TableCell>
+												<TableCell>{formatRuleValue(rule)}</TableCell>
+												<TableCell>
+													{rule.is_promotion ? (
+														formatPromoDates(
+															rule.promotion_start,
+															rule.promotion_end
+														)
+													) : (
+														<span className="italic text-muted-foreground">
+															N/A
+														</span>
+													)}
+												</TableCell>
+												<TableCell>{getStatusPill(rule.is_active)}</TableCell>
+												<TableCell className="text-right">
+													<Button
+														variant="ghost"
+														size="icon"
+														className="h-8 w-8 mr-1"
+														onClick={() => handleOpenEditModal(rule)}
+														disabled={isApiLoading || isSubmitting}
+														title="Edit Rule"
+													>
+														<Edit2 className="h-4 w-4" />
+													</Button>
+													<Button
+														variant="ghost"
+														size="icon"
+														className="h-8 w-8 text-destructive-foreground hover:bg-destructive/10"
+														onClick={() => handleOpenDeleteModal(rule)}
+														disabled={isApiLoading || isSubmitting}
+														title="Delete Rule"
+													>
+														<Trash2 className="h-4 w-4" />
+													</Button>
+												</TableCell>
+											</TableRow>
+										))
+									)}
+								</TableBody>
+							</Table>
+						</div>
+					</CardContent>
+				</Card>
+			)}
+
 			<Modal
 				isOpen={showAddEditModal}
 				onClose={handleCloseModal}
 				title={isEditMode ? "Edit Points Rule" : "Add New Points Rule"}
+				size="lg"
 			>
 				<form
 					onSubmit={handleSubmitForm}
 					noValidate
 				>
 					<div className="space-y-4 p-1 max-h-[70vh] overflow-y-auto custom-scrollbar pr-2">
-						{" "}
-						{/* Scrollable content */}
 						<FormField
 							label="Rule Name"
 							id="rule-name"
 							required
 							error={formErrors.name}
 						>
-							<input
-								type="text"
+							<Input
 								id="rule-name"
 								name="name"
-								required
 								value={ruleForm.name}
 								onChange={handleFormChange}
-								className={`block w-full rounded-md border-0 px-3 py-1.5 text-slate-900 shadow-sm ring-1 ring-inset ${
-									formErrors.name
-										? "ring-red-500 focus:ring-red-600"
-										: "ring-slate-300 focus:ring-blue-600"
-								} placeholder:text-slate-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6`}
+								required
+								placeholder="e.g., Weekend Double Points"
+								className={formErrors.name ? "border-destructive" : ""}
 							/>
 						</FormField>
 						<FormField
 							label="Description"
 							id="rule-description"
-							helpText="Optional internal note."
-							error={formErrors.description}
+							helpText="Optional internal note about this rule."
 						>
-							<textarea
+							<Input
 								id="rule-description"
 								name="description"
-								rows="2"
 								value={ruleForm.description}
 								onChange={handleFormChange}
-								className={`block w-full rounded-md border-0 px-3 py-1.5 text-slate-900 shadow-sm ring-1 ring-inset ${
-									formErrors.description
-										? "ring-red-500 focus:ring-red-600"
-										: "ring-slate-300 focus:ring-blue-600"
-								} placeholder:text-slate-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6`}
+								placeholder="e.g., For all sales on Sat & Sun"
 							/>
 						</FormField>
 						<div className="flex items-center pt-2">
-							<input
-								type="checkbox"
+							<Checkbox
 								id="rule-is-active"
 								name="is_active"
 								checked={ruleForm.is_active}
-								onChange={handleFormChange}
-								className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+								onCheckedChange={(checked) =>
+									handleFormChange({
+										target: { name: "is_active", checked, type: "checkbox" },
+									})
+								}
 							/>
-							<label
+							<Label
 								htmlFor="rule-is-active"
-								className="ml-2 block text-sm font-medium text-slate-700"
+								className="ml-2 cursor-pointer"
 							>
 								Rule is Active
-							</label>
+							</Label>
 						</div>
-						{/* Rule Type Selection */}
-						<fieldset className="space-y-3 border-t border-slate-200 pt-4">
-							<legend className="block text-sm font-medium text-slate-700 mb-1">
-								Rule Type*
-							</legend>
+
+						<fieldset className="space-y-2 pt-3 border-t border-border">
+							<Label className="font-medium">Rule Type*</Label>
 							<div className="flex flex-col gap-2 sm:flex-row sm:gap-4">
-								<label className="flex items-center cursor-pointer">
-									<input
-										type="radio"
-										name="rule_type_selector"
-										value="standard"
-										checked={
-											!ruleForm.is_product_specific && !ruleForm.is_promotion
-										}
-										onChange={() =>
-											setRuleForm((prev) => ({
-												...prev,
-												is_product_specific: false,
-												is_promotion: false,
-											}))
-										}
-										className="h-4 w-4 border-slate-300 text-blue-600 focus:ring-blue-500"
-									/>
-									<span className="ml-2 text-sm text-slate-700">
-										Standard (Points per $)
-									</span>
-								</label>
-								<label className="flex items-center cursor-pointer">
-									<input
-										type="radio"
-										name="rule_type_selector"
-										value="product"
-										checked={ruleForm.is_product_specific}
-										onChange={() =>
-											setRuleForm((prev) => ({
-												...prev,
-												is_product_specific: true,
-												is_promotion: false,
-											}))
-										}
-										className="h-4 w-4 border-slate-300 text-blue-600 focus:ring-blue-500"
-									/>
-									<span className="ml-2 text-sm text-slate-700">
-										Product Specific
-									</span>
-								</label>
-								<label className="flex items-center cursor-pointer">
-									<input
-										type="radio"
-										name="rule_type_selector"
-										value="promotion"
-										checked={ruleForm.is_promotion}
-										onChange={() =>
-											setRuleForm((prev) => ({
-												...prev,
-												is_product_specific: false,
-												is_promotion: true,
-											}))
-										}
-										className="h-4 w-4 border-slate-300 text-blue-600 focus:ring-blue-500"
-									/>
-									<span className="ml-2 text-sm text-slate-700">
-										Promotion (Multiplier)
-									</span>
-								</label>
+								{["standard", "product", "promotion"].map((type) => (
+									<Label
+										key={type}
+										className="flex items-center cursor-pointer rounded-md border border-border p-2 hover:bg-muted has-[:checked]:bg-primary/10 has-[:checked]:border-primary flex-1 min-w-[150px]"
+									>
+										<input
+											type="radio"
+											name="rule_type_selector" // This ensures they are part of the same group
+											value={type}
+											checked={
+												// Determine checked state based on ruleForm flags
+												(type === "standard" &&
+													!ruleForm.is_product_specific &&
+													!ruleForm.is_promotion) ||
+												(type === "product" && ruleForm.is_product_specific) ||
+												(type === "promotion" && ruleForm.is_promotion)
+											}
+											onChange={handleFormChange}
+											className="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
+										/>
+										<span className="ml-2 text-sm text-foreground capitalize">
+											{type === "standard"
+												? "Standard (Points per $)"
+												: type === "product"
+												? "Product Specific"
+												: "Promotion (Multiplier)"}
+										</span>
+									</Label>
+								))}
 							</div>
 						</fieldset>
-						{/* Conditional Fields */}
-						{!ruleForm.is_product_specific && !ruleForm.is_promotion && (
-							<div className="space-y-4 border-t border-slate-200 pt-4">
-								<FormField
-									label="Points Per Dollar"
-									id="rule-points-per-dollar"
-									required
-									error={formErrors.points_per_dollar}
-								>
-									<input
-										type="number"
+
+						{!ruleForm.is_product_specific &&
+							!ruleForm.is_promotion && ( // Standard fields
+								<div className="space-y-4 pt-3 border-t border-border">
+									<FormField
+										label="Points Per Dollar"
 										id="rule-points-per-dollar"
-										name="points_per_dollar"
-										min="0.01"
-										step="0.01"
 										required
-										value={ruleForm.points_per_dollar}
-										onChange={handleFormChange}
-										className={`block w-full rounded-md border-0 px-3 py-1.5 text-slate-900 shadow-sm ring-1 ring-inset ${
-											formErrors.points_per_dollar
-												? "ring-red-500 focus:ring-red-600"
-												: "ring-slate-300 focus:ring-blue-600"
-										} placeholder:text-slate-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6`}
-									/>
-								</FormField>
-								<FormField
-									label="Minimum Order Amount ($)"
-									id="rule-min-order"
-									helpText="Optional. Minimum subtotal to earn points."
-									error={formErrors.minimum_order_amount}
-								>
-									<input
-										type="number"
+										error={formErrors.points_per_dollar}
+									>
+										<Input
+											type="number"
+											id="rule-points-per-dollar"
+											name="points_per_dollar"
+											min="0.01"
+											step="0.01"
+											required
+											value={ruleForm.points_per_dollar}
+											onChange={handleFormChange}
+											className={
+												formErrors.points_per_dollar ? "border-destructive" : ""
+											}
+										/>
+									</FormField>
+									<FormField
+										label="Minimum Order Amount ($)"
 										id="rule-min-order"
-										name="minimum_order_amount"
-										min="0"
-										step="0.01"
-										value={ruleForm.minimum_order_amount}
-										onChange={handleFormChange}
-										className={`block w-full rounded-md border-0 px-3 py-1.5 text-slate-900 shadow-sm ring-1 ring-inset ${
-											formErrors.minimum_order_amount
-												? "ring-red-500 focus:ring-red-600"
-												: "ring-slate-300 focus:ring-blue-600"
-										} placeholder:text-slate-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6`}
-									/>
-								</FormField>
-							</div>
-						)}
+										helpText="Optional. Minimum subtotal to earn points."
+										error={formErrors.minimum_order_amount}
+									>
+										<Input
+											type="number"
+											id="rule-min-order"
+											name="minimum_order_amount"
+											min="0"
+											step="0.01"
+											value={ruleForm.minimum_order_amount}
+											onChange={handleFormChange}
+											className={
+												formErrors.minimum_order_amount
+													? "border-destructive"
+													: ""
+											}
+										/>
+									</FormField>
+								</div>
+							)}
 						{ruleForm.is_product_specific && (
-							<div className="space-y-4 border-t border-slate-200 pt-4">
+							<div className="space-y-4 pt-3 border-t border-border">
 								<FormField
 									label="Product ID"
 									id="rule-product-id"
 									required
 									error={formErrors.product_id}
 								>
-									<input
+									<Input
 										type="number"
 										id="rule-product-id"
 										name="product_id"
@@ -797,11 +776,9 @@ export default function PointsRules() {
 										required
 										value={ruleForm.product_id}
 										onChange={handleFormChange}
-										className={`block w-full rounded-md border-0 px-3 py-1.5 text-slate-900 shadow-sm ring-1 ring-inset ${
-											formErrors.product_id
-												? "ring-red-500 focus:ring-red-600"
-												: "ring-slate-300 focus:ring-blue-600"
-										} placeholder:text-slate-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6`}
+										className={
+											formErrors.product_id ? "border-destructive" : ""
+										}
 									/>
 								</FormField>
 								<FormField
@@ -810,7 +787,7 @@ export default function PointsRules() {
 									required
 									error={formErrors.product_points}
 								>
-									<input
+									<Input
 										type="number"
 										id="rule-product-points"
 										name="product_points"
@@ -819,25 +796,23 @@ export default function PointsRules() {
 										required
 										value={ruleForm.product_points}
 										onChange={handleFormChange}
-										className={`block w-full rounded-md border-0 px-3 py-1.5 text-slate-900 shadow-sm ring-1 ring-inset ${
-											formErrors.product_points
-												? "ring-red-500 focus:ring-red-600"
-												: "ring-slate-300 focus:ring-blue-600"
-										} placeholder:text-slate-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6`}
+										className={
+											formErrors.product_points ? "border-destructive" : ""
+										}
 									/>
 								</FormField>
 							</div>
 						)}
 						{ruleForm.is_promotion && (
-							<div className="space-y-4 border-t border-slate-200 pt-4">
+							<div className="space-y-4 pt-3 border-t border-border">
 								<FormField
 									label="Points Multiplier"
 									id="rule-multiplier"
 									required
-									helpText="e.g., 2 for double points"
+									helpText="e.g., 2 for double points. Must be > 1."
 									error={formErrors.multiplier}
 								>
-									<input
+									<Input
 										type="number"
 										id="rule-multiplier"
 										name="multiplier"
@@ -846,143 +821,87 @@ export default function PointsRules() {
 										required
 										value={ruleForm.multiplier}
 										onChange={handleFormChange}
-										className={`block w-full rounded-md border-0 px-3 py-1.5 text-slate-900 shadow-sm ring-1 ring-inset ${
-											formErrors.multiplier
-												? "ring-red-500 focus:ring-red-600"
-												: "ring-slate-300 focus:ring-blue-600"
-										} placeholder:text-slate-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6`}
+										className={
+											formErrors.multiplier ? "border-destructive" : ""
+										}
 									/>
 								</FormField>
 								<FormField
-									label="Promotion Start"
+									label="Promotion Start (Optional)"
 									id="rule-promo-start"
-									helpText="Optional. When the promotion begins."
+									helpText="When the promotion begins."
 									error={formErrors.promotion_start}
 								>
-									<input
+									<Input
 										type="datetime-local"
 										id="rule-promo-start"
 										name="promotion_start"
 										value={ruleForm.promotion_start}
 										onChange={handleFormChange}
-										className={`block w-full rounded-md border-0 px-3 py-1.5 text-slate-900 shadow-sm ring-1 ring-inset ${
-											formErrors.promotion_start
-												? "ring-red-500 focus:ring-red-600"
-												: "ring-slate-300 focus:ring-blue-600"
-										} focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6`}
+										className={
+											formErrors.promotion_start ? "border-destructive" : ""
+										}
 									/>
 								</FormField>
 								<FormField
-									label="Promotion End"
+									label="Promotion End (Optional)"
 									id="rule-promo-end"
-									helpText="Optional. When the promotion ends."
+									helpText="When the promotion ends."
 									error={formErrors.promotion_end}
 								>
-									<input
+									<Input
 										type="datetime-local"
 										id="rule-promo-end"
 										name="promotion_end"
 										value={ruleForm.promotion_end}
 										onChange={handleFormChange}
-										min={ruleForm.promotion_start || ""} // Basic validation
-										className={`block w-full rounded-md border-0 px-3 py-1.5 text-slate-900 shadow-sm ring-1 ring-inset ${
-											formErrors.promotion_end
-												? "ring-red-500 focus:ring-red-600"
-												: "ring-slate-300 focus:ring-blue-600"
-										} focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6`}
+										min={ruleForm.promotion_start || ""}
+										className={
+											formErrors.promotion_end ? "border-destructive" : ""
+										}
 									/>
 								</FormField>
 							</div>
 						)}
 					</div>
-					{/* Modal Footer Actions */}
-					<div className="mt-6 flex justify-end gap-3 border-t border-slate-200 pt-4">
-						<button
+					<div className="mt-6 flex justify-end gap-3 border-t border-border pt-4">
+						<Button
 							type="button"
+							variant="outline"
 							onClick={handleCloseModal}
 							disabled={isSubmitting}
-							className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
 						>
 							Cancel
-						</button>
-						<button
+						</Button>
+						<Button
 							type="submit"
 							disabled={isSubmitting || isApiLoading}
-							className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-blue-400"
 						>
 							{isSubmitting ? (
-								<>
-									<svg
-										className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-										xmlns="http://www.w3.org/2000/svg"
-										fill="none"
-										viewBox="0 0 24 24"
-									>
-										<circle
-											className="opacity-25"
-											cx="12"
-											cy="12"
-											r="10"
-											stroke="currentColor"
-											strokeWidth="4"
-										></circle>
-										<path
-											className="opacity-75"
-											fill="currentColor"
-											d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-										></path>
-									</svg>
-									Saving...
-								</>
-							) : isEditMode ? (
-								"Update Rule"
-							) : (
-								"Create Rule"
-							)}
-						</button>
+								<RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+							) : null}
+							{isSubmitting
+								? "Saving..."
+								: isEditMode
+								? "Update Rule"
+								: "Create Rule"}
+						</Button>
 					</div>
 				</form>
 			</Modal>
 
-			{/* Delete Confirmation Modal */}
 			{showDeleteModal && currentRule && (
 				<ConfirmationModal
 					isOpen={showDeleteModal}
 					onClose={handleCloseModal}
 					onConfirm={handleConfirmDelete}
 					title="Delete Points Rule"
-					message={`Are you sure you want to delete the rule "${currentRule.name}"? This cannot be undone.`}
-					confirmButtonText={isApiLoading ? "Deleting..." : "Delete"}
-					confirmButtonClass="bg-red-600 hover:bg-red-700 disabled:bg-red-300"
-					isConfirmDisabled={isApiLoading}
+					message={`Are you sure you want to delete the rule "${currentRule.name}"? This action cannot be undone.`}
+					confirmButtonText={isSubmitting ? "Deleting..." : "Delete"}
+					confirmButtonClass="bg-red-600 hover:bg-red-700"
+					isConfirmDisabled={isSubmitting || isApiLoading}
 				/>
 			)}
-		</div>
+		</MainLayout>
 	);
 }
-
-// Helper components for table styling
-const Th = ({ children, align = "left" }) => (
-	<th
-		scope="col"
-		className={`whitespace-nowrap px-4 py-2.5 text-${align} text-xs font-semibold uppercase tracking-wider text-slate-500`}
-	>
-		{children}
-	</th>
-);
-Th.propTypes = { children: PropTypes.node, align: PropTypes.string };
-
-const Td = ({ children, align = "left", isHeader = false }) => (
-	<td
-		className={`px-4 py-2.5 text-${align} text-sm ${
-			isHeader ? "font-medium text-slate-800" : "text-slate-600"
-		}`}
-	>
-		{children}
-	</td>
-);
-Td.propTypes = {
-	children: PropTypes.node,
-	align: PropTypes.string,
-	isHeader: PropTypes.bool,
-};

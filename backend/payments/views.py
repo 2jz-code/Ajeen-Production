@@ -1457,22 +1457,25 @@ class PaymentRefundView(APIView):
 
     @transaction.atomic
     def post(self, request, payment_id, *args, **kwargs):
-        # payment_id here refers to OUR Payment model's PK.
         payment = get_object_or_404(
             Payment.objects.select_related("order"), id=payment_id
         )
-        transaction_pk_to_refund = request.data.get(
-            "transaction_id"
-        )  # Expecting PaymentTransaction PK
+        transaction_pk_to_refund = request.data.get("transaction_id")
         amount_str = request.data.get("amount")
         reason = request.data.get("reason", "requested_by_customer")
 
         if not transaction_pk_to_refund:
+            logger.warning(
+                f"PaymentRefundView (Payment {payment_id}): Missing transaction_id in request."
+            )
             return Response(
                 {"error": "PaymentTransaction ID (transaction_id) is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if not amount_str:
+            logger.warning(
+                f"PaymentRefundView (Payment {payment_id}, Txn PK {transaction_pk_to_refund}): Missing amount in request."
+            )
             return Response(
                 {"error": "Refund amount is required."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -1481,8 +1484,14 @@ class PaymentRefundView(APIView):
         try:
             amount_to_refund = decimal.Decimal(amount_str)
             if amount_to_refund <= 0:
-                raise ValueError("Amount must be positive")
-        except (decimal.InvalidOperation, ValueError):
+                logger.warning(
+                    f"PaymentRefundView (Payment {payment_id}, Txn PK {transaction_pk_to_refund}): Non-positive refund amount '{amount_str}'."
+                )
+                raise ValueError("Amount must be positive.")
+        except (decimal.InvalidOperation, ValueError) as e:
+            logger.warning(
+                f"PaymentRefundView (Payment {payment_id}, Txn PK {transaction_pk_to_refund}): Invalid refund amount format '{amount_str}': {e}"
+            )
             return Response(
                 {"error": "Invalid or non-positive refund amount format."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -1492,10 +1501,10 @@ class PaymentRefundView(APIView):
             txn_to_refund = get_object_or_404(
                 PaymentTransaction, pk=transaction_pk_to_refund, parent_payment=payment
             )
-        except (
-            PaymentTransaction.DoesNotExist,
-            ValueError,
-        ):  # ValueError for invalid PK format
+        except (PaymentTransaction.DoesNotExist, ValueError) as e:
+            logger.warning(
+                f"PaymentRefundView (Payment {payment_id}): Transaction PK '{transaction_pk_to_refund}' not found or invalid: {e}"
+            )
             return Response(
                 {
                     "error": f"Transaction with ID {transaction_pk_to_refund} not found for this payment or invalid ID."
@@ -1503,12 +1512,20 @@ class PaymentRefundView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        logger.info(
+            f"PaymentRefundView (Payment {payment_id}): Processing refund for Txn ID {txn_to_refund.id}. Requested Amount: {amount_to_refund}. Current Txn Status: {txn_to_refund.status}."
+        )
+
         if txn_to_refund.status == "refunded":
+            logger.info(f"Txn {txn_to_refund.id}: Already fully refunded.")
             return Response(
                 {"error": f"Transaction {txn_to_refund.id} already fully refunded."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if txn_to_refund.status != "completed":
+            logger.warning(
+                f"Txn {txn_to_refund.id}: Cannot refund, status is '{txn_to_refund.status}', not 'completed'."
+            )
             return Response(
                 {
                     "error": f"Cannot refund transaction {txn_to_refund.id} (status: {txn_to_refund.status}). Must be 'completed'."
@@ -1516,36 +1533,57 @@ class PaymentRefundView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Check for partial refunds - sum of existing refunds for this txn vs txn amount
         metadata = txn_to_refund.get_metadata()
         existing_refunds_total = sum(
-            decimal.Decimal(r.get("amount_webhook", 0))
+            decimal.Decimal(
+                r.get("amount_webhook", 0)
+                if r.get("amount_webhook") is not None
+                else r.get("processed_amount", 0)
+            )  # Consider both keys for safety
             for r in metadata.get("refunds", [])
             if r.get("status_webhook") == "succeeded"
+            or r.get("status") == "succeeded"  # Check both keys
         )
         refundable_amount = txn_to_refund.amount - existing_refunds_total
-        if amount_to_refund > refundable_amount:
+
+        if amount_to_refund > refundable_amount.quantize(
+            decimal.Decimal("0.01")
+        ):  # Compare with quantized value
+            logger.warning(
+                f"Txn {txn_to_refund.id}: Refund amount {amount_to_refund} exceeds refundable {refundable_amount}."
+            )
             return Response(
                 {
-                    "error": f"Refund amount ({amount_to_refund}) exceeds remaining refundable amount ({refundable_amount}). Already refunded: {existing_refunds_total}"
+                    "error": f"Refund amount ({amount_to_refund}) exceeds remaining refundable amount ({refundable_amount:.2f}). Already refunded: {existing_refunds_total:.2f}"
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Initialize with common details
         refund_details_dict = {
             "original_transaction_pk": txn_to_refund.pk,
-            "original_stripe_id": txn_to_refund.transaction_id,  # This is Stripe's Charge ID or PI ID
+            "original_stripe_id": txn_to_refund.transaction_id,
             "method": txn_to_refund.payment_method,
-            "requested_amount": amount_to_refund,
-            "status": "pending_api_call",  # Initial status before Stripe call
+            "requested_amount": amount_to_refund,  # Will be Decimal
+            "status": "pending_api_call",
             "success": False,
-            "refund_id_stripe": None,  # Stripe's refund object ID
+            "refund_id_stripe": None,
         }
 
         try:
             if txn_to_refund.payment_method == "credit":
+                logger.info(
+                    f"Txn {txn_to_refund.id}: Entered 'credit' processing block."
+                )
                 stripe_charge_or_pi_id = txn_to_refund.transaction_id
                 if not stripe_charge_or_pi_id:
+                    logger.error(
+                        f"Txn {txn_to_refund.id} (Credit): Missing Stripe transaction ID."
+                    )
+                    # Log before returning
+                    logger.info(
+                        f"Txn {txn_to_refund.id}: PREPARING 400 RESPONSE from 'credit' block (Missing Stripe ID)."
+                    )
                     return Response(
                         {
                             "error": "Missing Stripe transaction ID for this credit transaction."
@@ -1558,65 +1596,64 @@ class PaymentRefundView(APIView):
                 )
                 refund_params = {"amount": amount_in_cents, "reason": reason}
 
-                # Determine if it's a charge or payment_intent
                 if stripe_charge_or_pi_id.startswith("pi_"):
                     refund_params["payment_intent"] = stripe_charge_or_pi_id
-                elif stripe_charge_or_pi_id.startswith(
-                    "py_"
-                ):  # Legacy Payment object for Stripe Terminal
-                    # Refunds for 'py_' objects are typically done via 'charge' if a charge was created.
-                    # This might need more specific handling if you use older Stripe Terminal integrations.
-                    # For now, assume it's either pi_ or ch_ (orichg_)
+                elif stripe_charge_or_pi_id.startswith("py_"):
                     logger.warning(
-                        f"Attempting refund for legacy Stripe Payment object {stripe_charge_or_pi_id}. This might need 'charge' parameter."
+                        f"Txn {txn_to_refund.id}: Attempting refund for legacy Stripe Payment object {stripe_charge_or_pi_id}."
                     )
-                    # Attempt with charge, Stripe will error if incorrect.
-                    # In modern integrations, a PI is usually associated.
-                    # If 'py_' is the ONLY ID you have and it's not directly refundable, this will fail.
-                    # It's best if your 'transaction_id' for completed payments is always a 'ch_' or 'pi_'.
-                    # The 'latest_charge' from a PI is the 'ch_'.
                     refund_params["charge"] = stripe_charge_or_pi_id
-                else:  # Assume it's a charge ID (ch_, src_, etc.)
+                else:
                     refund_params["charge"] = stripe_charge_or_pi_id
-
-                logger.info(f"Attempting Stripe refund with params: {refund_params}")
-                stripe_refund_obj = stripe.Refund.create(**refund_params)
 
                 logger.info(
-                    f"Stripe Refund call response: Refund ID {stripe_refund_obj.id}, Status {stripe_refund_obj.status}"
+                    f"Txn {txn_to_refund.id}: Attempting Stripe refund with params: {refund_params}"
                 )
+                stripe_refund_obj = stripe.Refund.create(**refund_params)
+                logger.info(
+                    f"Txn {txn_to_refund.id}: Stripe Refund call response: ID {stripe_refund_obj.id}, Status {stripe_refund_obj.status}"
+                )
+
                 refund_details_dict.update(
                     {
                         "refund_id_stripe": stripe_refund_obj.id,
-                        "status": stripe_refund_obj.status,  # e.g. succeeded, pending, requires_action, failed
+                        "status": stripe_refund_obj.status,  # e.g., succeeded, pending, failed
                         "processed_amount": decimal.Decimal(stripe_refund_obj.amount)
-                        / 100,
-                        "success": stripe_refund_obj.status
-                        == "succeeded",  # Or "pending" if async
+                        / 100,  # Store as Decimal
+                        "success": stripe_refund_obj.status == "succeeded",
                     }
                 )
-                if stripe_refund_obj.failure_reason:
-                    refund_details_dict["failure_reason"] = (
-                        stripe_refund_obj.failure_reason
+                failure_reason_value = getattr(
+                    stripe_refund_obj, "failure_reason", None
+                )
+                if failure_reason_value:
+                    refund_details_dict["failure_reason"] = failure_reason_value
+
+                if not refund_details_dict["success"]:
+                    logger.warning(
+                        f"Txn {txn_to_refund.id}: Stripe refund status is '{stripe_refund_obj.status}', not 'succeeded'. This might require manual follow-up or different handling."
                     )
+                    # Depending on business logic, you might still update metadata but not transaction status to "refunded"
 
             elif txn_to_refund.payment_method == "cash":
-                logger.info(
-                    f"Processing cash refund for Txn PK: {txn_to_refund.id}, Amount: {amount_to_refund}"
-                )
+                logger.info(f"Txn {txn_to_refund.id}: Entered 'cash' processing block.")
                 refund_details_dict.update(
                     {
-                        "status": "succeeded",
-                        "processed_amount": amount_to_refund,
+                        "status": "succeeded",  # Cash refunds are locally successful
+                        "processed_amount": amount_to_refund,  # Store as Decimal
                         "success": True,
                     }
                 )
-                # Cash drawer logic can be added here if needed, using ReceiptPrinterController
-                # try:
-                #     ReceiptPrinterController().open_cash_drawer()
-                # except Exception as e:
-                #     logger.error(f"Failed to open cash drawer during cash refund: {e}")
+                # Consider ReceiptPrinterController().open_cash_drawer() here if applicable and configured
+
             else:
+                # This block should now only be hit if the method is genuinely not 'credit' or 'cash' from the start.
+                logger.error(
+                    f"Txn {txn_to_refund.id}: Method '{txn_to_refund.payment_method}' is not supported for refund via this view."
+                )
+                logger.info(
+                    f"Txn {txn_to_refund.id}: PREPARING 400 RESPONSE from 'else' (unsupported method initial check)."
+                )
                 return Response(
                     {
                         "error": f"Refund not supported for method {txn_to_refund.payment_method}."
@@ -1624,38 +1661,91 @@ class PaymentRefundView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Update transaction metadata with this refund attempt
-            refunds_list = metadata.get("refunds", [])
-            refunds_list.append(refund_details_dict)
-            metadata["refunds"] = refunds_list
-            txn_to_refund.set_metadata(metadata)
-
-            # Update transaction status if fully refunded by this action or previous ones + this one
-            new_total_refunded = existing_refunds_total + (
-                refund_details_dict.get("processed_amount", 0)
-                if refund_details_dict.get("success")
-                else 0
+            # --- SHARED DATABASE UPDATE LOGIC (Only if method was 'credit' or 'cash' and no early error return) ---
+            logger.info(
+                f"Txn {txn_to_refund.id}: Proceeding to update local database records for refund method '{txn_to_refund.payment_method}'."
             )
-            if new_total_refunded >= txn_to_refund.amount:
-                txn_to_refund.status = "refunded"
+
+            # Get current metadata before appending to it
+            current_metadata = txn_to_refund.get_metadata()
+            if (
+                "error" in current_metadata
+            ):  # Handle case where current metadata is an error object
+                logger.warning(
+                    f"Txn {txn_to_refund.id}: Current metadata contains an error: {current_metadata['error']}. Resetting refunds list."
+                )
+                refunds_list = []
+            else:
+                refunds_list = current_metadata.get("refunds", [])
+
+            refunds_list.append(
+                refund_details_dict
+            )  # refund_details_dict contains Decimals
+            current_metadata["refunds"] = refunds_list
+            txn_to_refund.set_metadata(
+                current_metadata
+            )  # This will use DecimalEncoder from models.py
+
+            # Update transaction status if the refund was successful (Stripe or Cash)
+            # and it covers the full remaining amount or full initial amount.
+            if refund_details_dict.get("success"):
+                # Recalculate existing_refunds_total based on *all* successful refunds logged in metadata,
+                # including potentially the one just added if it was immediately successful.
+                all_successful_refund_amounts = [
+                    decimal.Decimal(r.get("processed_amount", 0))
+                    for r in txn_to_refund.get_metadata().get(
+                        "refunds", []
+                    )  # get fresh metadata after set_metadata
+                    if r.get("success")
+                    or r.get("status") == "succeeded"  # Check both for robustness
+                ]
+                total_successfully_refunded_amount = sum(all_successful_refund_amounts)
+
+                if total_successfully_refunded_amount >= txn_to_refund.amount:
+                    txn_to_refund.status = "refunded"
+                # Else: it's a partial refund, txn_to_refund.status remains "completed"
+                # but parent Payment status will become "partially_refunded".
 
             txn_to_refund.save()
             logger.info(
-                f"Updated PaymentTransaction {txn_to_refund.id}. New total refunded: {new_total_refunded}. Status: {txn_to_refund.status}"
+                f"Txn {txn_to_refund.id}: Saved. New Txn Status: {txn_to_refund.status}. Total Refunded on Txn: {total_successfully_refunded_amount if 'total_successfully_refunded_amount' in locals() else 'N/A'}"
             )
 
-            # Update parent Payment and Order status
-            # Instantiate webhook view to use its more comprehensive status updater
-            webhook_view_instance = PaymentWebhookView()
-            webhook_view_instance.update_parent_payment_status(payment)
+            webhook_view_instance = (
+                PaymentWebhookView()
+            )  # Assuming PaymentWebhookView is in the same file or imported
+            webhook_view_instance.update_parent_payment_status(
+                payment
+            )  # payment is the parent Payment object
+            logger.info(
+                f"Txn {txn_to_refund.id}: Parent payment (ID {payment.id}) and order (ID {payment.order.id}) statuses updated. Payment status: {payment.status}, Order payment status: {payment.order.payment_status}"
+            )
 
+            # Prepare and return SUCCESS response
+            final_message = f"Refund of {formatCurrency(refund_details_dict.get('processed_amount', amount_to_refund))} for transaction {txn_to_refund.id} is {refund_details_dict.get('status')}."
+            if (
+                not refund_details_dict.get("success")
+                and refund_details_dict.get("status") != "pending_api_call"
+            ):
+                # If not successful and not just pending API call (e.g. Stripe refund 'pending' or 'failed')
+                final_message = f"Refund attempt for transaction {txn_to_refund.id}: Stripe status is '{refund_details_dict.get('status')}'."
+                if refund_details_dict.get("failure_reason"):
+                    final_message += (
+                        f" Reason: {refund_details_dict.get('failure_reason')}"
+                    )
+
+            logger.info(
+                f"Txn {txn_to_refund.id}: PREPARING SUCCESS RESPONSE (HTTP 200). Message: {final_message}"
+            )
             return Response(
                 {
-                    "success": refund_details_dict.get("success", False),
-                    "message": f"Refund of {formatCurrency(refund_details_dict.get('processed_amount', amount_to_refund))} for transaction {txn_to_refund.id} is {refund_details_dict.get('status')}.",
-                    "refund_details": refund_details_dict,
-                    "payment_status": payment.status,  # Reflects updated parent status
-                    "transaction_status": txn_to_refund.status,  # Reflects updated txn status
+                    "success": refund_details_dict.get(
+                        "success", False
+                    ),  # True if Stripe/cash refund was immediately successful
+                    "message": final_message,
+                    "refund_details": refund_details_dict,  # Contains Decimals, DRF handles serialization to string
+                    "payment_status": payment.status,
+                    "transaction_status": txn_to_refund.status,
                 }
             )
 
@@ -1664,15 +1754,28 @@ class PaymentRefundView(APIView):
                 f"Stripe Error during refund for Txn {txn_to_refund.id}: {str(e)}",
                 exc_info=True,
             )
-            refund_details_dict["status"] = "failed_stripe_error"
+            refund_details_dict["status"] = "failed_stripe_error"  # Update dict
             refund_details_dict["error_message"] = str(e)
-            # Update metadata even on failure
-            metadata = txn_to_refund.get_metadata()
-            refunds_list = metadata.get("refunds", [])
-            refunds_list.append(refund_details_dict)
-            metadata["refunds"] = refunds_list
-            txn_to_refund.set_metadata(metadata)
-            txn_to_refund.save()
+            refund_details_dict["success"] = False  # Ensure success is false
+
+            # Attempt to save metadata with the error details
+            current_metadata_on_err = txn_to_refund.get_metadata()
+            refunds_list_on_err = current_metadata_on_err.get("refunds", [])
+            # Update or append the specific refund attempt with error info
+            # This assumes refund_details_dict was initialized with original_transaction_pk etc.
+            refunds_list_on_err.append(refund_details_dict)
+            current_metadata_on_err["refunds"] = refunds_list_on_err
+            txn_to_refund.set_metadata(current_metadata_on_err)
+            try:
+                txn_to_refund.save(update_fields=["metadata_json"])
+            except Exception as save_err:
+                logger.error(
+                    f"Txn {txn_to_refund.id}: Could not save error metadata during StripeError: {save_err}"
+                )
+
+            logger.info(
+                f"Txn {txn_to_refund.id}: PREPARING 400 RESPONSE from 'StripeError' block."
+            )
             return Response(
                 {
                     "error": f"Stripe Error: {str(e)}",
@@ -1680,14 +1783,23 @@ class PaymentRefundView(APIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        except Exception as e:
+        except Exception as e:  # Generic catch-all for unexpected errors
             logger.error(
-                f"Error processing refund for Txn {txn_to_refund.id}: {str(e)}",
+                f"Generic error processing refund for Txn {txn_to_refund.id}: {str(e)}",
                 exc_info=True,
             )
+            # Try to include refund_details_dict if it was populated for debugging
+            error_response_data = {"error": f"Failed to process refund: {str(e)}"}
+            if "refund_details_dict" in locals() and isinstance(
+                refund_details_dict, dict
+            ):
+                error_response_data["details_debug"] = refund_details_dict
+
+            logger.info(
+                f"Txn {txn_to_refund.id}: PREPARING 500 RESPONSE from generic 'Exception' block."
+            )
             return Response(
-                {"error": f"Failed to process refund: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                error_response_data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
 

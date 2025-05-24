@@ -1,33 +1,31 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { BuildingStorefrontIcon } from "@heroicons/react/24/outline"; // Example: Storefront icon
+import { Store } from "lucide-react";
 
 /**
- * WelcomePage Component (UI Revamped)
+ * WelcomePage Component
  * Displays a welcome message, time, and date on the customer display.
  */
 const WelcomePage = () => {
 	const [currentTime, setCurrentTime] = useState(new Date());
 
-	// Update time every minute
 	useEffect(() => {
-		const timer = setInterval(() => setCurrentTime(new Date()), 60000); // Update every 60 seconds
-		return () => clearInterval(timer); // Cleanup interval on unmount
+		const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+		return () => clearInterval(timer);
 	}, []);
 
-	// Format time and date
 	const formattedTime = currentTime.toLocaleTimeString([], {
 		hour: "numeric",
 		minute: "2-digit",
 		hour12: true,
 	});
+
 	const formattedDate = currentTime.toLocaleDateString([], {
 		weekday: "long",
 		month: "long",
 		day: "numeric",
 	});
 
-	// Animation variants for the container and items
 	const containerVariants = {
 		hidden: { opacity: 0 },
 		visible: {
@@ -43,57 +41,55 @@ const WelcomePage = () => {
 			opacity: 1,
 			y: 0,
 			transition: { duration: 0.6, ease: [0.4, 0, 0.2, 1] },
-		}, // Smoother ease
+		},
 	};
 
 	return (
 		<motion.div
-			key="welcome" // Key for AnimatePresence
-			className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-10 text-center text-slate-800 md:p-16" // Use a subtle gradient
+			key="welcome"
+			className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-6 md:p-10 text-center text-slate-800" // Adjusted padding
 			variants={containerVariants}
 			initial="hidden"
 			animate="visible"
 			exit="exit"
 		>
-			{/* Logo/Icon */}
-			<motion.div
-				variants={itemVariants}
-				className="mb-8"
-			>
-				{/* Replace with your actual logo SVG or image if available */}
-				{/* <img src="/path/to/ajeen-logo.svg" alt="Ajeen Bakery Logo" className="h-20 w-auto mx-auto" /> */}
-				<BuildingStorefrontIcon
-					className="mx-auto h-24 w-24 text-blue-500 md:h-28 md:w-28"
-					strokeWidth={1}
-				/>
-			</motion.div>
-
-			{/* Welcome Message */}
-			<motion.h1
-				variants={itemVariants}
-				className="mb-4 text-4xl font-bold tracking-tight text-slate-900 md:text-5xl"
-			>
-				Welcome!
-			</motion.h1>
-
-			{/* Instruction Text */}
-			<motion.p
-				variants={itemVariants}
-				className="mb-12 text-xl text-slate-600 md:text-2xl"
-			>
-				Please see the cashier to start your order.
-			</motion.p>
-
-			{/* Time and Date */}
-			<motion.div
-				variants={itemVariants}
-				className="text-slate-500"
-			>
-				<div className="mb-2 text-5xl font-medium md:text-6xl">
-					{formattedTime}
-				</div>
-				<div className="text-lg md:text-xl">{formattedDate}</div>
-			</motion.div>
+			{/* Content directly on the gradient, constrained by this div */}
+			<div className="w-full max-w-md">
+				{" "}
+				{/* Simple div for max-width and centering content */}
+				{/* Logo/Icon */}
+				<motion.div
+					variants={itemVariants}
+					className="mb-8"
+				>
+					<Store
+						className="mx-auto h-24 w-24 text-blue-500"
+						strokeWidth={1}
+					/>
+				</motion.div>
+				{/* Welcome Message */}
+				<motion.h1
+					variants={itemVariants}
+					className="mb-4 text-4xl font-bold tracking-tight text-slate-900"
+				>
+					Welcome!
+				</motion.h1>
+				{/* Instruction Text */}
+				<motion.p
+					variants={itemVariants}
+					className="mb-12 text-xl text-slate-600"
+				>
+					Please see the cashier to start your order.
+				</motion.p>
+				{/* Time and Date */}
+				<motion.div
+					variants={itemVariants}
+					className="text-slate-500"
+				>
+					<div className="mb-2 text-5xl font-medium">{formattedTime}</div>
+					<div className="text-lg">{formattedDate}</div>
+				</motion.div>
+			</div>
 		</motion.div>
 	);
 };

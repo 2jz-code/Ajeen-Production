@@ -1,90 +1,74 @@
-import { useState } from "react"; // Added React import
-import { CartItem } from "./CartItem"; // Original import
+"use client";
+
+import { useState } from "react";
+import { CartItem } from "./CartItem";
 import PropTypes from "prop-types";
-import { normalizeCartItems } from "../utils/cartDataNormalizer"; // Original import
-// Import animation components
+import { normalizeCartItems } from "../utils/cartDataNormalizer";
 import { AnimatePresence, motion } from "framer-motion";
+import { ShoppingCart } from "lucide-react";
 
 /**
- * CartItemList Component (Logic Preserved from User Provided Code)
+ * CartItemList Component
  *
- * Renders the list of items currently in the cart, handling expansion state.
- * UI updated for a more compact appearance and a smoother "fold" animation;
- * Logic remains unchanged based on user input.
- *
- * @param {object} props - Component props.
- * @param {array} props.items - Array of cart item objects.
- * @param {function} props.onUpdateItem - Function to update an item.
- * @param {function} props.onRemoveItem - Function to remove an item.
+ * Renders the list of items currently in the cart with modern UI.
+ * All original logic is preserved.
  */
 export const CartItemList = ({ items, onUpdateItem, onRemoveItem }) => {
-	// --- ORIGINAL LOGIC (UNCHANGED from user provided code) ---
+	// --- ORIGINAL LOGIC (UNCHANGED) ---
 	const [expandedItemId, setExpandedItemId] = useState(null);
 
 	const handleExpand = (itemId) => {
 		setExpandedItemId(expandedItemId === itemId ? null : itemId);
 	};
 
-	// Defensive programming: ensure items is an array
 	const safeItems = Array.isArray(items) ? items : [];
-
-	// Normalize items before rendering
 	const normalizedItems = normalizeCartItems(safeItems);
 	// --- END OF ORIGINAL LOGIC ---
 
-	// --- UPDATED UI (JSX Structure and Styling Only - Smoother Fold Animation v2) ---
-	// Simplified animation variants for entry/exit (gentle fade)
 	const itemVariants = {
-		initial: { opacity: 0 }, // Start invisible
-		animate: { opacity: 1, transition: { duration: 0.3 } }, // Fade in
-		exit: { opacity: 0, transition: { duration: 0.2 } }, // Fade out
+		initial: { opacity: 0, y: 10 },
+		animate: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+		exit: { opacity: 0, y: -10, transition: { duration: 0.2 } },
 	};
 
-	// Define a specific transition for the layout animation (expand/collapse)
-	// Use a simpler easeOut curve to prevent overshoot/stretch effect
 	const layoutTransition = {
-		duration: 0.25, // Slightly faster duration
-		ease: "easeOut", // Standard deceleration curve
+		duration: 0.25,
+		ease: "easeOut",
 	};
 
 	return (
-		// Main container: Takes available space, enables vertical scrolling.
-		// Reduced padding (p-2), removed space-y, using subtle divider for separation.
-		<div className="flex-1 overflow-y-auto p-2 custom-scrollbar divide-y divide-slate-100">
-			{/* Original conditional rendering for empty cart */}
+		// Reduced padding from p-3 to p-2
+		// Reduced space-y from space-y-1.5 to space-y-1
+		<div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
 			{normalizedItems.length === 0 ? (
-				// Styled empty cart message - reduced vertical padding
-				<p className="text-slate-400 text-center py-6 px-4 text-sm">
-					{" "}
-					{/* Slightly smaller text */}
-					No items in cart yet.
-				</p>
+				// Reduced py-10 to py-8 for the empty cart message
+				<div className="flex flex-col items-center justify-center py-8 text-center">
+					<div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+						<ShoppingCart className="h-8 w-8 text-slate-400 dark:text-slate-500" />
+					</div>
+					<h3 className="text-lg font-medium text-slate-700 dark:text-slate-300 mb-2">
+						Cart is Empty
+					</h3>
+					<p className="text-sm text-muted-foreground">
+						Add items to get started
+					</p>
+				</div>
 			) : (
-				// Use AnimatePresence for item animations (UI enhancement, optional)
 				<AnimatePresence initial={false}>
-					{/* Map over original normalizedItems */}
 					{normalizedItems.map((item) => (
-						// Wrap CartItem in motion.div for animation
 						<motion.div
-							key={item.id} // Original key
-							layout // Animate layout changes
+							key={item.id}
+							layout
 							variants={itemVariants}
 							initial="initial"
 							animate="animate"
 							exit="exit"
-							// Apply the updated custom layout transition
 							transition={layoutTransition}
 						>
-							{/* Render original CartItem component */}
-							{/* NOTE: For a truly compact list, the internal padding/margins */}
-							{/* within CartItem.jsx itself would also need reduction. */}
 							<CartItem
-								key={item.id} // Pass key again if needed by CartItem itself
-								item={item} // Pass original item
-								// Pass original expansion state and handler
+								item={item}
 								isExpanded={expandedItemId === item.id}
 								onExpand={() => handleExpand(item.id)}
-								// Pass original update/remove handlers
 								onUpdate={onUpdateItem}
 								onRemove={onRemoveItem}
 							/>
@@ -94,14 +78,11 @@ export const CartItemList = ({ items, onUpdateItem, onRemoveItem }) => {
 			)}
 		</div>
 	);
-	// --- END OF UPDATED UI ---
 };
 
-// --- ORIGINAL PROPTYPES (UNCHANGED) ---
 CartItemList.propTypes = {
 	items: PropTypes.arrayOf(
 		PropTypes.shape({
-			// Adjusted id proptype based on previous CartItem update
 			id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
 			name: PropTypes.string.isRequired,
 			price: PropTypes.oneOfType([PropTypes.number, PropTypes.string])
@@ -115,8 +96,7 @@ CartItemList.propTypes = {
 	onRemoveItem: PropTypes.func.isRequired,
 };
 
-// Add display name for consistency
 CartItemList.displayName = "CartItemList";
 
-// Default export might be needed
-// export default CartItemList; // Uncomment if needed
+// Default export if this is the main export
+export default CartItemList;

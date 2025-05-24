@@ -1,0 +1,72 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <link rel="stylesheet" type="text/css" href="{% static "admin/css/forms.css" %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+    &rsaquo; {% trans 'Database Tools' %}
+    &rsaquo; {% trans 'Reset Database Schema' %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <h1>{% trans "Reset Database Schema" %}</h1>
+
+    {% if not is_debug and not allow_reset_env_var_is_true %}
+    <p class="errornote">
+        <strong>{% trans "ACTION DISABLED:" %}</strong><br>
+        {% trans "This functionality is disabled. It requires Django's DEBUG setting to be True OR the ALLOW_PRE_LAUNCH_DATABASE_RESET environment variable to be set to 'true'. Both are currently OFF or not set to 'true'." %}
+    </p>
+    <p>
+        <a href="{% url 'admin:index' %}" class="button">{% trans "Back to Admin Home" %}</a>
+    </p>
+    {% elif not has_permission %}
+    <p class="errornote">
+        <strong>{% trans "PERMISSION DENIED:" %}</strong><br>
+        {% trans "You do not have permission to perform this action." %}
+    </p>
+    <p>
+        <a href="{% url 'admin:index' %}" class="button">{% trans "Back to Admin Home" %}</a>
+    </p>
+    {% else %}
+    <p class="warning">
+        <strong>{% trans "EXTREME WARNING:" %}</strong><br />
+        {% trans "You are about to perform a highly destructive action." %}<br />
+        {# Replaced blocktrans. Note: <strong> tags are now part of the translatable string. #}
+        {# For more complex HTML, you'd use multiple trans tags or mark_safe if appropriate. #}
+        {% trans "This will attempt to <strong>WIPE ALL DATA</strong> in your database by dropping tables (or clearing the schema) and then rerunning all migrations. This process is <strong>IRREVERSIBLE</strong>." %}
+        <br />
+        {% if not is_debug and allow_reset_env_var_is_true %}
+        <strong style="color: red">
+            {% trans "NOTE: DEBUG mode is OFF, but this tool is enabled via the ALLOW_PRE_LAUNCH_DATABASE_RESET environment variable. Exercise extreme caution." %}
+        </strong><br />
+        {% endif %}
+        {% trans "A final confirmation will be required in the server console where the 'reset_database_schema' command runs." %}
+    </p>
+
+    <form method="post" action="">
+        {% csrf_token %}
+        <fieldset class="module aligned">
+            <div class="form-row">
+                <div>
+                    <input type="checkbox" name="confirm_reset_checkbox" id="confirm_reset_checkbox" required />
+                    <label for="confirm_reset_checkbox" class="required">
+                        <strong>{% trans "I understand the risks and confirm I want to proceed with the database reset." %}</strong>
+                    </label>
+                </div>
+            </div>
+        </fieldset>
+        <div class="submit-row">
+            <input type="submit" name="confirm_reset_button" class="default" value="{% trans 'Initiate Database Reset' %}" />
+            <a href="{% url 'admin:index' %}" class="button cancel-link">{% trans "Cancel" %}</a>
+        </div>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,6 +1,5 @@
-import { useState, useEffect, useCallback } from "react"; // Added React import
-import { useNavigate } from "react-router-dom";
-// Original component/service imports
+// src/pages/reports/Reports.jsx
+import { useState, useEffect, useCallback } from "react";
 import { reportService } from "../../api/services/reportService";
 import ReportDashboard from "./components/ReportDashboard";
 import SalesReportForm from "./components/SalesReportForm";
@@ -9,10 +8,9 @@ import PaymentReportForm from "./components/PaymentReportForm";
 import OperationalReportForm from "./components/OperationalReportForm";
 import SavedReportsList from "./components/SavedReportsList";
 import ReportViewer from "./components/ReportViewer";
-// Icons for UI
 import {
-	ChartBarIcon,
-	Bars3Icon,
+	ChartBarIcon as PageIcon, // Renamed for page title
+	// Bars3Icon, // Handled by MainLayout
 	DocumentChartBarIcon, // Sales
 	ArchiveBoxIcon, // Products
 	CreditCardIcon, // Payments
@@ -20,31 +18,23 @@ import {
 	BookmarkSquareIcon, // Saved
 	ExclamationTriangleIcon,
 	ArrowPathIcon,
-	HomeIcon, // Dashboard Icon
-} from "@heroicons/react/24/outline"; // Added relevant icons
+	HomeIcon, // Dashboard Icon for tabs
+} from "@heroicons/react/24/outline";
 import { toast } from "react-toastify";
+import MainLayout from "../layout/MainLayout";
 
-/**
- * Reports Component (Logic Preserved from User Provided Code)
- *
- * Main container for viewing reports and analytics. Handles tab navigation and data fetching.
- * UI updated for a modern look and feel; Logic remains unchanged.
- */
 const Reports = () => {
-	// --- ORIGINAL LOGIC (UNCHANGED from user provided code) ---
-	const navigate = useNavigate();
 	const [activeTab, setActiveTab] = useState("dashboard");
 	const [dashboardData, setDashboardData] = useState(null);
-	const [isLoading, setIsLoading] = useState(true); // Start loading initially for dashboard
+	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState(null);
-	const [reportData, setReportData] = useState(null); // Holds generated/loaded report data
-	const [reportType, setReportType] = useState(null); // Type of the currently viewed report
+	const [reportData, setReportData] = useState(null);
+	const [reportType, setReportType] = useState(null);
 	const [savedReports, setSavedReports] = useState([]);
 
-	// Fetch dashboard data (Original, wrapped in useCallback)
 	const fetchDashboardData = useCallback(async () => {
 		setIsLoading(true);
-		setError(null); // Clear previous errors
+		setError(null);
 		try {
 			const data = await reportService.getDashboardSummary();
 			setDashboardData(data);
@@ -56,7 +46,6 @@ const Reports = () => {
 		}
 	}, []);
 
-	// Fetch saved reports (Original, wrapped in useCallback)
 	const fetchSavedReports = useCallback(async () => {
 		setIsLoading(true);
 		setError(null);
@@ -71,103 +60,52 @@ const Reports = () => {
 		}
 	}, []);
 
-	// Fetch data based on active tab (Original logic)
 	useEffect(() => {
-		// Clear report viewer when changing main tabs
 		setReportData(null);
 		setReportType(null);
-		setError(null); // Clear errors on tab change
-
-		if (activeTab === "dashboard") {
-			fetchDashboardData();
-		} else if (activeTab === "saved") {
-			fetchSavedReports();
-		} else {
-			// For other tabs (report forms), set loading to false as data is generated on submit
-			setIsLoading(false);
-		}
+		setError(null);
+		if (activeTab === "dashboard") fetchDashboardData();
+		else if (activeTab === "saved") fetchSavedReports();
+		else setIsLoading(false);
 	}, [activeTab, fetchDashboardData, fetchSavedReports]);
 
-	// Handle report form submissions (Original handlers)
-	const handleSalesReportSubmit = async (formData) => {
+	const handleFormSubmit = async (formType, submitFunc, formData) => {
 		setIsLoading(true);
 		setError(null);
 		try {
-			const data = await reportService.generateSalesReport(formData);
+			const data = await submitFunc(formData);
 			setReportData(data);
-			setReportType("sales");
+			setReportType(formType);
 		} catch (err) {
-			console.error("Error generating sales report:", err);
-			setError("Failed to generate sales report. Please try again.");
-			setReportData(null); // Clear previous data on error
-		} finally {
-			setIsLoading(false);
-		}
-	};
-
-	const handleProductReportSubmit = async (formData) => {
-		setIsLoading(true);
-		setError(null);
-		try {
-			const data = await reportService.generateProductReport(formData);
-			setReportData(data);
-			setReportType("product");
-		} catch (err) {
-			console.error("Error generating product report:", err);
-			setError("Failed to generate product report. Please try again.");
+			console.error(`Error generating ${formType} report:`, err);
+			setError(`Failed to generate ${formType} report. Please try again.`);
 			setReportData(null);
 		} finally {
 			setIsLoading(false);
 		}
 	};
 
-	const handlePaymentReportSubmit = async (formData) => {
-		setIsLoading(true);
-		setError(null);
-		try {
-			const data = await reportService.generatePaymentReport(formData);
-			setReportData(data);
-			setReportType("payment");
-		} catch (err) {
-			console.error("Error generating payment report:", err);
-			setError("Failed to generate payment report. Please try again.");
-			setReportData(null);
-		} finally {
-			setIsLoading(false);
-		}
-	};
+	const handleSalesReportSubmit = (formData) =>
+		handleFormSubmit("sales", reportService.generateSalesReport, formData);
+	const handleProductReportSubmit = (formData) =>
+		handleFormSubmit("product", reportService.generateProductReport, formData);
+	const handlePaymentReportSubmit = (formData) =>
+		handleFormSubmit("payment", reportService.generatePaymentReport, formData);
+	const handleOperationalReportSubmit = (formData) =>
+		handleFormSubmit(
+			"operational",
+			reportService.generateOperationalInsights,
+			formData
+		);
 
-	const handleOperationalReportSubmit = async (formData) => {
-		setIsLoading(true);
-		setError(null);
-		try {
-			const data = await reportService.generateOperationalInsights(formData);
-			setReportData(data);
-			setReportType("operational");
-		} catch (err) {
-			console.error("Error generating operational report:", err);
-			setError("Failed to generate operational report. Please try again.");
-			setReportData(null);
-		} finally {
-			setIsLoading(false);
-		}
-	};
-
-	// Handle loading a saved report (Original handler)
 	const handleSavedReportClick = async (reportId) => {
 		setIsLoading(true);
 		setError(null);
 		try {
-			// console.log("Loading saved report with ID:", reportId);
 			const data = await reportService.getSavedReport(reportId);
-			// console.log("Received saved report data:", data);
-
-			// Ensure result_data exists before setting
-			if (!data.result_data) {
+			if (!data.result_data)
 				throw new Error("Saved report data is missing or invalid.");
-			}
 			setReportData(data.result_data);
-
 			const reportTypeMapping = {
 				daily_sales: "sales",
 				weekly_sales: "sales",
@@ -176,31 +114,23 @@ const Reports = () => {
 				payment_analytics: "payment",
 				operational_insights: "operational",
 			};
-			const mappedType =
-				reportTypeMapping[data.report_type] || data.report_type;
-			// console.log(`Mapping report type: ${data.report_type} → ${mappedType}`);
-			setReportType(mappedType);
+			setReportType(reportTypeMapping[data.report_type] || data.report_type);
 		} catch (err) {
 			console.error("Error loading saved report:", err);
-			setError(
-				"Failed to load saved report. Please check the data or try again."
-			);
-			setReportData(null); // Clear viewer on error
+			setError("Failed to load saved report. Please check data or try again.");
+			setReportData(null);
 			setReportType(null);
 		} finally {
 			setIsLoading(false);
 		}
 	};
 
-	// Handle deleting a saved report (Original handler)
 	const handleDeleteSavedReport = async (reportId) => {
 		if (!window.confirm("Are you sure you want to delete this saved report?"))
 			return;
-
 		try {
 			await reportService.deleteSavedReport(reportId);
 			toast.success("Report deleted successfully.");
-			// Refetch or filter locally
 			setSavedReports((prev) =>
 				prev.filter((report) => report.id !== reportId)
 			);
@@ -211,21 +141,17 @@ const Reports = () => {
 		}
 	};
 
-	// Clear report viewer (Original handler)
 	const clearReportData = () => {
 		setReportData(null);
 		setReportType(null);
-		setError(null); // Also clear errors when going back
-		// Stay on the current form tab or go to dashboard if coming from saved reports
+		setError(null);
 		const formTabs = ["sales", "products", "payments", "operational"];
-		if (!formTabs.includes(activeTab)) {
-			setActiveTab("dashboard");
-		}
+		if (!formTabs.includes(activeTab)) setActiveTab("dashboard");
 	};
 
-	// Render content based on state (Original logic)
 	const renderContent = () => {
-		if (reportData) {
+		if (reportData && reportType) {
+			// Ensure reportType is also set
 			return (
 				<ReportViewer
 					data={reportData}
@@ -284,13 +210,12 @@ const Reports = () => {
 			default:
 				return (
 					<div className="p-6 text-center text-slate-500">
-						Select a report type from the tabs above.
+						Select a report type.
 					</div>
 				);
 		}
 	};
 
-	// Define Tabs for cleaner rendering
 	const tabs = [
 		{ id: "dashboard", label: "Dashboard", icon: HomeIcon },
 		{ id: "sales", label: "Sales", icon: DocumentChartBarIcon },
@@ -299,37 +224,29 @@ const Reports = () => {
 		{ id: "operational", label: "Operational", icon: CogIcon },
 		{ id: "saved", label: "Saved Reports", icon: BookmarkSquareIcon },
 	];
-	// --- END OF ORIGINAL LOGIC ---
 
-	// --- UPDATED UI (JSX Structure and Styling Only) ---
 	return (
-		<div className="w-screen h-screen flex flex-col bg-slate-100 text-slate-900 p-4 sm:p-6 overflow-hidden">
-			{/* Header Section - Styled */}
-			<header className="flex flex-wrap justify-between items-center mb-4 pb-4 border-b border-slate-200 gap-3 flex-shrink-0">
-				<h1 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center gap-2">
-					<ChartBarIcon className="h-6 w-6 text-slate-600" /> Reports &
-					Analytics
-				</h1>
-				<button
-					className="px-3 py-2 bg-white text-slate-700 border border-slate-300 rounded-lg text-sm hover:bg-slate-50 transition-colors flex items-center gap-1.5 shadow-sm"
-					onClick={() => navigate("/dashboard")} // Original handler
-				>
-					<Bars3Icon className="h-4 w-4" />
-					<span className="hidden sm:inline">Dashboard</span>
-				</button>
-			</header>
+		<MainLayout pageTitle="Reports & Analytics">
+			{/* Page-specific header: Title is handled by MainLayout, Dashboard button by MainLayout's sidebar */}
+			<div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+				<h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
+					<PageIcon className="h-6 w-6 text-slate-600" />
+					Reporting Suite
+				</h2>
+				{/* Any page-specific action buttons could go here */}
+			</div>
 
-			{/* Tabs - Styled */}
+			{/* Tabs */}
 			<div className="flex items-center flex-wrap gap-1 mb-4 bg-white p-1.5 rounded-lg shadow-sm border border-slate-200 overflow-x-auto custom-scrollbar flex-shrink-0">
 				{tabs.map((tab) => (
 					<button
 						key={tab.id}
 						className={`flex items-center gap-1.5 flex-shrink-0 px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
 							activeTab === tab.id
-								? "bg-blue-600 text-white shadow-sm"
+								? "bg-black text-white shadow-sm"
 								: "bg-white text-slate-600 hover:bg-slate-100"
 						}`}
-						onClick={() => setActiveTab(tab.id)} // Original handler
+						onClick={() => setActiveTab(tab.id)}
 					>
 						<tab.icon className="h-4 w-4" />
 						{tab.label}
@@ -337,38 +254,37 @@ const Reports = () => {
 				))}
 			</div>
 
-			{/* Main Content Area - Handles overflow */}
-			<main className="flex-1 overflow-hidden bg-white rounded-lg shadow-sm border border-slate-200 min-h-0">
-				{/* Error Display within content area */}
-				{error &&
-					!isLoading &&
-					!reportData && ( // Show only if not loading and not viewing a specific report
-						<div className="p-4 bg-red-50 text-red-700 border-b border-red-200 flex items-center gap-2 text-sm">
-							<ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0" />
-							<span>{error}</span>
-							{/* Optionally add a retry button specific to the error context */}
-							{(activeTab === "dashboard" || activeTab === "saved") && (
-								<button
-									onClick={
-										activeTab === "dashboard"
-											? fetchDashboardData
-											: fetchSavedReports
-									}
-									className="ml-auto text-xs font-medium text-red-800 hover:underline"
-								>
-									<ArrowPathIcon className="h-3 w-3 inline mr-1" /> Retry
-								</button>
-							)}
-						</div>
-					)}
-				{/* Render content - takes full height and handles own scrolling */}
+			{/* Main Content Area */}
+			<div className="flex-1 overflow-hidden bg-white rounded-lg shadow-sm border border-slate-200 min-h-0">
+				{error && !isLoading && !reportData && (
+					<div className="p-4 bg-red-50 text-red-700 border-b border-red-200 flex items-center gap-2 text-sm">
+						<ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0" />
+						<span>{error}</span>
+						{(activeTab === "dashboard" || activeTab === "saved") && (
+							<button
+								onClick={
+									activeTab === "dashboard"
+										? fetchDashboardData
+										: fetchSavedReports
+								}
+								className="ml-auto text-xs font-medium text-red-800 hover:underline"
+							>
+								<ArrowPathIcon className="h-3 w-3 inline mr-1" /> Retry
+							</button>
+						)}
+					</div>
+				)}
+				{/* Content itself will manage its internal scrolling if needed */}
 				<div className="h-full overflow-y-auto custom-scrollbar">
 					{renderContent()}
 				</div>
-			</main>
-		</div>
+			</div>
+		</MainLayout>
 	);
-	// --- END OF UPDATED UI ---
+};
+
+Reports.propTypes = {
+	// No direct props expected for this page component when used with React Router
 };
 
 export default Reports;

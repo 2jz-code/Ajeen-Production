@@ -1,4 +1,4 @@
-import { useRef } from "react"; // Added React import
+import { useRef } from "react";
 import {
 	BarChart,
 	Bar,
@@ -13,32 +13,41 @@ import {
 	PieChart,
 	Pie,
 	Cell,
-} from "recharts"; // Original import
-import html2canvas from "html2canvas"; // Original import
-import jsPDF from "jspdf"; // Original import
+} from "recharts";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 import PropTypes from "prop-types";
-// Icons for UI
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
-	ArrowLeftIcon,
-	DocumentArrowDownIcon,
-	TableCellsIcon,
-	ExclamationTriangleIcon,
-} from "@heroicons/react/24/outline";
+	ArrowLeft,
+	Download,
+	FileText,
+	AlertTriangle,
+	TrendingUp,
+	Package,
+	CreditCard,
+	Clock,
+	Calendar,
+	DollarSign,
+	Users, // For order source
+	ShoppingCart, // For avg items per order
+} from "lucide-react";
 
 /**
- * ReportViewer Component (Logic Preserved from User Provided Code)
+ * ReportViewer Component
  *
- * Displays the generated report data with charts and tables. Includes export functionality.
- * UI updated for a modern look and feel; Logic remains unchanged.
+ * Displays generated report data with charts and tables. Includes export functionality.
+ * Updated to align with new backend data structures from reports/utils.py.
  */
 const ReportViewer = ({ data, type, onBack }) => {
-	// --- ORIGINAL LOGIC (UNCHANGED from user provided code) ---
 	const reportRef = useRef(null);
 
-	// Format currency (Original)
 	const formatCurrency = (amount) => {
 		const numAmount = Number(amount);
-		if (isNaN(numAmount)) {
+		if (isNaN(numAmount) || amount === null || amount === undefined) {
+			// Added null/undefined check
 			return "$ --";
 		}
 		return new Intl.NumberFormat("en-US", {
@@ -48,25 +57,25 @@ const ReportViewer = ({ data, type, onBack }) => {
 		}).format(numAmount);
 	};
 
-	// Format date (assuming simple date string like YYYY-MM-DD)
 	const formatDate = (dateString) => {
 		if (!dateString) return "N/A";
 		try {
-			// Attempt to create a date object, assuming it might lack time info
-			const date = new Date(dateString + "T00:00:00"); // Add time to avoid timezone issues
-			if (isNaN(date.getTime())) return dateString; // Return original if invalid
+			// Handle potential ISO datetime strings from backend
+			const date = new Date(
+				dateString.includes("T") ? dateString : dateString + "T00:00:00"
+			);
+			if (isNaN(date.getTime())) return dateString; // Return original if still invalid
 			return date.toLocaleDateString("en-US", {
 				year: "numeric",
 				month: "short",
 				day: "numeric",
 			});
-			// eslint-disable-next-line no-unused-vars
+			//eslint-disable-next-line
 		} catch (e) {
-			return dateString; // Return original string if parsing fails
+			return dateString; // Fallback for unexpected formats
 		}
 	};
 
-	// Export as PDF (Original)
 	const exportAsPDF = async () => {
 		if (!reportRef.current) return;
 		try {
@@ -84,11 +93,10 @@ const ReportViewer = ({ data, type, onBack }) => {
 			const ratio = Math.min(
 				(pdfWidth - 20) / imgWidth,
 				(pdfHeight - 40) / imgHeight
-			); // Add margins
+			);
 			const imgX = (pdfWidth - imgWidth * ratio) / 2;
-			const imgY = 20; // Top margin
+			const imgY = 20;
 
-			// Add Title
 			pdf.setFontSize(16);
 			pdf.text(getReportTitle(type), pdfWidth / 2, 15, { align: "center" });
 
@@ -107,78 +115,129 @@ const ReportViewer = ({ data, type, onBack }) => {
 		}
 	};
 
-	// Export as CSV (Original)
 	const exportAsCSV = () => {
 		let csvContent = "data:text/csv;charset=utf-8,";
 		let headers = [];
 		let exportData = [];
 
-		// Prepare data based on report type (Original logic)
-		if (type === "sales") {
+		if (!data || !data.summary) {
+			alert("No data to export.");
+			return;
+		}
+
+		// Common handling for potentially missing data arrays
+		const reportDataItems = data.data || [];
+		const productItems = data.products || [];
+		const categoryItems = data.categories || [];
+		const hourlyItems = data.hourly_data || [];
+		const dailyItems = data.daily_data || [];
+
+		if (
+			type === "sales" ||
+			type === "daily_sales" ||
+			type === "weekly_sales" ||
+			type === "monthly_sales"
+		) {
 			headers = [
 				"Date",
 				"Order Count",
 				"Subtotal",
+				"Discount",
+				"Surcharge",
 				"Tax",
-				"Total",
+				"Tip",
+				"Total Revenue",
 				"Average Order Value",
+				"Cumulative Total Revenue",
 			];
-			exportData = data.data.map((item) => [
+			exportData = reportDataItems.map((item) => [
 				item.date,
 				item.order_count,
 				item.subtotal,
+				item.discount,
+				item.surcharge,
 				item.tax,
-				item.total,
+				item.tip,
+				item.total_revenue,
 				item.avg_order_value,
+				item.cumulative_total_revenue,
 			]);
-		} else if (type === "product") {
+		} else if (type === "product" || type === "product_performance") {
 			headers = [
 				"Product Name",
 				"Category",
 				"Quantity Sold",
 				"Revenue",
-				"Average Price",
+				"Average Price Sold",
 			];
-			exportData = data.products.map((item) => [
+			exportData = productItems.map((item) => [
 				`"${item.product_name.replace(/"/g, '""')}"`,
 				item.category,
 				item.quantity_sold,
 				item.revenue,
-				item.avg_price,
-			]); // Handle commas in names
-		} else if (type === "payment") {
-			const isPaymentMethodBased = data.data[0]?.payment_method;
+				item.avg_price_sold,
+			]);
+			// Optionally, add categories breakdown to CSV or make it a separate export
+		} else if (type === "payment" || type === "payment_analytics") {
+			const isPaymentMethodBased = reportDataItems[0]?.payment_method;
 			headers = [
 				isPaymentMethodBased ? "Payment Method" : "Date",
 				"Transaction Count",
 				"Total Amount",
 				"Refund Count",
+				"Failed Count",
+				"Voided Count",
 				"Success Rate",
 			];
-			exportData = data.data.map((item) => [
+			exportData = reportDataItems.map((item) => [
 				item.payment_method || item.date,
 				item.transaction_count,
 				item.total_amount,
 				item.refund_count,
+				item.failed_count || 0,
+				item.void_count || 0,
 				item.success_rate,
 			]);
-		} else if (type === "operational") {
-			headers = ["Hour", "Order Count", "Revenue", "Average Order Value"];
-			exportData = data.hourly_data.map((item) => [
+		} else if (type === "operational" || type === "operational_insights") {
+			// For operational, we can choose to export hourly, daily, or day_of_week_summary
+			// Here, exporting hourly_data as per original, but extended with new fields
+			headers = [
+				"Hour",
+				"Order Count",
+				"Revenue",
+				"Average Order Value",
+				"Subtotal",
+				"Tax",
+				"Discount",
+				"Tip",
+				"Surcharge",
+			];
+			exportData = hourlyItems.map((item) => [
 				item.hour,
 				item.order_count,
 				item.revenue,
 				item.avg_order_value,
+				item.subtotal,
+				item.tax,
+				item.discount,
+				item.tip,
+				item.surcharge,
 			]);
+			// To export daily_data:
+			// headers = ["Date", "Day of Week", "Order Count", "Revenue", "Subtotal", "Tax", "Discount", "Tip", "Surcharge", "Avg Items/Order"];
+			// exportData = dailyItems.map((item) => [ item.date, item.day_of_week, item.order_count, item.revenue, item.subtotal, item.tax, item.discount, item.tip, item.surcharge, item.avg_items_per_order ]);
 		}
 
-		// Add headers and rows
 		csvContent += headers.join(",") + "\n";
 		exportData.forEach((row) => {
-			csvContent += row.join(",") + "\n";
+			csvContent +=
+				row
+					.map((val) =>
+						typeof val === "string" && val.includes(",") ? `"${val}"` : val
+					)
+					.join(",") + "\n";
 		});
 
-		// Create download link (Original)
 		const encodedUri = encodeURI(csvContent);
 		const link = document.createElement("a");
 		link.setAttribute("href", encodedUri);
@@ -191,7 +250,6 @@ const ReportViewer = ({ data, type, onBack }) => {
 		document.body.removeChild(link);
 	};
 
-	// Colors for charts (Original)
 	const COLORS = [
 		"#3b82f6",
 		"#10b981",
@@ -202,9 +260,9 @@ const ReportViewer = ({ data, type, onBack }) => {
 		"#ec4899",
 		"#06b6d4",
 		"#f97316",
-	]; // Added more
+		"#d946ef",
+	];
 
-	// Get Report Title Helper
 	const getReportTitle = (reportType) => {
 		switch (reportType) {
 			case "sales":
@@ -226,491 +284,569 @@ const ReportViewer = ({ data, type, onBack }) => {
 		}
 	};
 
-	// Render different report types (Original logic, adapted for styling)
+	const validateReportData = (reportData) => {
+		if (
+			!reportData ||
+			typeof reportData.summary !== "object" ||
+			reportData.summary === null
+		) {
+			console.error(
+				"Invalid report data: missing or invalid summary section",
+				reportData
+			);
+			return false;
+		}
+		if (!reportData.summary.period_start || !reportData.summary.period_end) {
+			console.warn(
+				"Report data missing period information",
+				reportData.summary
+			);
+			// Allow rendering if other summary data is present, period is for display
+		}
+		return true;
+	};
+
+	const SummaryCard = ({ title, value, subValue = null, icon: Icon }) => (
+		<Card>
+			<CardContent className="p-4">
+				<div className="flex items-center justify-between">
+					<div className="space-y-1">
+						<p className="text-sm font-medium text-muted-foreground">{title}</p>
+						<p className="text-2xl font-bold">{value ?? "N/A"}</p>
+						{subValue && (
+							<p className="text-xs text-muted-foreground">{subValue}</p>
+						)}
+					</div>
+					{Icon && <Icon className="h-8 w-8 text-muted-foreground" />}
+				</div>
+			</CardContent>
+		</Card>
+	);
+
+	const ChartContainer = ({ children, title }) => (
+		<Card>
+			<CardHeader className="pb-2">
+				<CardTitle className="text-lg">{title}</CardTitle>
+			</CardHeader>
+			<CardContent>
+				<div className="h-[300px] w-full">{children}</div>
+			</CardContent>
+		</Card>
+	);
+
+	const CustomTooltipContent = ({
+		active,
+		payload,
+		label,
+		formatter,
+		nameMap,
+	}) => {
+		if (active && payload && payload.length) {
+			return (
+				<div className="rounded-lg border bg-background p-2 shadow-md">
+					<p className="font-medium mb-1">{label}</p>
+					{payload.map((entry, index) => (
+						<p
+							key={`item-${index}`}
+							style={{ color: entry.color || entry.payload.fill }} // Use fill from payload if direct color not on entry
+							className="text-sm"
+						>
+							{`${
+								nameMap && nameMap[entry.name]
+									? nameMap[entry.name]
+									: entry.name
+							}: ${formatter ? formatter(entry.value) : entry.value}`}
+						</p>
+					))}
+				</div>
+			);
+		}
+		return null;
+	};
+
+	SummaryCard.propTypes = {
+		title: PropTypes.string.isRequired,
+		value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]), // Value can be undefined/null
+		subValue: PropTypes.string,
+		icon: PropTypes.elementType,
+	};
+
+	ChartContainer.propTypes = {
+		children: PropTypes.node.isRequired,
+		title: PropTypes.string.isRequired,
+	};
+
+	CustomTooltipContent.propTypes = {
+		active: PropTypes.bool,
+		payload: PropTypes.arrayOf(PropTypes.object),
+		label: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+		formatter: PropTypes.func,
+		nameMap: PropTypes.object,
+	};
+
 	const renderSalesReport = () => (
 		<div className="space-y-6">
-			{/* Summary Cards */}
-			<section>
-				<h3 className="text-base font-semibold text-slate-700 mb-3">Summary</h3>
-				<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-					<SummaryCard
-						title="Total Orders"
-						value={data.summary.total_orders}
-					/>
-					<SummaryCard
-						title="Total Revenue"
-						value={formatCurrency(data.summary.total_revenue)}
-					/>
-					<SummaryCard
-						title="Avg. Daily Orders"
-						value={data.summary.avg_daily_orders.toFixed(1)}
-					/>
-					<SummaryCard
-						title="Avg. Order Value"
-						value={formatCurrency(data.summary.avg_order_value)}
-					/>
-				</div>
-			</section>
-			{/* Sales Trend Chart */}
-			<section>
-				<h3 className="text-base font-semibold text-slate-700 mb-3">
-					Sales Trend
-				</h3>
-				<ChartContainer>
-					<ResponsiveContainer
-						width="100%"
-						height={300}
+			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+				<SummaryCard
+					title="Total Orders"
+					value={data.summary.total_orders ?? 0}
+					icon={Package}
+				/>
+				<SummaryCard
+					title="Total Revenue"
+					value={formatCurrency(data.summary.total_revenue)}
+					icon={DollarSign}
+				/>
+				<SummaryCard
+					title="Total Subtotal"
+					value={formatCurrency(data.summary.total_subtotal)}
+					icon={DollarSign}
+				/>
+				<SummaryCard
+					title="Total Discounts"
+					value={formatCurrency(data.summary.total_discount)}
+					icon={DollarSign}
+				/>
+				<SummaryCard
+					title="Total Surcharges"
+					value={formatCurrency(data.summary.total_surcharge)}
+					icon={DollarSign}
+				/>
+				<SummaryCard
+					title="Total Tax"
+					value={formatCurrency(data.summary.total_tax)}
+					icon={DollarSign}
+				/>
+				<SummaryCard
+					title="Total Tips"
+					value={formatCurrency(data.summary.total_tip)}
+					icon={DollarSign}
+				/>
+				<SummaryCard
+					title="Avg. Order Value"
+					value={formatCurrency(data.summary.avg_order_value)}
+					icon={DollarSign}
+				/>
+			</div>
+
+			<ChartContainer title="Sales Trend">
+				<ResponsiveContainer
+					width="100%"
+					height="100%"
+				>
+					<LineChart
+						data={data.data}
+						margin={{ top: 5, right: 20, left: 20, bottom: 5 }}
 					>
-						<LineChart
-							data={data.data}
-							margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
-						>
-							<CartesianGrid
-								strokeDasharray="3 3"
-								stroke="#e2e8f0"
-							/>
-							<XAxis
-								dataKey="date"
-								tick={{ fontSize: 10 }}
-								stroke="#64748b"
-							/>
-							<YAxis
-								yAxisId="left"
-								orientation="left"
-								tick={{ fontSize: 10 }}
-								stroke="#64748b"
-								tickFormatter={(value) => formatCurrency(value)}
-							/>
-							<YAxis
-								yAxisId="right"
-								orientation="right"
-								tick={{ fontSize: 10 }}
-								stroke="#64748b"
-							/>
-							<Tooltip content={<CustomTooltip formatter={formatCurrency} />} />
-							<Legend wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }} />
-							<Line
-								yAxisId="left"
-								type="monotone"
-								dataKey="total"
-								name="Total Sales"
-								stroke="#3b82f6"
-								strokeWidth={2}
-								dot={{ r: 3 }}
-								activeDot={{ r: 6 }}
-							/>
-							<Line
-								yAxisId="right"
-								type="monotone"
-								dataKey="order_count"
-								name="Orders"
-								stroke="#10b981"
-								strokeWidth={2}
-								dot={{ r: 3 }}
-								activeDot={{ r: 6 }}
-							/>
-						</LineChart>
-					</ResponsiveContainer>
-				</ChartContainer>
-			</section>
-			{/* Sales Breakdown Table */}
-			<section>
-				<h3 className="text-base font-semibold text-slate-700 mb-3">
-					Sales Breakdown
-				</h3>
-				<TableContainer>
-					<table className="min-w-full divide-y divide-slate-200">
-						<thead className="bg-slate-50">
-							<tr>
-								<Th>Date</Th>
-								<Th align="right">Orders</Th>
-								<Th align="right">Subtotal</Th>
-								<Th align="right">Tax</Th>
-								<Th align="right">Total</Th>
-								<Th align="right">Avg. Order</Th>
-							</tr>
-						</thead>
-						<tbody className="bg-white divide-y divide-slate-100">
-							{data.data.map((item, index) => (
-								<tr
-									key={index}
-									className="hover:bg-slate-50"
-								>
-									<Td isHeader>{formatDate(item.date)}</Td>
-									<Td align="right">{item.order_count}</Td>
-									<Td align="right">{formatCurrency(item.subtotal)}</Td>
-									<Td align="right">{formatCurrency(item.tax)}</Td>
-									<Td
-										isHeader
-										align="right"
-									>
-										{formatCurrency(item.total)}
-									</Td>
-									<Td align="right">{formatCurrency(item.avg_order_value)}</Td>
+						<CartesianGrid
+							strokeDasharray="3 3"
+							className="stroke-muted"
+						/>
+						<XAxis
+							dataKey="date"
+							className="text-xs"
+							tickFormatter={formatDate}
+						/>
+						<YAxis
+							yAxisId="left"
+							orientation="left"
+							className="text-xs"
+							tickFormatter={formatCurrency}
+						/>
+						<YAxis
+							yAxisId="right"
+							orientation="right"
+							className="text-xs"
+						/>
+						<Tooltip
+							content={
+								<CustomTooltipContent
+									formatter={formatCurrency}
+									nameMap={{
+										total_revenue: "Total Revenue",
+										order_count: "Orders",
+									}}
+								/>
+							}
+						/>
+						<Legend />
+						<Line
+							yAxisId="left"
+							type="monotone"
+							dataKey="total_revenue"
+							name="Total Revenue"
+							stroke={COLORS[0]}
+							strokeWidth={2}
+							dot={{ r: 3 }}
+							activeDot={{ r: 6 }}
+						/>
+						<Line
+							yAxisId="right"
+							type="monotone"
+							dataKey="order_count"
+							name="Orders"
+							stroke={COLORS[1]}
+							strokeWidth={2}
+							dot={{ r: 3 }}
+							activeDot={{ r: 6 }}
+						/>
+					</LineChart>
+				</ResponsiveContainer>
+			</ChartContainer>
+
+			<Card>
+				<CardHeader>
+					<CardTitle>Sales Breakdown</CardTitle>
+				</CardHeader>
+				<CardContent className="p-0">
+					<div className="overflow-x-auto">
+						<table className="w-full">
+							<thead className="border-b bg-muted/50">
+								<tr>
+									<th className="text-left p-4 font-medium">Date</th>
+									<th className="text-right p-4 font-medium">Orders</th>
+									<th className="text-right p-4 font-medium">Subtotal</th>
+									<th className="text-right p-4 font-medium">Discount</th>
+									<th className="text-right p-4 font-medium">Surcharge</th>
+									<th className="text-right p-4 font-medium">Tax</th>
+									<th className="text-right p-4 font-medium">Tip</th>
+									<th className="text-right p-4 font-medium">Total Revenue</th>
+									<th className="text-right p-4 font-medium">
+										Avg. Order Value
+									</th>
 								</tr>
-							))}
-						</tbody>
-						<tfoot className="bg-slate-100 font-semibold">
-							<tr>
-								<Td
-									isHeader
-									colSpan={1}
-								>
-									Total
-								</Td>
-								<Td align="right">{data.summary.total_orders}</Td>
-								<Td align="right">
-									{formatCurrency(
-										data.data.reduce((sum, item) => sum + item.subtotal, 0)
-									)}
-								</Td>
-								<Td align="right">
-									{formatCurrency(
-										data.data.reduce((sum, item) => sum + item.tax, 0)
-									)}
-								</Td>
-								<Td align="right">
-									{formatCurrency(data.summary.total_revenue)}
-								</Td>
-								<Td align="right">
-									{formatCurrency(data.summary.avg_order_value)}
-								</Td>
-							</tr>
-						</tfoot>
-					</table>
-				</TableContainer>
-			</section>
+							</thead>
+							<tbody className="divide-y">
+								{(data.data || []).map((item, index) => (
+									<tr
+										key={index}
+										className="hover:bg-muted/50"
+									>
+										<td className="p-4 font-medium">{formatDate(item.date)}</td>
+										<td className="p-4 text-right">{item.order_count}</td>
+										<td className="p-4 text-right">
+											{formatCurrency(item.subtotal)}
+										</td>
+										<td className="p-4 text-right">
+											{formatCurrency(item.discount)}
+										</td>
+										<td className="p-4 text-right">
+											{formatCurrency(item.surcharge)}
+										</td>
+										<td className="p-4 text-right">
+											{formatCurrency(item.tax)}
+										</td>
+										<td className="p-4 text-right">
+											{formatCurrency(item.tip)}
+										</td>
+										<td className="p-4 text-right font-medium">
+											{formatCurrency(item.total_revenue)}
+										</td>
+										<td className="p-4 text-right">
+											{formatCurrency(item.avg_order_value)}
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+				</CardContent>
+			</Card>
 		</div>
 	);
 
 	const renderProductReport = () => (
 		<div className="space-y-6">
-			{/* Summary Cards */}
-			<section>
-				<h3 className="text-base font-semibold text-slate-700 mb-3">Summary</h3>
-				<div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-					<SummaryCard
-						title="Total Products Sold"
-						value={data.summary.total_products_sold}
-					/>
-					<SummaryCard
-						title="Total Revenue"
-						value={formatCurrency(data.summary.total_revenue)}
-					/>
-					<SummaryCard
-						title="Top Performing"
-						value={data.summary.top_product}
-						subValue={`Category: ${data.summary.top_category}`}
-					/>
-				</div>
-			</section>
-			{/* Charts */}
-			<section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-				<div>
-					<h3 className="text-base font-semibold text-slate-700 mb-3">
-						Top Products (by Revenue)
-					</h3>
-					<ChartContainer>
-						<ResponsiveContainer
-							width="100%"
-							height={300}
+			<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+				<SummaryCard
+					title="Total Items Sold"
+					value={data.summary.total_items_sold ?? 0}
+					icon={Package}
+				/>
+				<SummaryCard
+					title="Total Product Revenue"
+					value={formatCurrency(data.summary.total_product_revenue)}
+					icon={DollarSign}
+				/>
+				<SummaryCard
+					title="Top Product"
+					value={data.summary.top_product_name || "N/A"}
+					subValue={`Category: ${data.summary.top_category_name || "N/A"}`}
+					icon={TrendingUp}
+				/>
+			</div>
+
+			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+				<ChartContainer title="Top Products (by Revenue)">
+					<ResponsiveContainer
+						width="100%"
+						height="100%"
+					>
+						<BarChart
+							data={(data.products || []).slice(0, 10)}
+							layout="vertical"
+							margin={{ top: 5, right: 20, left: 100, bottom: 5 }}
 						>
-							<BarChart
-								data={data.products.slice(0, 10)}
-								layout="vertical"
-								margin={{ top: 5, right: 5, left: 70, bottom: 5 }}
+							<CartesianGrid
+								strokeDasharray="3 3"
+								className="stroke-muted"
+							/>
+							<XAxis
+								type="number"
+								className="text-xs"
+								tickFormatter={formatCurrency}
+							/>
+							<YAxis
+								dataKey="product_name"
+								type="category"
+								width={100}
+								className="text-xs"
+								interval={0}
+							/>
+							<Tooltip
+								content={
+									<CustomTooltipContent
+										formatter={formatCurrency}
+										nameMap={{ revenue: "Revenue", quantity_sold: "Qty Sold" }}
+									/>
+								}
+							/>
+							<Legend />
+							<Bar
+								dataKey="revenue"
+								name="Revenue"
+								fill={COLORS[0]}
+								barSize={15}
+							/>
+						</BarChart>
+					</ResponsiveContainer>
+				</ChartContainer>
+
+				<ChartContainer title="Revenue by Category">
+					<ResponsiveContainer
+						width="100%"
+						height="100%"
+					>
+						<PieChart>
+							<Pie
+								data={data.categories || []}
+								cx="50%"
+								cy="50%"
+								labelLine={false}
+								label={({ name, percent, revenue }) =>
+									`${name} (${(percent * 100).toFixed(0)}%)`
+								}
+								outerRadius={85}
+								fill={COLORS[1]}
+								dataKey="revenue"
+								nameKey="category"
 							>
-								{" "}
-								{/* Increased left margin */}
-								<CartesianGrid
-									strokeDasharray="3 3"
-									stroke="#e2e8f0"
-								/>
-								<XAxis
-									type="number"
-									tick={{ fontSize: 10 }}
-									stroke="#64748b"
-									tickFormatter={(value) => formatCurrency(value)}
-								/>
-								<YAxis
-									dataKey="product_name"
-									type="category"
-									width={100}
-									tick={{ fontSize: 10, width: 90 }}
-									stroke="#64748b"
-									interval={0}
-								/>
-								<Tooltip
-									content={
-										<CustomTooltip
-											formatter={formatCurrency}
-											nameMap={{
-												revenue: "Revenue",
-												quantity_sold: "Qty Sold",
-											}}
-										/>
-									}
-								/>
-								<Legend
-									wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }}
-								/>
-								<Bar
-									dataKey="revenue"
-									name="Revenue"
-									fill="#3b82f6"
-									barSize={15}
-								/>
-								{/* Optionally add Quantity bar if needed */}
-								{/* <Bar dataKey="quantity_sold" name="Qty Sold" fill="#10b981" barSize={15}/> */}
-							</BarChart>
-						</ResponsiveContainer>
-					</ChartContainer>
-				</div>
-				<div>
-					<h3 className="text-base font-semibold text-slate-700 mb-3">
-						Revenue by Category
-					</h3>
-					<ChartContainer>
-						<ResponsiveContainer
-							width="100%"
-							height={300}
-						>
-							<PieChart>
-								<Pie
-									data={data.categories}
-									cx="50%"
-									cy="50%"
-									labelLine={false}
-									label={({ name, percent }) =>
-										`${name} (${(percent * 100).toFixed(0)}%)`
-									}
-									outerRadius={85}
-									fill="#8884d8"
-									dataKey="revenue"
-									nameKey="category"
-									fontSize={10}
-								>
-									{data.categories.map((entry, index) => (
-										<Cell
-											key={`cell-${index}`}
-											fill={COLORS[index % COLORS.length]}
-										/>
-									))}
-								</Pie>
-								<Tooltip
-									content={<CustomTooltip formatter={formatCurrency} />}
-								/>
-								<Legend
-									wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }}
-								/>
-							</PieChart>
-						</ResponsiveContainer>
-					</ChartContainer>
-				</div>
-			</section>
-			{/* Product Details Table */}
-			<section>
-				<h3 className="text-base font-semibold text-slate-700 mb-3">
-					Product Details
-				</h3>
-				<TableContainer>
-					<table className="min-w-full divide-y divide-slate-200">
-						<thead className="bg-slate-50">
-							<tr>
-								<Th>Product</Th>
-								<Th>Category</Th>
-								<Th align="right">Qty Sold</Th>
-								<Th align="right">Avg. Price</Th>
-								<Th align="right">Revenue</Th>
-							</tr>
-						</thead>
-						<tbody className="bg-white divide-y divide-slate-100">
-							{data.products.map((product) => (
-								<tr
-									key={product.product_id}
-									className="hover:bg-slate-50"
-								>
-									<Td isHeader>{product.product_name}</Td>
-									<Td>{product.category}</Td>
-									<Td align="right">{product.quantity_sold}</Td>
-									<Td align="right">{formatCurrency(product.avg_price)}</Td>
-									<Td
-										isHeader
-										align="right"
-									>
-										{formatCurrency(product.revenue)}
-									</Td>
+								{(data.categories || []).map((entry, index) => (
+									<Cell
+										key={`cell-${index}`}
+										fill={COLORS[index % COLORS.length]}
+									/>
+								))}
+							</Pie>
+							<Tooltip
+								content={<CustomTooltipContent formatter={formatCurrency} />}
+							/>
+							<Legend />
+						</PieChart>
+					</ResponsiveContainer>
+				</ChartContainer>
+			</div>
+
+			<Card>
+				<CardHeader>
+					<CardTitle>Product Details</CardTitle>
+				</CardHeader>
+				<CardContent className="p-0">
+					<div className="overflow-x-auto">
+						<table className="w-full">
+							<thead className="border-b bg-muted/50">
+								<tr>
+									<th className="text-left p-4 font-medium">Product</th>
+									<th className="text-left p-4 font-medium">Category</th>
+									<th className="text-right p-4 font-medium">Qty Sold</th>
+									<th className="text-right p-4 font-medium">
+										Avg. Price Sold
+									</th>
+									<th className="text-right p-4 font-medium">Revenue</th>
 								</tr>
-							))}
-						</tbody>
-					</table>
-				</TableContainer>
-			</section>
+							</thead>
+							<tbody className="divide-y">
+								{(data.products || []).map((product) => (
+									<tr
+										key={product.product_id}
+										className="hover:bg-muted/50"
+									>
+										<td className="p-4 font-medium">{product.product_name}</td>
+										<td className="p-4">
+											<Badge variant="outline">{product.category}</Badge>
+										</td>
+										<td className="p-4 text-right">{product.quantity_sold}</td>
+										<td className="p-4 text-right">
+											{formatCurrency(product.avg_price_sold)}
+										</td>
+										<td className="p-4 text-right font-medium">
+											{formatCurrency(product.revenue)}
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+				</CardContent>
+			</Card>
 		</div>
 	);
 
 	const renderPaymentReport = () => {
-		const isPaymentMethodBased = data.data[0]?.payment_method;
+		const reportDataItems = data.data || [];
+		const isPaymentMethodBased = reportDataItems[0]?.payment_method;
 		return (
 			<div className="space-y-6">
-				{/* Summary Cards */}
-				<section>
-					<h3 className="text-base font-semibold text-slate-700 mb-3">
-						Summary
-					</h3>
-					<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-						<SummaryCard
-							title="Total Transactions"
-							value={data.summary.total_transactions}
-						/>
-						<SummaryCard
-							title="Total Amount"
-							value={formatCurrency(data.summary.total_amount)}
-						/>
-						<SummaryCard
-							title="Refunds"
-							value={data.summary.total_refunds}
-							subValue={`Rate: ${data.summary.refund_rate}%`}
-						/>
-						<SummaryCard
-							title="Period"
-							value={formatDate(data.summary.period_start)}
-							subValue={`To: ${formatDate(data.summary.period_end)}`}
-						/>
-					</div>
-				</section>
-				{/* Charts */}
-				<section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+					<SummaryCard
+						title="Total Transactions"
+						value={data.summary.total_transactions ?? 0}
+						icon={CreditCard}
+					/>
+					<SummaryCard
+						title="Total Amount"
+						value={formatCurrency(data.summary.total_amount)}
+						icon={DollarSign}
+					/>
+					<SummaryCard
+						title="Total Refunds"
+						value={data.summary.total_refunds ?? 0}
+						subValue={`Rate: ${data.summary.refund_rate?.toFixed(2) ?? 0}%`}
+						icon={AlertTriangle}
+					/>
+					<SummaryCard
+						title="Success Rate"
+						value={`${data.summary.success_rate?.toFixed(2) ?? 100}%`}
+						subValue={`Failed: ${data.summary.total_failed ?? 0} Voided: ${
+							data.summary.total_voided ?? 0
+						}`}
+						icon={TrendingUp}
+					/>
+				</div>
+
+				<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 					{isPaymentMethodBased ? (
 						<>
-							<div>
-								<h3 className="text-base font-semibold text-slate-700 mb-3">
-									Distribution by Amount
-								</h3>
-								<ChartContainer>
-									<ResponsiveContainer
-										width="100%"
-										height={300}
-									>
-										<PieChart>
-											<Pie
-												data={data.data}
-												cx="50%"
-												cy="50%"
-												labelLine={false}
-												label={({ name, percent }) =>
-													`${name} (${(percent * 100).toFixed(0)}%)`
-												}
-												outerRadius={85}
-												fill="#8884d8"
-												dataKey="total_amount"
-												nameKey="payment_method"
-												fontSize={10}
-											>
-												{data.data.map((entry, index) => (
-													<Cell
-														key={`cell-${index}`}
-														fill={COLORS[index % COLORS.length]}
-													/>
-												))}
-											</Pie>
-											<Tooltip
-												content={<CustomTooltip formatter={formatCurrency} />}
-											/>
-											<Legend
-												wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }}
-											/>
-										</PieChart>
-									</ResponsiveContainer>
-								</ChartContainer>
-							</div>
-							<div>
-								<h3 className="text-base font-semibold text-slate-700 mb-3">
-									Transaction Counts
-								</h3>
-								<ChartContainer>
-									<ResponsiveContainer
-										width="100%"
-										height={300}
-									>
-										<BarChart
-											data={data.data}
-											margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
-										>
-											<CartesianGrid
-												strokeDasharray="3 3"
-												stroke="#e2e8f0"
-											/>
-											<XAxis
-												dataKey="payment_method"
-												tick={{ fontSize: 10 }}
-												stroke="#64748b"
-											/>
-											<YAxis
-												tick={{ fontSize: 10 }}
-												stroke="#64748b"
-											/>
-											<Tooltip content={<CustomTooltip />} />
-											<Legend
-												wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }}
-											/>
-											<Bar
-												dataKey="transaction_count"
-												name="Transactions"
-												fill="#3b82f6"
-												barSize={20}
-											/>
-											<Bar
-												dataKey="refund_count"
-												name="Refunds"
-												fill="#ef4444"
-												barSize={20}
-											/>
-										</BarChart>
-									</ResponsiveContainer>
-								</ChartContainer>
-							</div>
-						</>
-					) : (
-						// Date-based chart
-						<div className="lg:col-span-2">
-							<h3 className="text-base font-semibold text-slate-700 mb-3">
-								Payment Trend
-							</h3>
-							<ChartContainer>
+							<ChartContainer title="Distribution by Amount">
 								<ResponsiveContainer
 									width="100%"
-									height={300}
+									height="100%"
 								>
-									<LineChart
-										data={data.data}
-										margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+									<PieChart>
+										<Pie
+											data={reportDataItems}
+											cx="50%"
+											cy="50%"
+											labelLine={false}
+											label={({ name, percent }) =>
+												`${name} (${(percent * 100).toFixed(0)}%)`
+											}
+											outerRadius={85}
+											fill={COLORS[0]}
+											dataKey="total_amount"
+											nameKey="payment_method"
+										>
+											{reportDataItems.map((entry, index) => (
+												<Cell
+													key={`cell-${index}`}
+													fill={COLORS[index % COLORS.length]}
+												/>
+											))}
+										</Pie>
+										<Tooltip
+											content={
+												<CustomTooltipContent formatter={formatCurrency} />
+											}
+										/>{" "}
+										<Legend />
+									</PieChart>
+								</ResponsiveContainer>
+							</ChartContainer>
+							<ChartContainer title="Transaction Counts">
+								<ResponsiveContainer
+									width="100%"
+									height="100%"
+								>
+									<BarChart
+										data={reportDataItems}
+										margin={{ top: 5, right: 20, left: 5, bottom: 5 }}
 									>
 										<CartesianGrid
 											strokeDasharray="3 3"
-											stroke="#e2e8f0"
+											className="stroke-muted"
+										/>
+										<XAxis
+											dataKey="payment_method"
+											className="text-xs"
+										/>
+										<YAxis className="text-xs" />
+										<Tooltip content={<CustomTooltipContent />} /> <Legend />
+										<Bar
+											dataKey="transaction_count"
+											name="Transactions"
+											fill={COLORS[0]}
+											barSize={20}
+										/>
+										<Bar
+											dataKey="refund_count"
+											name="Refunds"
+											fill={COLORS[4]}
+											barSize={20}
+										/>
+										<Bar
+											dataKey="failed_count"
+											name="Failed"
+											fill={COLORS[8]}
+											barSize={20}
+										/>
+									</BarChart>
+								</ResponsiveContainer>
+							</ChartContainer>
+						</>
+					) : (
+						<div className="lg:col-span-2">
+							<ChartContainer title="Payment Trend">
+								<ResponsiveContainer
+									width="100%"
+									height="100%"
+								>
+									<LineChart
+										data={reportDataItems}
+										margin={{ top: 5, right: 20, left: 20, bottom: 5 }}
+									>
+										<CartesianGrid
+											strokeDasharray="3 3"
+											className="stroke-muted"
 										/>
 										<XAxis
 											dataKey="date"
-											tick={{ fontSize: 10 }}
-											stroke="#64748b"
+											className="text-xs"
+											tickFormatter={formatDate}
 										/>
 										<YAxis
 											yAxisId="left"
 											orientation="left"
-											tick={{ fontSize: 10 }}
-											stroke="#64748b"
-											tickFormatter={(value) => formatCurrency(value)}
+											className="text-xs"
+											tickFormatter={formatCurrency}
 										/>
 										<YAxis
 											yAxisId="right"
 											orientation="right"
-											tick={{ fontSize: 10 }}
-											stroke="#64748b"
+											className="text-xs"
 										/>
 										<Tooltip
 											content={
-												<CustomTooltip
+												<CustomTooltipContent
 													formatter={formatCurrency}
 													nameMap={{
 														total_amount: "Total Amount",
@@ -719,15 +855,13 @@ const ReportViewer = ({ data, type, onBack }) => {
 												/>
 											}
 										/>
-										<Legend
-											wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }}
-										/>
+										<Legend />
 										<Line
 											yAxisId="left"
 											type="monotone"
 											dataKey="total_amount"
 											name="Total Amount"
-											stroke="#3b82f6"
+											stroke={COLORS[0]}
 											strokeWidth={2}
 											dot={{ r: 3 }}
 											activeDot={{ r: 6 }}
@@ -737,7 +871,7 @@ const ReportViewer = ({ data, type, onBack }) => {
 											type="monotone"
 											dataKey="transaction_count"
 											name="Transactions"
-											stroke="#10b981"
+											stroke={COLORS[1]}
 											strokeWidth={2}
 											dot={{ r: 3 }}
 											activeDot={{ r: 6 }}
@@ -747,182 +881,245 @@ const ReportViewer = ({ data, type, onBack }) => {
 							</ChartContainer>
 						</div>
 					)}
-				</section>
-				{/* Payment Details Table */}
-				<section>
-					<h3 className="text-base font-semibold text-slate-700 mb-3">
-						Payment Details
-					</h3>
-					<TableContainer>
-						<table className="min-w-full divide-y divide-slate-200">
-							<thead className="bg-slate-50">
-								<tr>
-									<Th>{isPaymentMethodBased ? "Payment Method" : "Date"}</Th>
-									<Th align="right">Transactions</Th>
-									<Th align="right">Total Amount</Th>
-									<Th align="right">Refunds</Th>
-									<Th align="right">Success Rate</Th>
-								</tr>
-							</thead>
-							<tbody className="bg-white divide-y divide-slate-100">
-								{data.data.map((item, index) => (
-									<tr
-										key={index}
-										className="hover:bg-slate-50"
-									>
-										<Td isHeader>
-											{isPaymentMethodBased
-												? item.payment_method
-												: formatDate(item.date)}
-										</Td>
-										<Td align="right">{item.transaction_count}</Td>
-										<Td
-											isHeader
-											align="right"
-										>
-											{formatCurrency(item.total_amount)}
-										</Td>
-										<Td align="right">{item.refund_count}</Td>
-										<Td align="right">{item.success_rate}%</Td>
+				</div>
+
+				<Card>
+					<CardHeader>
+						<CardTitle>Payment Details</CardTitle>
+					</CardHeader>
+					<CardContent className="p-0">
+						<div className="overflow-x-auto">
+							<table className="w-full">
+								<thead className="border-b bg-muted/50">
+									<tr>
+										<th className="text-left p-4 font-medium">
+											{isPaymentMethodBased ? "Payment Method" : "Date"}
+										</th>
+										<th className="text-right p-4 font-medium">Transactions</th>
+										<th className="text-right p-4 font-medium">Total Amount</th>
+										<th className="text-right p-4 font-medium">Refunds</th>
+										<th className="text-right p-4 font-medium">Failed</th>
+										<th className="text-right p-4 font-medium">Voided</th>
+										<th className="text-right p-4 font-medium">Success Rate</th>
 									</tr>
-								))}
-							</tbody>
-						</table>
-					</TableContainer>
-				</section>
+								</thead>
+								<tbody className="divide-y">
+									{reportDataItems.map((item, index) => (
+										<tr
+											key={index}
+											className="hover:bg-muted/50"
+										>
+											<td className="p-4 font-medium">
+												{isPaymentMethodBased
+													? item.payment_method
+													: formatDate(item.date)}
+											</td>
+											<td className="p-4 text-right">
+												{item.transaction_count}
+											</td>
+											<td className="p-4 text-right font-medium">
+												{formatCurrency(item.total_amount)}
+											</td>
+											<td className="p-4 text-right">{item.refund_count}</td>
+											<td className="p-4 text-right">
+												{item.failed_count ?? 0}
+											</td>
+											<td className="p-4 text-right">{item.void_count ?? 0}</td>
+											<td className="p-4 text-right">
+												{item.success_rate?.toFixed(2)}%
+											</td>
+										</tr>
+									))}
+								</tbody>
+							</table>
+						</div>
+					</CardContent>
+				</Card>
 			</div>
 		);
 	};
 
-	const renderOperationalReport = () => (
-		<div className="space-y-6">
-			{/* Summary Cards */}
-			<section>
-				<h3 className="text-base font-semibold text-slate-700 mb-3">Summary</h3>
-				<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+	const renderOperationalReport = () => {
+		const hourlyItems = data.hourly_data || [];
+		const dailyItems = data.daily_data || [];
+		const dayOfWeekSummary = data.day_of_week_summary || [];
+		const peakHoursDetail = data.summary?.peak_hours_detail || [];
+		// const busiestDaysDetail = data.summary?.busiest_days_detail || []; // Use if needed
+		const orderSourceBreakdown = data.summary?.order_source_breakdown || [];
+
+		return (
+			<div className="space-y-6">
+				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 					<SummaryCard
 						title="Total Orders"
-						value={data.summary.total_orders}
+						value={data.summary.total_orders ?? 0}
+						icon={Package}
 					/>
 					<SummaryCard
 						title="Total Revenue"
 						value={formatCurrency(data.summary.total_revenue)}
+						icon={DollarSign}
 					/>
 					<SummaryCard
 						title="Avg. Daily Orders"
-						value={data.summary.avg_orders_per_day.toFixed(1)}
+						value={data.summary.avg_orders_per_day?.toFixed(1) ?? 0}
+						icon={TrendingUp}
 					/>
 					<SummaryCard
-						title="Peak Hours"
-						value={data.summary.peak_hours[0]}
-						subValue={data.summary.peak_hours[1]}
+						title="Peak Hour #1"
+						value={
+							peakHoursDetail[0]
+								? `${peakHoursDetail[0].hour} (${peakHoursDetail[0].order_count} orders)`
+								: "N/A"
+						}
+						subValue={
+							peakHoursDetail[0]
+								? `Revenue: ${formatCurrency(peakHoursDetail[0].revenue)}`
+								: ""
+						}
+						icon={Clock}
 					/>
 				</div>
-			</section>
-			{/* Charts */}
-			<section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-				<div>
-					<h3 className="text-base font-semibold text-slate-700 mb-3">
-						Hourly Trend
-					</h3>
-					<ChartContainer>
+				{/* Order Source Breakdown Table/Chart */}
+				{orderSourceBreakdown.length > 0 && (
+					<ChartContainer title="Order Source Breakdown">
 						<ResponsiveContainer
 							width="100%"
-							height={300}
+							height="100%"
 						>
 							<BarChart
-								data={data.hourly_data}
-								margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+								data={orderSourceBreakdown}
+								layout="vertical"
+								margin={{ top: 5, right: 20, left: 70, bottom: 5 }}
 							>
 								<CartesianGrid
 									strokeDasharray="3 3"
-									stroke="#e2e8f0"
+									className="stroke-muted"
+								/>
+								<XAxis
+									type="number"
+									tickFormatter={formatCurrency}
+									name="Revenue"
+									className="text-xs"
+								/>
+								<YAxis
+									type="category"
+									dataKey="source"
+									width={70}
+									className="text-xs"
+									interval={0}
+								/>
+								<Tooltip
+									content={
+										<CustomTooltipContent
+											formatter={formatCurrency}
+											nameMap={{
+												total_revenue: "Revenue",
+												order_count: "Orders",
+											}}
+										/>
+									}
+								/>
+								<Legend />
+								<Bar
+									dataKey="total_revenue"
+									name="Revenue"
+									fill={COLORS[5]}
+									barSize={20}
+								/>
+								{/* <Bar dataKey="order_count" name="Orders" fill={COLORS[6]} barSize={20} /> Optional second bar */}
+							</BarChart>
+						</ResponsiveContainer>
+					</ChartContainer>
+				)}
+
+				<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+					<ChartContainer title="Hourly Trend">
+						<ResponsiveContainer
+							width="100%"
+							height="100%"
+						>
+							<BarChart
+								data={hourlyItems}
+								margin={{ top: 5, right: 20, left: 5, bottom: 5 }}
+							>
+								<CartesianGrid
+									strokeDasharray="3 3"
+									className="stroke-muted"
 								/>
 								<XAxis
 									dataKey="hour"
-									tick={{ fontSize: 10 }}
-									stroke="#64748b"
+									className="text-xs"
 								/>
 								<YAxis
 									yAxisId="left"
 									orientation="left"
-									tick={{ fontSize: 10 }}
-									stroke="#64748b"
+									className="text-xs"
 								/>
 								<YAxis
 									yAxisId="right"
 									orientation="right"
-									tick={{ fontSize: 10 }}
-									stroke="#64748b"
-									tickFormatter={(value) => formatCurrency(value)}
+									className="text-xs"
+									tickFormatter={formatCurrency}
 								/>
 								<Tooltip
 									content={
-										<CustomTooltip
+										<CustomTooltipContent
 											formatter={formatCurrency}
 											nameMap={{ order_count: "Orders", revenue: "Revenue" }}
 										/>
 									}
 								/>
-								<Legend
-									wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }}
-								/>
+								<Legend />
 								<Bar
 									yAxisId="left"
 									dataKey="order_count"
 									name="Orders"
-									fill="#3b82f6"
+									fill={COLORS[0]}
 									barSize={15}
 								/>
 								<Bar
 									yAxisId="right"
 									dataKey="revenue"
 									name="Revenue"
-									fill="#10b981"
+									fill={COLORS[1]}
 									barSize={15}
 								/>
 							</BarChart>
 						</ResponsiveContainer>
 					</ChartContainer>
-				</div>
-				<div>
-					<h3 className="text-base font-semibold text-slate-700 mb-3">
-						Day of Week Performance
-					</h3>
-					<ChartContainer>
+
+					<ChartContainer title="Day of Week Performance">
 						<ResponsiveContainer
 							width="100%"
-							height={300}
+							height="100%"
 						>
 							<BarChart
-								data={data.day_of_week_summary}
-								margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+								data={dayOfWeekSummary}
+								margin={{ top: 5, right: 20, left: 5, bottom: 5 }}
 							>
 								<CartesianGrid
 									strokeDasharray="3 3"
-									stroke="#e2e8f0"
+									className="stroke-muted"
 								/>
 								<XAxis
 									dataKey="day_of_week"
-									tick={{ fontSize: 10 }}
-									stroke="#64748b"
+									className="text-xs"
 								/>
 								<YAxis
 									yAxisId="left"
 									orientation="left"
-									tick={{ fontSize: 10 }}
-									stroke="#64748b"
+									className="text-xs"
 								/>
 								<YAxis
 									yAxisId="right"
 									orientation="right"
-									tick={{ fontSize: 10 }}
-									stroke="#64748b"
-									tickFormatter={(value) => formatCurrency(value)}
+									className="text-xs"
+									tickFormatter={formatCurrency}
 								/>
 								<Tooltip
 									content={
-										<CustomTooltip
+										<CustomTooltipContent
 											formatter={formatCurrency}
 											nameMap={{
 												avg_order_count: "Avg Orders",
@@ -931,70 +1128,102 @@ const ReportViewer = ({ data, type, onBack }) => {
 										/>
 									}
 								/>
-								<Legend
-									wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }}
-								/>
+								<Legend />
 								<Bar
 									yAxisId="left"
 									dataKey="avg_order_count"
 									name="Avg Orders"
-									fill="#8b5cf6"
+									fill={COLORS[2]}
 									barSize={15}
 								/>
 								<Bar
 									yAxisId="right"
 									dataKey="avg_revenue"
 									name="Avg Revenue"
-									fill="#f59e0b"
+									fill={COLORS[3]}
 									barSize={15}
 								/>
 							</BarChart>
 						</ResponsiveContainer>
 					</ChartContainer>
 				</div>
-			</section>
-			{/* Daily Performance Table */}
-			<section>
-				<h3 className="text-base font-semibold text-slate-700 mb-3">
-					Daily Performance
-				</h3>
-				<TableContainer>
-					<table className="min-w-full divide-y divide-slate-200">
-						<thead className="bg-slate-50">
-							<tr>
-								<Th>Date</Th>
-								<Th>Day</Th>
-								<Th align="right">Orders</Th>
-								<Th align="right">Revenue</Th>
-							</tr>
-						</thead>
-						<tbody className="bg-white divide-y divide-slate-100">
-							{data.daily_data.map((day, index) => (
-								<tr
-									key={index}
-									className="hover:bg-slate-50"
-								>
-									<Td isHeader>{formatDate(day.date)}</Td>
-									<Td>{day.day_of_week}</Td>
-									<Td align="right">{day.order_count}</Td>
-									<Td
-										isHeader
-										align="right"
-									>
-										{formatCurrency(day.revenue)}
-									</Td>
-								</tr>
-							))}
-						</tbody>
-					</table>
-				</TableContainer>
-			</section>
-		</div>
-	);
 
-	// Render the appropriate report based on type (Original logic)
+				<Card>
+					<CardHeader>
+						<CardTitle>Daily Performance</CardTitle>
+					</CardHeader>
+					<CardContent className="p-0">
+						<div className="overflow-x-auto">
+							<table className="w-full">
+								<thead className="border-b bg-muted/50">
+									<tr>
+										<th className="text-left p-4 font-medium">Date</th>
+										<th className="text-left p-4 font-medium">Day</th>
+										<th className="text-right p-4 font-medium">Orders</th>
+										<th className="text-right p-4 font-medium">Revenue</th>
+										<th className="text-right p-4 font-medium">Subtotal</th>
+										<th className="text-right p-4 font-medium">Tax</th>
+										<th className="text-right p-4 font-medium">Discount</th>
+										<th className="text-right p-4 font-medium">Tip</th>
+										<th className="text-right p-4 font-medium">Surcharge</th>
+										<th className="text-right p-4 font-medium">
+											Avg Items/Order
+										</th>
+									</tr>
+								</thead>
+								<tbody className="divide-y">
+									{dailyItems.map((day, index) => (
+										<tr
+											key={index}
+											className="hover:bg-muted/50"
+										>
+											<td className="p-4 font-medium">
+												{formatDate(day.date)}
+											</td>
+											<td className="p-4">{day.day_of_week}</td>
+											<td className="p-4 text-right">{day.order_count}</td>
+											<td className="p-4 text-right font-medium">
+												{formatCurrency(day.revenue)}
+											</td>
+											<td className="p-4 text-right">
+												{formatCurrency(day.subtotal)}
+											</td>
+											<td className="p-4 text-right">
+												{formatCurrency(day.tax)}
+											</td>
+											<td className="p-4 text-right">
+												{formatCurrency(day.discount)}
+											</td>
+											<td className="p-4 text-right">
+												{formatCurrency(day.tip)}
+											</td>
+											<td className="p-4 text-right">
+												{formatCurrency(day.surcharge)}
+											</td>
+											<td className="p-4 text-right">
+												{day.avg_items_per_order?.toFixed(2)}
+											</td>
+										</tr>
+									))}
+								</tbody>
+							</table>
+						</div>
+					</CardContent>
+				</Card>
+			</div>
+		);
+	};
+
 	const renderReport = () => {
-		// console.log("Rendering report of type:", type); // Keep for debugging
+		// Ensure data and data.summary exist before trying to render specific reports
+		if (!data || !data.summary) {
+			if (validateReportData(data)) {
+				// This will console.error if summary is missing
+				// Fallback or specific handling if summary is missing but data might partially exist
+				// For now, we rely on the main validation check below.
+			}
+		}
+
 		switch (type) {
 			case "sales":
 			case "daily_sales":
@@ -1012,219 +1241,90 @@ const ReportViewer = ({ data, type, onBack }) => {
 				return renderOperationalReport();
 			default:
 				console.warn("Unknown report type:", type);
-				return <InvalidReportTypeDisplay type={type} />;
-		}
-	};
-
-	// Validate report data structure (Original logic)
-	const validateReportData = (reportData) => {
-		if (!reportData || !reportData.summary) {
-			console.error("Invalid report data: missing summary section", reportData);
-			return false;
-		}
-		if (!reportData.summary.period_start || !reportData.summary.period_end) {
-			console.warn(
-				"Report data missing period information",
-				reportData.summary
-			);
-		}
-		// Add more specific checks per report type if needed
-		return true;
-	};
-
-	// --- END OF ORIGINAL LOGIC ---
-
-	// --- UPDATED UI (JSX Structure and Styling Only) ---
-	// Helper components for styling consistency
-	const SummaryCard = ({ title, value, subValue = null }) => (
-		<div className="bg-white rounded-lg shadow-sm border border-slate-200 p-3">
-			{" "}
-			{/* Reduced padding */}
-			<h3
-				className="text-xs font-medium text-slate-500 mb-0.5 truncate"
-				title={title}
-			>
-				{title}
-			</h3>{" "}
-			{/* Reduced size/margin */}
-			<p
-				className="text-lg font-bold text-slate-800 truncate"
-				title={value}
-			>
-				{value}
-			</p>{" "}
-			{/* Reduced size */}
-			{subValue && (
-				<p
-					className="text-[11px] text-slate-500 mt-0.5 truncate"
-					title={subValue}
-				>
-					{subValue}
-				</p>
-			)}{" "}
-			{/* Reduced size/margin */}
-		</div>
-	);
-	SummaryCard.propTypes = {
-		title: PropTypes.string,
-		value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-		subValue: PropTypes.string,
-	};
-
-	const ChartContainer = ({ children }) => (
-		<div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 h-[350px]">
-			{" "}
-			{/* Fixed height */}
-			{children}
-		</div>
-	);
-	ChartContainer.propTypes = { children: PropTypes.node };
-
-	const TableContainer = ({ children }) => (
-		<div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-			<div className="overflow-x-auto">{children}</div>
-		</div>
-	);
-	TableContainer.propTypes = { children: PropTypes.node };
-
-	const Th = ({ children, align = "left" }) => (
-		<th
-			scope="col"
-			className={`px-4 py-2 text-${align} text-[11px] font-semibold text-slate-500 uppercase tracking-wider`}
-		>
-			{children}
-		</th>
-	);
-	Th.propTypes = { children: PropTypes.node, align: PropTypes.string };
-
-	const Td = ({ children, align = "left", isHeader = false }) => (
-		<td
-			className={`px-4 py-2 whitespace-nowrap text-xs text-${align} ${
-				isHeader ? "font-medium text-slate-800" : "text-slate-600"
-			}`}
-		>
-			{children}
-		</td>
-	);
-	Td.propTypes = {
-		children: PropTypes.node,
-		align: PropTypes.string,
-		isHeader: PropTypes.bool,
-	};
-
-	// Custom Tooltip for Charts
-	const CustomTooltip = ({ active, payload, label, formatter, nameMap }) => {
-		if (active && payload && payload.length) {
-			return (
-				<div className="bg-white/80 backdrop-blur-sm shadow-lg rounded-md border border-slate-200 p-2 text-xs">
-					<p className="font-medium text-slate-700 mb-1">{label}</p>
-					{payload.map((entry, index) => (
-						<p
-							key={`item-${index}`}
-							style={{ color: entry.color }}
-						>
-							{`${nameMap ? nameMap[entry.name] : entry.name}: ${
-								formatter ? formatter(entry.value) : entry.value
-							}`}
-						</p>
-					))}
-				</div>
-			);
-		}
-		return null;
-	};
-	CustomTooltip.propTypes = {
-		active: PropTypes.bool,
-		payload: PropTypes.array,
-		label: PropTypes.string,
-		formatter: PropTypes.func,
-		nameMap: PropTypes.object,
-	};
-
-	const InvalidReportTypeDisplay = ({ type }) => (
-		<div className="p-6 text-center">
-			<ExclamationTriangleIcon className="h-10 w-10 text-red-500 mx-auto mb-3" />
-			<h3 className="text-base font-medium text-slate-700 mb-1">
-				Unknown Report Type
-			</h3>
-			<p className="text-sm text-slate-600 mb-3">
-				Cannot display report with type: &quot;{type}&quot;.
-			</p>
-		</div>
-	);
-	InvalidReportTypeDisplay.propTypes = { type: PropTypes.string };
-
-	return (
-		<div className="p-4 sm:p-6 overflow-y-auto h-full custom-scrollbar">
-			{" "}
-			{/* Ensure parent scrolls */}
-			{/* Header with Back and Export Buttons */}
-			<div className="flex flex-wrap justify-between items-center mb-4 gap-3">
-				<button
-					onClick={onBack} // Original handler
-					className="flex items-center text-sm text-blue-600 hover:text-blue-800 font-medium"
-				>
-					<ArrowLeftIcon className="h-4 w-4 mr-1.5" />
-					Back to Report Selection
-				</button>
-				<div className="flex space-x-2">
-					<button
-						onClick={exportAsPDF} // Original handler
-						className="px-3 py-1.5 bg-red-50 text-red-700 rounded-md hover:bg-red-100 border border-red-200 transition-colors flex items-center text-xs font-medium gap-1"
-					>
-						<DocumentArrowDownIcon className="h-3.5 w-3.5" /> Export PDF
-					</button>
-					<button
-						onClick={exportAsCSV} // Original handler
-						className="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-md hover:bg-emerald-100 border border-emerald-200 transition-colors flex items-center text-xs font-medium gap-1"
-					>
-						<TableCellsIcon className="h-3.5 w-3.5" /> Export CSV
-					</button>
-				</div>
-			</div>
-			{/* Report Title Card */}
-			{validateReportData(data) ? ( // Validate before showing title
-				<>
-					<div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 sm:p-5 mb-5">
-						<h1 className="text-lg sm:text-xl font-bold text-slate-800 mb-1">
-							{getReportTitle(type)}
-						</h1>
-						<p className="text-xs text-slate-500">
-							Period: {formatDate(data.summary.period_start) || "Unknown"} to{" "}
-							{formatDate(data.summary.period_end) || "Unknown"}
+				return (
+					<div className="text-center py-12">
+						<AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
+						<h3 className="text-lg font-semibold mb-2">Unknown Report Type</h3>
+						<p className="text-muted-foreground">
+							Cannot display report with type: &quot;{type}&quot;.
 						</p>
 					</div>
+				);
+		}
+	};
 
-					{/* Render the specific report content */}
+	return (
+		<div className="p-6 space-y-6">
+			<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+				<Button
+					variant="ghost"
+					onClick={onBack}
+					className="self-start"
+				>
+					<ArrowLeft className="h-4 w-4 mr-2" />
+					Back to Report Selection
+				</Button>
+				<div className="flex gap-2">
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={exportAsPDF}
+						disabled={!data || !data.summary}
+					>
+						<Download className="h-4 w-4 mr-2" />
+						Export PDF
+					</Button>
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={exportAsCSV}
+						disabled={!data || !data.summary}
+					>
+						<FileText className="h-4 w-4 mr-2" />
+						Export CSV
+					</Button>
+				</div>
+			</div>
+
+			{validateReportData(data) ? (
+				<>
+					<Card>
+						<CardContent className="pt-6">
+							<div className="text-center space-y-2">
+								<h1 className="text-3xl font-bold">{getReportTitle(type)}</h1>
+								<p className="text-muted-foreground">
+									Period: {formatDate(data.summary.period_start) || "Unknown"}{" "}
+									to {formatDate(data.summary.period_end) || "Unknown"}
+								</p>
+							</div>
+						</CardContent>
+					</Card>
 					<div ref={reportRef}>{renderReport()}</div>
 				</>
 			) : (
-				// Invalid Data Structure Error
-				<div className="p-6 text-center bg-white rounded-lg shadow-sm border border-red-200">
-					<ExclamationTriangleIcon className="h-10 w-10 text-red-500 mx-auto mb-3" />
-					<h3 className="text-base font-medium text-slate-700 mb-1">
-						Invalid Report Data
-					</h3>
-					<p className="text-sm text-slate-600 mb-3">
-						The report data structure is invalid or incomplete.
-					</p>
-					<button
-						onClick={onBack}
-						className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors"
-					>
-						Back to Reports
-					</button>
-				</div>
+				<Card>
+					<CardContent className="pt-6">
+						<div className="text-center py-12">
+							<AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
+							<h3 className="text-lg font-semibold mb-2">
+								Invalid Report Data
+							</h3>
+							<p className="text-muted-foreground mb-4">
+								The report data structure is invalid, incomplete, or the report
+								type is unrecognized.
+							</p>
+							<Button onClick={onBack}>Back to Reports</Button>
+						</div>
+					</CardContent>
+				</Card>
 			)}
 		</div>
 	);
-	// --- END OF UPDATED UI ---
 };
 
-// --- ORIGINAL PROPTYPES (Adjusted based on usage) ---
 ReportViewer.propTypes = {
-	data: PropTypes.object, // Can be null initially or on error
-	type: PropTypes.string, // Can be null initially
+	data: PropTypes.object, // data can be null or undefined if report fails to load
+	type: PropTypes.string,
 	onBack: PropTypes.func.isRequired,
 };
 

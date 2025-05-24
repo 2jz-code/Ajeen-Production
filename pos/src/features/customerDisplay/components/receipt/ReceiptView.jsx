@@ -1,30 +1,31 @@
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import { motion, AnimatePresence } from "framer-motion";
-import { formatPrice } from "../../../../utils/numberUtils"; // Ensure path is correct
-import { CheckBadgeIcon } from "@heroicons/react/24/solid"; // Use solid badge icon
+import { formatPrice } from "../../../../utils/numberUtils";
 import {
-	CreditCardIcon,
-	CalendarDaysIcon,
-	ClockIcon as ClockOutlineIcon,
-	HashtagIcon,
-} from "@heroicons/react/24/outline"; // Outline for details
+	BadgeCheckIcon as CheckBadge,
+	CreditCard,
+	Calendar,
+	Clock,
+	Hash,
+} from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 
 /**
- * ReceiptView Component (UI Revamped)
- * Displays a confirmation message and receipt details after payment.
+ * ReceiptView Component
+ * Displays confirmation message and receipt details after payment.
  */
 const ReceiptView = ({ orderData, paymentData, onComplete, paymentMethod }) => {
 	const [showDetails, setShowDetails] = useState(false);
 
-	// Safely extract data
 	const tipAmount = orderData?.tipAmount || 0;
-	const baseTotal = typeof orderData?.total === "number" ? orderData.total : 0; // Base amount paid in the final step
+	const baseTotal = typeof orderData?.total === "number" ? orderData.total : 0;
 	const finalTotal =
 		(orderData?.isSplitPayment ? orderData?.originalTotal : baseTotal) +
-		tipAmount; // Show original total + tip if split, else base + tip
+		tipAmount;
 
-	// Extract payment details more robustly
 	const getPaymentInfo = () => {
 		if (paymentMethod === "cash") return { methodDisplay: "Cash", id: "N/A" };
 		if (paymentMethod === "credit" && paymentData?.cardInfo) {
@@ -35,9 +36,7 @@ const ReceiptView = ({ orderData, paymentData, onComplete, paymentMethod }) => {
 				id: paymentData.transactionId || "N/A",
 			};
 		}
-		// Handle split payment details (might need more info from paymentData if available)
 		if (paymentMethod === "split" || orderData?.isSplitPayment) {
-			// Attempt to get details from the last transaction if available
 			const lastTx = paymentData?.transactions?.slice(-1)[0];
 			if (lastTx?.method === "credit" && lastTx?.cardInfo) {
 				return {
@@ -47,49 +46,43 @@ const ReceiptView = ({ orderData, paymentData, onComplete, paymentMethod }) => {
 			}
 			return { methodDisplay: "Split Payment", id: "Multiple" };
 		}
-		// Fallback
 		return {
 			methodDisplay: paymentMethod || "Other",
 			id: paymentData?.transactionId || "N/A",
 		};
 	};
-	const { methodDisplay, id: transactionId } = getPaymentInfo();
 
+	const { methodDisplay, id: transactionId } = getPaymentInfo();
 	const paymentTimestamp = paymentData?.timestamp
 		? new Date(paymentData.timestamp)
 		: new Date();
 
-	// Effect to show details and signal completion
 	useEffect(() => {
 		let detailsTimerId = null;
 		let completeTimerId = null;
 
-		// Signal completion quickly
 		completeTimerId = setTimeout(() => {
-			// console.log("ReceiptView: Calling onComplete");
 			if (onComplete) {
 				onComplete({ status: "complete", timestamp: new Date().toISOString() });
 			}
-		}, 150); // Short delay
+		}, 150);
 
-		// Show details after a longer visual delay
 		detailsTimerId = setTimeout(() => {
 			setShowDetails(true);
-		}, 1800); // Show details after 1.8 seconds
+		}, 1800);
 
 		return () => {
-			// Cleanup timers
 			clearTimeout(detailsTimerId);
 			clearTimeout(completeTimerId);
 		};
 	}, [onComplete]);
 
-	// Animation variants
 	const containerVariants = {
 		hidden: { opacity: 0 },
 		visible: { opacity: 1, transition: { duration: 0.4 } },
 		exit: { opacity: 0, transition: { duration: 0.2 } },
 	};
+
 	const itemVariants = (delay = 0) => ({
 		hidden: { opacity: 0, y: 15 },
 		visible: {
@@ -98,6 +91,7 @@ const ReceiptView = ({ orderData, paymentData, onComplete, paymentMethod }) => {
 			transition: { duration: 0.5, delay, ease: "easeOut" },
 		},
 	});
+
 	const detailsVariants = {
 		hidden: { opacity: 0, height: 0 },
 		visible: {
@@ -110,112 +104,135 @@ const ReceiptView = ({ orderData, paymentData, onComplete, paymentMethod }) => {
 	return (
 		<motion.div
 			key="receipt"
-			className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-green-50 via-white to-emerald-50 p-8 text-center md:p-12 lg:p-16" // Success gradient
+			className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-green-50 via-white to-emerald-50 p-6 md:p-8"
 			variants={containerVariants}
 			initial="hidden"
 			animate="visible"
 			exit="exit"
 		>
 			<div className="w-full max-w-md">
-				{/* Check Badge Animation */}
-				<motion.div
-					className="mb-6 md:mb-8"
-					initial={{ scale: 0.5, opacity: 0 }}
-					animate={{ scale: 1, opacity: 1 }}
-					transition={{
-						type: "spring",
-						stiffness: 200,
-						damping: 15,
-						delay: 0.2,
-					}}
-				>
-					<CheckBadgeIcon className="mx-auto h-20 w-20 text-green-500 md:h-24 md:w-24" />
-				</motion.div>
+				{/* Header Section */}
+				<div className="pb-4">
+					<motion.div
+						className="flex justify-center mb-4" // Icon centered with flex
+						initial={{ scale: 0.5, opacity: 0 }}
+						animate={{ scale: 1, opacity: 1 }}
+						transition={{
+							type: "spring",
+							stiffness: 200,
+							damping: 15,
+							delay: 0.2,
+						}}
+					>
+						<CheckBadge className="h-20 w-20 text-green-500" />
+					</motion.div>
 
-				{/* Main Message */}
-				<motion.h1
-					variants={itemVariants(0.4)}
-					className="mb-3 text-3xl font-bold tracking-tight text-slate-900 md:text-4xl"
-				>
-					Thank You!
-				</motion.h1>
+					<motion.div
+						variants={itemVariants(0.4)}
+						className="text-center"
+					>
+						{" "}
+						{/* Title/subtitle centered */}
+						<h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-3">
+							Thank You!
+						</h2>
+						<p className="text-lg text-slate-600">
+							Your payment of{" "}
+							<span className="font-semibold text-slate-800">
+								{formatPrice(finalTotal)}
+							</span>{" "}
+							was successful.
+						</p>
+					</motion.div>
+				</div>
 
-				<motion.p
-					variants={itemVariants(0.5)}
-					className="mb-8 text-lg text-slate-600 md:text-xl md:mb-10"
-				>
-					Your payment of{" "}
-					<span className="font-semibold text-slate-800">
-						{formatPrice(finalTotal)}
-					</span>{" "}
-					was successful.
-				</motion.p>
-
-				{/* Transaction Details (Animated Appearance) */}
-				<AnimatePresence>
-					{showDetails && (
+				{/* Content Section */}
+				<div className="space-y-6">
+					{tipAmount > 0 && (
 						<motion.div
-							variants={detailsVariants}
-							initial="hidden"
-							animate="visible"
-							className="overflow-hidden" // Needed for height animation
+							variants={itemVariants(0.5)}
+							className="text-center"
 						>
-							<div className="space-y-2 rounded-xl border border-slate-200 bg-white p-5 text-left text-sm shadow-sm">
-								<div className="flex justify-between">
-									<span className="flex items-center gap-1 text-slate-500">
-										<CreditCardIcon className="h-4 w-4" />
-										Method:
-									</span>
-									<span className="font-medium text-slate-700">
-										{methodDisplay}
-									</span>
-								</div>
-								<div className="flex justify-between">
-									<span className="flex items-center gap-1 text-slate-500">
-										<CalendarDaysIcon className="h-4 w-4" />
-										Date:
-									</span>
-									<span className="font-medium text-slate-700">
-										{paymentTimestamp.toLocaleDateString()}
-									</span>
-								</div>
-								<div className="flex justify-between">
-									<span className="flex items-center gap-1 text-slate-500">
-										<ClockOutlineIcon className="h-4 w-4" />
-										Time:
-									</span>
-									<span className="font-medium text-slate-700">
-										{paymentTimestamp.toLocaleTimeString([], {
-											hour: "numeric",
-											minute: "2-digit",
-											hour12: true,
-										})}
-									</span>
-								</div>
-								<div className="flex justify-between border-t border-slate-100 pt-2 mt-2">
-									<span className="flex items-center gap-1 text-slate-500">
-										<HashtagIcon className="h-4 w-4" />
-										Reference:
-									</span>
-									<span
-										className="max-w-[150px] truncate font-mono text-xs font-medium text-slate-700"
-										title={transactionId}
-									>
-										{transactionId}
-									</span>
-								</div>
-							</div>
+							<Badge
+								variant="secondary"
+								className="bg-green-100 text-green-700"
+							>
+								Includes {formatPrice(tipAmount)} tip
+							</Badge>
 						</motion.div>
 					)}
-				</AnimatePresence>
 
-				{/* Footer Message */}
-				<motion.p
-					variants={itemVariants(showDetails ? 0.8 : 1.0)} // Adjust delay based on details visibility
-					className="mt-8 text-base text-slate-500"
-				>
-					Your receipt is printing. Have a great day!
-				</motion.p>
+					<AnimatePresence>
+						{showDetails && (
+							<motion.div
+								variants={detailsVariants}
+								initial="hidden"
+								animate="visible"
+								className="overflow-hidden"
+							>
+								<Card className="border-slate-200 bg-white/70 backdrop-blur-sm shadow-sm">
+									<CardContent className="p-4 space-y-3">
+										<div className="flex justify-between items-center">
+											<span className="flex items-center gap-2 text-slate-500">
+												<CreditCard className="h-4 w-4" />
+												Method:
+											</span>
+											<span className="font-medium text-slate-700">
+												{methodDisplay}
+											</span>
+										</div>
+
+										<div className="flex justify-between items-center">
+											<span className="flex items-center gap-2 text-slate-500">
+												<Calendar className="h-4 w-4" />
+												Date:
+											</span>
+											<span className="font-medium text-slate-700">
+												{paymentTimestamp.toLocaleDateString()}
+											</span>
+										</div>
+
+										<div className="flex justify-between items-center">
+											<span className="flex items-center gap-2 text-slate-500">
+												<Clock className="h-4 w-4" />
+												Time:
+											</span>
+											<span className="font-medium text-slate-700">
+												{paymentTimestamp.toLocaleTimeString([], {
+													hour: "numeric",
+													minute: "2-digit",
+													hour12: true,
+												})}
+											</span>
+										</div>
+
+										<Separator />
+
+										<div className="flex justify-between items-center">
+											<span className="flex items-center gap-2 text-slate-500">
+												<Hash className="h-4 w-4" />
+												Reference:
+											</span>
+											<span
+												className="max-w-[150px] truncate font-mono text-xs font-medium text-slate-700"
+												title={transactionId}
+											>
+												{transactionId}
+											</span>
+										</div>
+									</CardContent>
+								</Card>
+							</motion.div>
+						)}
+					</AnimatePresence>
+
+					<motion.p
+						variants={itemVariants(showDetails ? 0.8 : 1.0)}
+						className="text-base text-slate-500 text-center"
+					>
+						Your receipt is printing. Have a great day!
+					</motion.p>
+				</div>
 			</div>
 		</motion.div>
 	);
@@ -223,10 +240,10 @@ const ReceiptView = ({ orderData, paymentData, onComplete, paymentMethod }) => {
 
 ReceiptView.propTypes = {
 	orderData: PropTypes.shape({
-		total: PropTypes.number, // Base total of the final step
+		total: PropTypes.number,
 		tipAmount: PropTypes.number,
 		isSplitPayment: PropTypes.bool,
-		originalTotal: PropTypes.number, // Original total before splitting
+		originalTotal: PropTypes.number,
 	}),
 	paymentData: PropTypes.shape({
 		transactionId: PropTypes.string,
@@ -234,11 +251,11 @@ ReceiptView.propTypes = {
 			brand: PropTypes.string,
 			last4: PropTypes.string,
 		}),
-		amount: PropTypes.number, // Amount of the final transaction step
+		amount: PropTypes.number,
 		timestamp: PropTypes.string,
-		transactions: PropTypes.array, // Include if needed for split display
+		transactions: PropTypes.array,
 	}),
-	paymentMethod: PropTypes.string, // Overall or final payment method
+	paymentMethod: PropTypes.string,
 	onComplete: PropTypes.func,
 };
 

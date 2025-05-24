@@ -7,7 +7,7 @@ import {
 import { useEffect, useRef } from "react";
 import customerDisplayManager from "./features/customerDisplay/utils/windowManager";
 import POS from "./pages/POS";
-import Dashboard from "./pages/Dashboard";
+import Dashboard from "./pages";
 import Login from "./pages/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Products from "./pages/products/Products";

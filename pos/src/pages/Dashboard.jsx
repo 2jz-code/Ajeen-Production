@@ -1,260 +1,229 @@
-import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import PropTypes from "prop-types"; // Import PropTypes
-import LogoutButton from "../components/LogoutButton"; // Assuming this is correctly styled
-import { authService } from "../api/services/authService";
-import {
-	BuildingStorefrontIcon, // For POS Title
-	CurrencyDollarIcon, // POS Link
-	SquaresPlusIcon, // Products Link (Updated from Clipboard)
-	ClockIcon, // Orders Link
-	ChartBarIcon, // Reports Link
-	CreditCardIcon, // Payments Link
-	UserGroupIcon, // Users Link
-	Cog6ToothIcon, // Settings Link (Updated from CogIcon)
-	GiftIcon, // Rewards Link
-	TagIcon, // Discounts Link
-	SignalIcon, // Online Status
-	ChevronRightIcon, // Card link indicator
-} from "@heroicons/react/24/outline"; // Using outline icons
+// src/pages/Dashboard.jsx
+"use client"; // This directive is specific to Next.js App router, can be removed for Vite/React.
+// If you intend to use it, ensure your project setup supports it.
 
-// Helper component for Navigation Cards
+import { useState, useEffect } from "react"; // Keep these if Dashboard has specific logic
+import { Link } from "react-router-dom"; // Keep Link for NavCard
+import PropTypes from "prop-types";
+
+// Icons for NavCard
+import {
+	ShoppingCart,
+	Package,
+	Clock,
+	CreditCard,
+	BarChart3,
+	Users,
+	Gift,
+	Tag,
+	Settings as SettingsIconLucide, // Renamed to avoid conflict if Settings component is imported
+} from "lucide-react";
+
+import { Card, CardContent } from "@/components/ui/card"; // Keep for NavCard
+import { Skeleton } from "@/components/ui/skeleton"; // Keep for NavCardSkeleton
+import MainLayout from "./layout/MainLayout";
+import { authService } from "@/api/services/authService";
+import { useCartStore } from "@/store/cartStore";
+
+// NavCard Component (can stay here or be moved to a common components folder)
 const NavCard = ({
 	to,
 	title,
 	description,
 	icon: Icon,
-	iconBgClass,
-	iconTextClass,
+	color,
 	isAdminOnly = false,
 	currentUserIsAdmin = false,
 }) => {
-	// Hide admin-only cards if the current user is not an admin
 	if (isAdminOnly && !currentUserIsAdmin) {
 		return null;
 	}
-
 	return (
 		<Link
 			to={to}
-			className="group relative block rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+			className="block h-full"
 		>
-			<div className="flex items-center gap-4">
-				{/* Icon */}
-				<div
-					className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg ${iconBgClass} ${iconTextClass}`}
-				>
-					<Icon className="h-6 w-6" />
-				</div>
-				{/* Text Content */}
-				<div>
-					<h3 className="text-base font-semibold text-slate-800">{title}</h3>
-					<p className="mt-1 text-sm text-slate-600">{description}</p>
-				</div>
-			</div>
-			{/* Optional: Add an arrow or indicator for clickable cards */}
-			<span className="absolute top-4 right-4 text-slate-300 transition-transform group-hover:translate-x-1 group-focus:translate-x-1 rtl:group-hover:-translate-x-1 rtl:group-focus:-translate-x-1">
-				<ChevronRightIcon className="h-5 w-5" />
-			</span>
+			<Card className="h-full overflow-hidden transition-all duration-200 hover:shadow-md hover:border-primary/20 group">
+				<CardContent className="p-0">
+					<div className="flex h-full flex-col">
+						<div className={`h-1.5 w-full ${color}`} />
+						<div className="flex flex-1 flex-col p-5">
+							<div className="mb-3 flex items-center justify-between">
+								<div
+									className={`rounded-md p-2 ${color
+										.replace("bg-", "bg-")
+										.replace("500", "100")} ${color.replace("bg-", "text-")}`}
+								>
+									<Icon className="h-5 w-5" />
+								</div>
+								{/* ChevronRight might be better sourced from MainLayout if used there, or keep if specific here */}
+								{/* <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" /> */}
+							</div>
+							<h3 className="text-base font-medium">{title}</h3>
+							<p className="mt-1 text-sm text-muted-foreground">
+								{description}
+							</p>
+						</div>
+					</div>
+				</CardContent>
+			</Card>
 		</Link>
 	);
 };
-
 NavCard.propTypes = {
 	to: PropTypes.string.isRequired,
 	title: PropTypes.string.isRequired,
 	description: PropTypes.string.isRequired,
 	icon: PropTypes.elementType.isRequired,
-	iconBgClass: PropTypes.string.isRequired, // Tailwind background class for icon circle
-	iconTextClass: PropTypes.string.isRequired, // Tailwind text color class for icon
-	isAdminOnly: PropTypes.bool, // Flag for admin-only links
-	currentUserIsAdmin: PropTypes.bool, // Current user's admin status
+	color: PropTypes.string.isRequired,
+	isAdminOnly: PropTypes.bool,
+	currentUserIsAdmin: PropTypes.bool,
 };
 
-export default function Dashboard() {
-	const [userStatus, setUserStatus] = useState({
-		authenticated: false,
-		username: "User", // Default username
-		is_admin: false,
-	});
-	const [isLoading, setIsLoading] = useState(true); // Add loading state
+const NavCardSkeleton = () => (
+	<Card className="h-full overflow-hidden">
+		<CardContent className="p-0">
+			<div className="flex h-full flex-col">
+				<Skeleton className="h-1.5 w-full" />
+				<div className="flex flex-1 flex-col p-5">
+					<div className="mb-3 flex items-center justify-between">
+						<Skeleton className="h-9 w-9 rounded-md" />
+						<Skeleton className="h-4 w-4" />
+					</div>
+					<Skeleton className="mb-2 h-5 w-3/4" />
+					<Skeleton className="h-4 w-full" />
+				</div>
+			</div>
+		</CardContent>
+	</Card>
+);
 
-	// Fetch user status on mount
+export default function Dashboard() {
+	// Dashboard specific state can remain here if needed.
+	// For this example, userStatus is fetched in MainLayout, but if Dashboard
+	// needs its own loading/user state for its content, it can have it.
+	const [isLoadingContent, setIsLoadingContent] = useState(true); // Example
+	const [currentUserIsAdmin, setCurrentUserIsAdmin] = useState(false); // Example
+
+	// Simulate fetching dashboard-specific data or user role for content display
 	useEffect(() => {
-		let isMounted = true; // Track mount status
-		const fetchUserStatus = async () => {
-			setIsLoading(true);
-			try {
-				const status = await authService.checkStatus();
-				if (isMounted) {
-					setUserStatus(status);
-				}
-			} catch (error) {
-				console.error("Failed to fetch user status:", error);
-				if (isMounted) {
-					// Handle error state if needed, maybe redirect to login
-					setUserStatus({
-						authenticated: false,
-						username: "Error",
-						is_admin: false,
-					});
-				}
-			} finally {
-				if (isMounted) {
-					setIsLoading(false);
-				}
-			}
+		const fetchDashboardData = async () => {
+			setIsLoadingContent(true);
+			// Simulating a delay and getting admin status (MainLayout handles actual auth)
+			const authState =
+				useCartStore.getState().userStatus || (await authService.checkStatus());
+			setCurrentUserIsAdmin(authState.is_admin);
+			setTimeout(() => setIsLoadingContent(false), 500); // Simulate content load
 		};
-		fetchUserStatus();
-		return () => {
-			isMounted = false;
-		}; // Cleanup function
+		fetchDashboardData();
 	}, []);
 
-	// Define navigation items
-	const navItems = [
+	const navItemsForDashboard = [
+		// Specific items for the dashboard content
 		{
 			to: "/pos",
 			title: "Point of Sale",
-			description: "Process sales and manage transactions.",
-			icon: CurrencyDollarIcon,
-			bg: "bg-blue-50",
-			text: "text-blue-600",
+			description: "Process sales and manage transactions",
+			icon: ShoppingCart,
+			color: "bg-blue-500",
 		},
 		{
 			to: "/products",
 			title: "Product Management",
-			description: "Manage products, categories, and stock.",
-			icon: SquaresPlusIcon,
-			bg: "bg-indigo-50",
-			text: "text-indigo-600",
+			description: "Manage products, categories, and stock",
+			icon: Package,
+			color: "bg-indigo-500",
 		},
 		{
 			to: "/orders",
 			title: "Order History",
-			description: "View past orders and details.",
-			icon: ClockIcon,
-			bg: "bg-amber-50",
-			text: "text-amber-600",
+			description: "View past orders and details",
+			icon: Clock,
+			color: "bg-amber-500",
 		},
 		{
 			to: "/payments",
 			title: "Payment Management",
-			description: "Track payments and process refunds.",
-			icon: CreditCardIcon,
-			bg: "bg-green-50",
-			text: "text-green-600",
+			description: "Track payments and process refunds",
+			icon: CreditCard,
+			color: "bg-green-500",
 		},
 		{
 			to: "/reports",
 			title: "Reports",
-			description: "Generate sales and performance reports.",
-			icon: ChartBarIcon,
-			bg: "bg-emerald-50",
-			text: "text-emerald-600",
+			description: "Generate sales and performance reports",
+			icon: BarChart3,
+			color: "bg-emerald-500",
 			adminOnly: true,
 		},
 		{
 			to: "/users",
 			title: "User Management",
-			description: "Manage staff accounts and permissions.",
-			icon: UserGroupIcon,
-			bg: "bg-purple-50",
-			text: "text-purple-600",
+			description: "Manage staff accounts and permissions",
+			icon: Users,
+			color: "bg-purple-500",
 			adminOnly: true,
 		},
 		{
 			to: "/rewards",
 			title: "Rewards Program",
-			description: "Configure and manage customer rewards.",
-			icon: GiftIcon,
-			bg: "bg-pink-50",
-			text: "text-pink-600",
+			description: "Configure and manage customer rewards",
+			icon: Gift,
+			color: "bg-pink-500",
 			adminOnly: true,
 		},
 		{
 			to: "/discounts",
 			title: "Discounts",
-			description: "Create and manage discounts.",
-			icon: TagIcon,
-			bg: "bg-orange-50",
-			text: "text-orange-600",
+			description: "Create and manage discounts",
+			icon: Tag,
+			color: "bg-orange-500",
 			adminOnly: true,
 		},
 		{
 			to: "/settings",
 			title: "Settings",
-			description: "Configure system and admin settings.",
-			icon: Cog6ToothIcon,
-			bg: "bg-slate-100",
-			text: "text-slate-600",
+			description: "Configure system and admin settings",
+			icon: SettingsIconLucide,
+			color: "bg-slate-500",
 			adminOnly: true,
 		},
 	];
 
-	const getUserRole = (isAdmin) => (isAdmin ? "Admin" : "Staff");
-
 	return (
-		<div className="flex h-screen w-screen flex-col bg-slate-100">
-			{/* Header */}
-			<header className="flex h-14 flex-shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6 lg:px-8">
-				<div className="flex items-center gap-3">
-					<BuildingStorefrontIcon className="h-6 w-6 text-blue-600" />
-					<h1 className="text-lg font-semibold text-slate-800">
-						Ajeen POS Dashboard
-					</h1>
-				</div>
-				<div className="flex items-center gap-3">
-					<span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
-						<SignalIcon className="h-3 w-3" /> Online
-					</span>
-					<LogoutButton /> {/* Assuming LogoutButton is styled */}
-				</div>
-			</header>
-
-			{/* Main Content Area */}
-			<main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-				<div className="mx-auto max-w-5xl">
-					{" "}
-					{/* Constrain width */}
-					<h2 className="mb-6 text-xl font-semibold text-slate-800 sm:text-2xl">
+		<MainLayout pageTitle="Dashboard">
+			<div className="mx-auto max-w-6xl">
+				<div className="mb-6">
+					<h2 className="text-2xl font-semibold tracking-tight">
 						Quick Access
 					</h2>
-					{isLoading ? (
-						<div className="flex justify-center pt-10">
-							{/* Optional: Add a simple loading indicator */}
-							<p className="text-slate-500">Loading dashboard...</p>
-						</div>
-					) : (
-						<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 sm:gap-5 lg:gap-6">
-							{navItems.map((item) => (
-								<NavCard
-									key={item.to}
-									to={item.to}
-									title={item.title}
-									description={item.description}
-									icon={item.icon}
-									iconBgClass={item.bg}
-									iconTextClass={item.text}
-									isAdminOnly={item.adminOnly}
-									currentUserIsAdmin={userStatus.is_admin}
-								/>
-							))}
-						</div>
-					)}
+					<p className="text-muted-foreground">
+						Access all your POS features from one place
+					</p>
 				</div>
-			</main>
-
-			{/* Footer Status Bar */}
-			<footer className="flex h-10 flex-shrink-0 items-center justify-between border-t border-slate-200 bg-white px-4 text-xs text-slate-600 sm:px-6 lg:px-8">
-				<span>Version: 1.0.1</span> {/* Example version */}
-				<span>
-					User:{" "}
-					{isLoading
-						? "..."
-						: `${userStatus.username} (${getUserRole(userStatus.is_admin)})`}
-				</span>
-			</footer>
-		</div>
+				{isLoadingContent ? (
+					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+						{[...Array(6)].map((_, i) => (
+							<NavCardSkeleton key={i} />
+						))}
+					</div>
+				) : (
+					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+						{navItemsForDashboard.map((item) => (
+							<NavCard
+								key={item.to}
+								to={item.to}
+								title={item.title}
+								description={item.description}
+								icon={item.icon}
+								color={item.color}
+								isAdminOnly={item.adminOnly}
+								currentUserIsAdmin={currentUserIsAdmin}
+							/>
+						))}
+					</div>
+				)}
+			</div>
+		</MainLayout>
 	);
 }

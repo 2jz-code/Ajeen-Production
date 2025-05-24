@@ -1,18 +1,20 @@
-// combined-project/src-pos/features/cart/components/CartItem.jsx
+"use client";
 
 import { memo, useState, useEffect } from "react";
-import { ChevronRightIcon, XCircleIcon } from "@heroicons/react/24/solid";
 import PropTypes from "prop-types";
 import { ensureNumber, formatPrice } from "../../../utils/numberUtils";
-import { useKeypad } from "../../../hooks/useKeypad"; // Import useKeypad
-import { Keypad } from "../../../components/keypad/Keypad"; // Import Keypad component
+import { useKeypad } from "../../../hooks/useKeypad";
+import { Keypad } from "../../../components/keypad/Keypad"; // Assuming Keypad is styled appropriately
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card"; // Using Card for structure
+import { Badge } from "@/components/ui/badge";
+import { ChevronRight, X, Percent, Hash } from "lucide-react";
 
 export const CartItem = memo(
 	({ item, isExpanded, onExpand, onUpdate, onRemove }) => {
-		// Use the keypad hook
 		const { isKeypadOpen, keypadProps, openKeypad } = useKeypad();
 
-		// Local state for discount input (remains the same)
+		// Local discount state remains the same
 		const [localDiscount, setLocalDiscount] = useState(
 			item.discount !== undefined ? item.discount.toString() : ""
 		);
@@ -23,12 +25,10 @@ export const CartItem = memo(
 			}
 		}, [item.discount]);
 
-		// Add validation and safe number conversion
 		const calculateItemTotal = () => {
 			const price = ensureNumber(item.price);
 			const quantity = ensureNumber(item.quantity);
 			const discountPercent = ensureNumber(item.discount);
-
 			const basePrice = price * quantity;
 			const discount = basePrice * (discountPercent / 100);
 			return formatPrice(basePrice - discount);
@@ -36,27 +36,20 @@ export const CartItem = memo(
 
 		const getFormattedDiscount = () => {
 			if (localDiscount === "") return "";
-			const numericDiscount = parseInt(localDiscount, 10);
+			const numericDiscount = Number.parseInt(localDiscount, 10);
 			return Number.isFinite(numericDiscount) ? numericDiscount : 0;
 		};
 
-		// --- Keypad Integration ---
-
-		// Function to open keypad for quantity - pass empty string for value
 		const handleQuantityClick = (e) => {
 			e.stopPropagation();
 			openKeypad({
-				// Reset value to empty string when opening
-				value: "",
+				value: String(item.quantity), // Pass current quantity
 				onChange: (newValue) => {
-					const updatedQuantity = parseInt(newValue, 10);
-					// Only update if a valid number is entered
+					const updatedQuantity = Number.parseInt(newValue, 10);
 					if (Number.isFinite(updatedQuantity) && updatedQuantity > 0) {
-						onUpdate(item.id, updatedQuantity);
+						onUpdate(item.id, { quantity: updatedQuantity }); // Pass as object
 					} else if (newValue === "" || updatedQuantity <= 0) {
-						// If cleared or invalid, maybe default to 1 or keep previous?
-						// Let's default to 1 if empty or invalid for quantity
-						onUpdate(item.id, 1);
+						onUpdate(item.id, { quantity: 1 });
 					}
 				},
 				title: `Quantity for ${item.name}`,
@@ -65,20 +58,18 @@ export const CartItem = memo(
 			});
 		};
 
-		// Function to open keypad for discount - pass empty string for value
 		const handleDiscountClick = (e) => {
 			e.stopPropagation();
 			openKeypad({
-				// Reset value to empty string when opening
-				value: "",
+				value: String(ensureNumber(item.discount)), // Pass current discount
 				onChange: (newValue) => {
 					let numericValue = 0;
 					if (newValue !== "") {
-						numericValue = Math.min(100, Math.max(0, parseInt(newValue) || 0));
+						numericValue = Math.min(
+							100,
+							Math.max(0, Number.parseInt(newValue) || 0)
+						);
 					}
-					// Update local state immediately for display (if needed)
-					// setLocalDiscount(String(numericValue));
-					// Update the actual cart state
 					onUpdate(item.id, { discount: numericValue });
 				},
 				title: `Discount (%) for ${item.name}`,
@@ -87,9 +78,6 @@ export const CartItem = memo(
 			});
 		};
 
-		// --- End Keypad Integration ---
-
-		// Handle removing the item
 		const handleRemoveClick = (e) => {
 			e.stopPropagation();
 			onRemove(item.id);
@@ -97,118 +85,119 @@ export const CartItem = memo(
 
 		return (
 			<>
-				{/* Main item container - Apply modern styling */}
-				{/* Use py-1 instead of full bg for slightly tighter list */}
-				<div className="py-1">
-					<div className="bg-white border border-slate-200 rounded-lg shadow-sm hover:shadow transition-shadow duration-150 ease-in-out">
-						{/* Clickable main row */}
+				<Card className="transition-all duration-150 hover:shadow-md shadow-sm">
+					{" "}
+					{/* Added shadow-sm for base */}
+					<CardContent className="p-0">
+						{/* Main item row: Reduced padding from p-4 to p-2.5 */}
 						<div
-							className="p-3 flex justify-between items-center cursor-pointer group"
-							onClick={onExpand} // Original handler
+							className="p-2.5 flex items-center justify-between cursor-pointer"
+							onClick={onExpand}
 						>
-							{/* Left side: Expand icon, Quantity, Name */}
-							<div className="flex items-center gap-3 flex-1 min-w-0">
-								{" "}
-								{/* Added flex-1 and min-w-0 */}
-								<ChevronRightIcon
-									className={`h-5 w-5 text-slate-400 transition-transform duration-200 ${
-										isExpanded ? "rotate-90" : "" // Original logic
+							{/* Reduced gap from gap-3 to gap-2 */}
+							<div className="flex items-center gap-2 flex-1 min-w-0">
+								<ChevronRight
+									className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
+										isExpanded ? "rotate-90" : ""
 									}`}
 								/>
-								{/* Quantity - Styled to look clickable */}
-								<span
-									className="text-sm text-slate-800 font-medium cursor-pointer hover:bg-blue-50 active:bg-blue-100 px-2 py-1 rounded-md transition-colors"
-									onClick={handleQuantityClick} // Original handler
-									title="Click to edit quantity"
+								{/* Quantity Badge: Already small (py-0.5) */}
+								<Badge
+									variant="secondary"
+									className="cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-800/50 transition-colors text-xs px-1.5 py-0.5" // Made slightly smaller
+									onClick={handleQuantityClick}
 								>
 									{item.quantity}
-								</span>
-								{/* Item Name - Allow truncation */}
+								</Badge>
 								<span
-									className="text-sm text-slate-800 font-medium truncate"
+									className="font-medium text-sm truncate" // text-sm is default, ensure it's not overridden larger
 									title={item.name}
 								>
-									× {item.name}
+									{item.name}
 								</span>
 							</div>
-							{/* Right side: Total Price, Remove Button */}
-							<div className="flex items-center gap-2 flex-shrink-0 ml-2">
+
+							<div className="flex items-center gap-2">
 								{" "}
-								{/* Added flex-shrink-0 and margin */}
-								{/* Calculated Total */}
-								<span className="text-sm text-slate-700 font-semibold w-16 text-right">
-									{" "}
-									{/* Added width and text-right */}
-									{calculateItemTotal()} {/* Original function */}
+								{/* Reduced gap */}
+								{/* Total Price: Reduced font size from text-lg to text-base */}
+								<span className="font-semibold text-base">
+									{calculateItemTotal()}
 								</span>
-								{/* Remove Button - Styled */}
-								<button
-									onClick={handleRemoveClick} // Original handler
-									className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors duration-150 ease-in-out"
-									title="Remove item"
+								<Button
+									variant="ghost"
+									size="icon" // Use icon size for Button
+									onClick={handleRemoveClick}
+									className="h-7 w-7 text-muted-foreground hover:text-destructive" // Made button smaller
 								>
-									<XCircleIcon className="h-5 w-5" />
-								</button>
+									<X className="h-3.5 w-3.5" />{" "}
+									{/* Icon size slightly smaller */}
+									<span className="sr-only">Remove item</span>
+								</Button>
 							</div>
 						</div>
 
-						{/* Expanded Section - Conditionally rendered based on original prop */}
+						{/* Expanded section: Reduced padding, gap, and button height */}
 						{isExpanded && (
-							<div className="p-3 border-t border-slate-200 bg-slate-50 rounded-b-lg">
-								<div className="flex gap-4">
-									{/* Quantity Section - Styled clickable div */}
-									<div className="flex-1">
-										<label className="text-xs font-medium text-slate-600 mb-1 block">
+							<div className="px-3 pt-2 pb-3 border-t bg-slate-50/70 dark:bg-slate-800/30">
+								{" "}
+								{/* Reduced padding */}
+								<div className="grid grid-cols-2 gap-3">
+									{" "}
+									{/* Reduced gap */}
+									<div className="space-y-1">
+										{" "}
+										{/* Reduced space-y */}
+										<label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+											<Hash className="h-3 w-3" />
 											Quantity
 										</label>
-										<div
-											className="w-full px-3 py-1.5 border border-slate-300 rounded-md bg-white hover:bg-slate-50 cursor-pointer text-center text-sm transition-colors"
-											onClick={handleQuantityClick} // Original handler
-											title="Click to edit quantity"
+										<Button
+											variant="outline"
+											onClick={handleQuantityClick}
+											className="w-full justify-center h-9 text-sm" // Reduced height from h-10 to h-9 (default Button size)
 										>
-											{/* Display original quantity */}
 											{item.quantity}
-										</div>
+										</Button>
 									</div>
-
-									{/* Discount Section - Styled clickable div */}
-									<div className="flex-1">
-										<label className="text-xs font-medium text-slate-600 mb-1 block">
-											Discount (%)
+									<div className="space-y-1">
+										{" "}
+										{/* Reduced space-y */}
+										<label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+											<Percent className="h-3 w-3" />
+											Discount
 										</label>
-										<div
-											className="w-full px-3 py-1.5 border border-slate-300 rounded-md bg-white hover:bg-slate-50 cursor-pointer text-center text-sm transition-colors"
-											onClick={handleDiscountClick} // Original handler
-											title="Click to edit discount"
+										<Button
+											variant="outline"
+											onClick={handleDiscountClick}
+											className="w-full justify-center h-9 text-sm" // Reduced height
 										>
-											{/* Display original discount */}
 											{ensureNumber(item.discount)}%
-										</div>
+										</Button>
 									</div>
 								</div>
-
-								{/* Discount Preview - Conditionally rendered based on original logic/value */}
 								{ensureNumber(item.discount) > 0 && (
-									<div className="mt-2 text-xs text-emerald-600">
-										Discount Amount: {getFormattedDiscount()}%
+									<div className="mt-2 p-1.5 bg-green-50 dark:bg-green-900/30 rounded-md">
+										{" "}
+										{/* Reduced margin and padding */}
+										<p className="text-xs text-green-700 dark:text-green-400">
+											Discount Applied: {getFormattedDiscount()}% off
+										</p>
 									</div>
 								)}
 							</div>
 						)}
-					</div>
-				</div>
-
-				{/* Keypad Rendering - Conditionally rendered based on original state */}
+					</CardContent>
+				</Card>
 				{isKeypadOpen && <Keypad {...keypadProps} />}
 			</>
 		);
-		// --- END OF UPDATED UI ---
 	}
 );
 
 CartItem.propTypes = {
 	item: PropTypes.shape({
-		id: PropTypes.number.isRequired,
+		id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired, // id can be string or number
 		name: PropTypes.string.isRequired,
 		price: PropTypes.number.isRequired,
 		quantity: PropTypes.number.isRequired,
@@ -221,3 +210,5 @@ CartItem.propTypes = {
 };
 
 CartItem.displayName = "CartItem";
+
+export default CartItem; // Default export if this is the main export of the file

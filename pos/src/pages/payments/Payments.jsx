@@ -1,66 +1,116 @@
+// src/pages/payments/Payments.jsx
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import PropTypes from "prop-types";
 import { paymentService } from "../../api/services/paymentService";
-import { authService } from "../../api/services/authService";
-import RefundSuccessModal from "./RefundSuccessModal";
+import { authService } from "../../api/services/authService"; // Kept for isAdmin if needed for content
+import RefundSuccessModal from "./RefundSuccessModal"; // Modal restored
 import LoadingSpinner from "../reports/components/LoadingSpinner";
-// Icons for UI
 import {
-	CreditCardIcon,
+	CreditCardIcon as PageIcon,
 	BanknotesIcon,
+	CreditCardIcon, // For method display
 	TicketIcon,
 	EyeIcon,
-	Bars3Icon,
+	// Bars3Icon, // Handled by MainLayout
 	ExclamationTriangleIcon,
 	ArrowPathIcon,
 	InformationCircleIcon,
-	SquaresPlusIcon, // For Split
+	SquaresPlusIcon,
+	ClockIcon,
+	CheckCircleIcon,
+	XCircleIcon,
 } from "@heroicons/react/24/outline";
+import MainLayout from "../layout/MainLayout";
 
-/**
- * Payments Component
- * Displays a list of payments, filterable by status and method.
- * Status filtering is done backend, Method filtering is done frontend.
- */
+// Helper components for table styling
+const Th = ({ children, align = "left", className = "" }) => (
+	<th
+		scope="col"
+		className={`whitespace-nowrap px-4 py-2.5 text-${align} text-xs font-semibold uppercase tracking-wider text-slate-500 ${className}`}
+	>
+		{children}
+	</th>
+);
+Th.propTypes = {
+	children: PropTypes.node,
+	align: PropTypes.string,
+	className: PropTypes.string,
+};
+
+const Td = ({ children, align = "left", className = "", isHeader = false }) => (
+	<td
+		className={`whitespace-nowrap px-4 py-2 text-${align} text-xs ${
+			isHeader ? "font-medium text-slate-800" : "text-slate-600"
+		} ${className}`}
+	>
+		{children}
+	</td>
+);
+Td.propTypes = {
+	children: PropTypes.node,
+	align: PropTypes.string,
+	className: PropTypes.string,
+	isHeader: PropTypes.bool,
+};
+
 export default function Payments() {
-	// --- State Variables ---
-	const [allPaymentsForStatus, setAllPaymentsForStatus] = useState([]); // Store payments fetched based on status ONLY
-	const [filteredPayments, setFilteredPayments] = useState([]); // Payments displayed after frontend method filtering
-	const [activeTab, setActiveTab] = useState("all"); // Status filter
-	const [paymentMethodFilter, setPaymentMethodFilter] = useState("all"); // Method filter ('all', 'cash', 'credit', 'split')
-	const [isAdmin, setIsAdmin] = useState(false);
-	const [userName, setUserName] = useState("");
+	const [allPaymentsForStatus, setAllPaymentsForStatus] = useState([]);
+	const [filteredPayments, setFilteredPayments] = useState([]);
+	const [activeTab, setActiveTab] = useState("all");
+	const [paymentMethodFilter, setPaymentMethodFilter] = useState("all");
+	//eslint-disable-next-line
+	const [isAdmin, setIsAdmin] = useState(false); // Retained for potential page-specific logic not handled by MainLayout
+	//eslint-disable-next-line
+	const [userName, setUserName] = useState(""); // Retained for potential page-specific logic
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState(null);
 	const navigate = useNavigate();
-	const [refundSuccessData, setRefundSuccessData] = useState(null);
+	const [refundSuccessData, setRefundSuccessData] = useState(null); // Modal state restored
 
-	// --- Data Fetching ---
-	// Fetch payments based ONLY on the status filter
+	const applyFrontendMethodFilter = useCallback(
+		(paymentsToFilter, methodFilter) => {
+			let newlyFiltered = [];
+			if (methodFilter === "all") {
+				newlyFiltered = paymentsToFilter;
+			} else if (methodFilter === "split") {
+				newlyFiltered = paymentsToFilter.filter((p) => p.is_split_payment);
+			} else if (methodFilter === "cash") {
+				newlyFiltered = paymentsToFilter.filter(
+					(p) =>
+						!p.is_split_payment && p.payment_method?.toLowerCase() === "cash"
+				);
+			} else if (methodFilter === "credit") {
+				newlyFiltered = paymentsToFilter.filter(
+					(p) =>
+						!p.is_split_payment &&
+						(p.payment_method?.toLowerCase() === "credit" ||
+							p.payment_method?.toLowerCase() === "card")
+				);
+			}
+			setFilteredPayments(newlyFiltered);
+		},
+		[]
+	);
+
 	const fetchPaymentsByStatus = useCallback(async () => {
 		setIsLoading(true);
 		setError(null);
-		setAllPaymentsForStatus([]); // Clear previous results
-		setFilteredPayments([]); // Clear displayed results
+		// Not clearing allPaymentsForStatus / filteredPayments here to prevent UI flashing if only method filter changes
 		try {
-			// --- FILTER LOGIC (Backend - Status Only) ---
 			const filters = {};
-			if (activeTab !== "all") {
-				filters.status = activeTab;
-			}
-			// --- No Method filtering applied here ---
+			if (activeTab !== "all") filters.status = activeTab;
 
-			const [paymentsData, authResponse] = await Promise.all([
-				paymentService.getPayments(filters), // Only pass status filter
-				authService.checkStatus(),
-			]);
-
-			const fetchedPayments = Array.isArray(paymentsData) ? paymentsData : [];
-			setAllPaymentsForStatus(fetchedPayments); // Store all fetched payments for this status
+			// Fetch auth status for isAdmin/userName if MainLayout doesn't pass it down
+			// For now, assuming MainLayout handles the user display in its own header/footer.
+			// If this page *needs* isAdmin for content decisions, this call is fine.
+			const authResponse = await authService.checkStatus();
 			setIsAdmin(authResponse.is_admin);
-			setUserName(authResponse.username);
-			// Apply initial frontend method filtering (will be re-applied if method filter changes)
+			setUserName(authResponse.username); // User for footer notice if not using MainLayout's
+
+			const paymentsData = await paymentService.getPayments(filters);
+			const fetchedPayments = Array.isArray(paymentsData) ? paymentsData : [];
+			setAllPaymentsForStatus(fetchedPayments);
 			applyFrontendMethodFilter(fetchedPayments, paymentMethodFilter);
 		} catch (err) {
 			console.error("Error fetching payments:", err);
@@ -73,45 +123,24 @@ export default function Payments() {
 		} finally {
 			setIsLoading(false);
 		}
-	}, [activeTab]); // Dependency: refetch only when status tab changes
+	}, [activeTab, paymentMethodFilter, applyFrontendMethodFilter]);
 
-	// --- Frontend Filtering ---
-	// Function to apply the method filter to the fetched payments
-	const applyFrontendMethodFilter = (paymentsToFilter, methodFilter) => {
-		let newlyFiltered = [];
-		if (methodFilter === "all") {
-			newlyFiltered = paymentsToFilter; // Show all fetched payments
-		} else if (methodFilter === "split") {
-			newlyFiltered = paymentsToFilter.filter((p) => p.is_split_payment);
-		} else if (methodFilter === "cash") {
-			newlyFiltered = paymentsToFilter.filter(
-				(p) => !p.is_split_payment && p.payment_method?.toLowerCase() === "cash"
-			);
-		} else if (methodFilter === "credit") {
-			newlyFiltered = paymentsToFilter.filter(
-				(p) =>
-					!p.is_split_payment &&
-					(p.payment_method?.toLowerCase() === "credit" ||
-						p.payment_method?.toLowerCase() === "card")
-			);
-		}
-		setFilteredPayments(newlyFiltered); // Update the state for displayed payments
-	};
-
-	// Effect to fetch payments when status tab changes
 	useEffect(() => {
 		fetchPaymentsByStatus();
 	}, [fetchPaymentsByStatus]);
 
-	// Effect to re-apply frontend filter when method filter changes
+	// This useEffect for method filter remains, but it now operates on allPaymentsForStatus
 	useEffect(() => {
-		// Don't run while loading initial data
 		if (!isLoading) {
 			applyFrontendMethodFilter(allPaymentsForStatus, paymentMethodFilter);
 		}
-	}, [paymentMethodFilter, allPaymentsForStatus, isLoading]); // Re-filter when method or base data changes
+	}, [
+		paymentMethodFilter,
+		allPaymentsForStatus,
+		isLoading,
+		applyFrontendMethodFilter,
+	]);
 
-	// --- Helper Functions (Unchanged) ---
 	const formatCurrency = (amount) => {
 		const numAmount = Number(amount);
 		if (isNaN(numAmount)) return "$ --";
@@ -128,8 +157,8 @@ export default function Payments() {
 				dateStyle: "short",
 				timeStyle: "short",
 			});
+			//eslint-disable-next-line
 		} catch (e) {
-			console.warn("Invalid Date format:", timestamp, e);
 			return "Invalid Date";
 		}
 	};
@@ -137,13 +166,14 @@ export default function Payments() {
 	const getStatusPill = (status) => {
 		const lowerStatus = status?.toLowerCase();
 		const baseClasses =
-			"px-2 py-0.5 rounded-full text-[10px] font-semibold inline-flex items-center border whitespace-nowrap";
+			"inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border whitespace-nowrap";
 		switch (lowerStatus) {
 			case "completed":
 				return (
 					<span
 						className={`${baseClasses} bg-emerald-50 text-emerald-700 border-emerald-200`}
 					>
+						<CheckCircleIcon className="h-3 w-3" />
 						COMPLETED
 					</span>
 				);
@@ -152,6 +182,7 @@ export default function Payments() {
 					<span
 						className={`${baseClasses} bg-rose-50 text-rose-700 border-rose-200`}
 					>
+						<XCircleIcon className="h-3 w-3" />
 						REFUNDED
 					</span>
 				);
@@ -160,6 +191,7 @@ export default function Payments() {
 					<span
 						className={`${baseClasses} bg-amber-50 text-amber-700 border-amber-200`}
 					>
+						<ExclamationTriangleIcon className="h-3 w-3" />
 						PARTIAL REFUND
 					</span>
 				);
@@ -168,6 +200,7 @@ export default function Payments() {
 					<span
 						className={`${baseClasses} bg-red-50 text-red-700 border-red-200`}
 					>
+						<XCircleIcon className="h-3 w-3" />
 						FAILED
 					</span>
 				);
@@ -177,6 +210,7 @@ export default function Payments() {
 					<span
 						className={`${baseClasses} bg-sky-50 text-sky-700 border-sky-200`}
 					>
+						<ClockIcon className="h-3 w-3" />
 						{lowerStatus.toUpperCase()}
 					</span>
 				);
@@ -193,7 +227,7 @@ export default function Payments() {
 
 	const getPaymentMethodDisplay = (payment) => {
 		const baseClasses =
-			"px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center gap-1 border whitespace-nowrap";
+			"inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border whitespace-nowrap";
 		if (payment.is_split_payment) {
 			return (
 				<span
@@ -205,7 +239,7 @@ export default function Payments() {
 			);
 		}
 		const method = payment.payment_method?.toLowerCase();
-		if (method === "cash") {
+		if (method === "cash")
 			return (
 				<span
 					className={`${baseClasses} bg-green-50 text-green-700 border-green-200`}
@@ -214,8 +248,7 @@ export default function Payments() {
 					CASH
 				</span>
 			);
-		}
-		if (method === "credit" || method === "card") {
+		if (method === "credit" || method === "card")
 			return (
 				<span
 					className={`${baseClasses} bg-blue-50 text-blue-700 border-blue-200`}
@@ -224,7 +257,6 @@ export default function Payments() {
 					CARD
 				</span>
 			);
-		}
 		return (
 			<span
 				className={`${baseClasses} bg-slate-100 text-slate-700 border-slate-200`}
@@ -235,17 +267,12 @@ export default function Payments() {
 		);
 	};
 
-	// --- Event Handlers ---
 	const viewPaymentDetails = (paymentId) => navigate(`/payments/${paymentId}`);
 	const viewAssociatedOrder = (orderId) => {
-		if (orderId) {
-			navigate(`/orders/${orderId}`);
-		} else {
-			console.warn("No associated order ID found for this payment.");
-		}
+		if (orderId) navigate(`/orders/${orderId}`);
+		else console.warn("No associated order ID found for this payment.");
 	};
 
-	// --- UI Rendering ---
 	const tabButtonBase =
 		"flex-shrink-0 px-3 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1";
 	const tabButtonActive = "bg-blue-600 text-white shadow-sm";
@@ -255,25 +282,16 @@ export default function Payments() {
 		"p-1.5 rounded text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-blue-400";
 
 	return (
-		<div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-100 p-4 text-slate-900 sm:p-6">
-			{/* Header Section */}
-			<header className="mb-4 flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
-				<h1 className="flex items-center gap-2 text-xl font-bold text-slate-800 sm:text-2xl">
-					<CreditCardIcon className="h-6 w-6 text-slate-600" /> Payment
-					Management
-				</h1>
-				<button
-					className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-					onClick={() => navigate("/dashboard")}
-				>
-					<Bars3Icon className="h-4 w-4" />
-					<span className="hidden sm:inline">Dashboard</span>
-				</button>
-			</header>
+		<MainLayout pageTitle="Payment Management">
+			<div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+				<h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
+					<PageIcon className="h-6 w-6 text-slate-600" />
+					Payment Records
+				</h2>
+				{/* Dashboard button is in MainLayout */}
+			</div>
 
-			{/* Filter Section */}
 			<div className="mb-4 grid flex-shrink-0 grid-cols-1 gap-3 md:grid-cols-2">
-				{/* Status Filter */}
 				<div className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
 					<div className="mb-1.5 px-1 text-xs font-semibold text-slate-500">
 						Filter by Status
@@ -292,14 +310,13 @@ export default function Payments() {
 								className={`${tabButtonBase} ${
 									activeTab === tab ? tabButtonActive : tabButtonInactive
 								}`}
-								onClick={() => setActiveTab(tab)} // Triggers fetchPaymentsByStatus via useEffect
+								onClick={() => setActiveTab(tab)}
 							>
 								{tab.toUpperCase().replace("_", " ")}
 							</button>
 						))}
 					</div>
 				</div>
-				{/* Payment Method Filter */}
 				<div className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
 					<div className="mb-1.5 px-1 text-xs font-semibold text-slate-500">
 						Filter by Method
@@ -313,7 +330,7 @@ export default function Payments() {
 										? tabButtonActive
 										: tabButtonInactive
 								}`}
-								onClick={() => setPaymentMethodFilter(method)} // Triggers frontend filtering via useEffect
+								onClick={() => setPaymentMethodFilter(method)}
 							>
 								{method.toUpperCase()}
 							</button>
@@ -322,9 +339,8 @@ export default function Payments() {
 				</div>
 			</div>
 
-			{/* Payments List Area */}
 			<div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-				{isLoading ? (
+				{isLoading && filteredPayments.length === 0 ? (
 					<div className="flex h-full items-center justify-center">
 						<LoadingSpinner size="md" />
 					</div>
@@ -333,7 +349,7 @@ export default function Payments() {
 						<ExclamationTriangleIcon className="mb-2 h-8 w-8 text-red-400" />
 						<p className="mb-3 text-sm text-red-600">{error}</p>
 						<button
-							onClick={fetchPaymentsByStatus} // Retry button fetches by status again
+							onClick={() => fetchPaymentsByStatus(true)}
 							className="flex items-center gap-1 rounded-md border border-red-300 bg-red-100 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1"
 						>
 							<ArrowPathIcon className="h-3.5 w-3.5" /> Retry
@@ -354,14 +370,13 @@ export default function Payments() {
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-slate-100 bg-white">
-								{/* *** Display filteredPayments instead of payments *** */}
 								{filteredPayments.length === 0 ? (
 									<tr>
 										<td
 											colSpan="7"
 											className="p-8 text-center text-sm text-slate-500"
 										>
-											No payments match the current filters.
+											No payments match filters.
 										</td>
 									</tr>
 								) : (
@@ -410,67 +425,44 @@ export default function Payments() {
 								)}
 							</tbody>
 						</table>
+						{isLoading && filteredPayments.length > 0 && (
+							<div className="p-4 text-center text-slate-500 text-sm">
+								<ArrowPathIcon className="h-4 w-4 inline animate-spin mr-2" />{" "}
+								Loading more...
+							</div>
+						)}
 					</div>
 				)}
 			</div>
 
-			{/* Status Bar */}
-			<footer className="mt-4 flex flex-shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-lg bg-white px-4 py-2 text-xs shadow-sm border border-slate-200">
-				<span className="flex items-center gap-2 text-slate-600">
-					<InformationCircleIcon className="h-3.5 w-3.5 text-slate-400" />
-					{/* Show count of displayed payments */}
-					<span>Payments Shown: {filteredPayments.length}</span>
-					{/* Optionally show total fetched for the status */}
-					{/* {paymentMethodFilter !== 'all' && <span> (out of {allPaymentsForStatus.length} {activeTab !== 'all' ? activeTab : ''} payments)</span>} */}
-				</span>
-				<span className="text-slate-500">
-					User: <span className="font-medium text-slate-700">{userName}</span> (
-					<span className="font-medium text-slate-700">
-						{isAdmin ? "Admin" : "Staff"}
+			<footer className="mt-4 flex-shrink-0 rounded-lg bg-white px-4 py-2 text-xs shadow-sm border border-slate-200">
+				<div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+					<span className="flex items-center gap-2 text-slate-600">
+						<InformationCircleIcon className="h-3.5 w-3.5 text-slate-400" />
+						<span>Payments Shown: {filteredPayments.length}</span>
+						{paymentMethodFilter !== "all" || activeTab !== "all" ? (
+							<span className="text-slate-400">
+								(Filtered from {allPaymentsForStatus.length} matching status
+								&quot;{activeTab}&quot;)
+							</span>
+						) : (
+							<span className="text-slate-400">
+								(Total: {allPaymentsForStatus.length})
+							</span>
+						)}
 					</span>
-					)
-				</span>
+					{/* userName and isAdmin will be in MainLayout's footer */}
+				</div>
 			</footer>
 
-			{/* Modals */}
+			{/* RefundSuccessModal and its trigger logic are part of PaymentDetails, kept there */}
 			{refundSuccessData && (
 				<RefundSuccessModal
 					isOpen={!!refundSuccessData}
 					onClose={() => setRefundSuccessData(null)}
-					refundData={
-						refundSuccessData.refund_details || {
-							amount: refundSuccessData.amount,
-						}
-					}
-					paymentMethod={refundSuccessData.payment_method || ""}
+					refundDetails={refundSuccessData} // Ensure this matches what RefundSuccessModal expects
 				/>
 			)}
-		</div>
+		</MainLayout>
 	);
 }
-
-// Helper components for table styling (Unchanged)
-const Th = ({ children, align = "left" }) => (
-	<th
-		scope="col"
-		className={`whitespace-nowrap px-4 py-2.5 text-${align} text-xs font-semibold uppercase tracking-wider text-slate-500`}
-	>
-		{children}
-	</th>
-);
-Th.propTypes = { children: PropTypes.node, align: PropTypes.string };
-
-const Td = ({ children, align = "left", isHeader = false }) => (
-	<td
-		className={`whitespace-nowrap px-4 py-2 text-${align} text-xs ${
-			isHeader ? "font-medium text-slate-800" : "text-slate-600"
-		}`}
-	>
-		{children}
-	</td>
-);
-Td.propTypes = {
-	children: PropTypes.node,
-	align: PropTypes.string,
-	isHeader: PropTypes.bool,
-};
