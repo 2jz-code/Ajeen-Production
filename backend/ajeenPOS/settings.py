@@ -88,7 +88,10 @@ ROOT_URLCONF = "ajeenPOS.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [
+            BASE_DIR
+            / "templates",  # Ensure this line exists and points to backend/templates
+        ],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -567,40 +570,36 @@ if not DEBUG:
 
 # --- Jazzmin Admin Theme Settings ---
 JAZZMIN_SETTINGS = {
-    # title of the window (Will default to current_admin_site.site_title if absent or None)
     "site_title": "Ajeen POS Admin",
-    # Title on the login screen (19 chars max) (defaults to current_admin_site.site_header if absent or None)
     "site_header": "Ajeen POS",
-    # Title on the brand (19 chars max) (defaults to current_admin_site.site_header if absent or None)
     "site_brand": "Ajeen POS",
-    # Logo to use for your site, must be present in static files, used for brand on top left
-    # "site_logo": "path/to/logo.png",
-    # Logo to use for your site, must be present in static files, used for login form logo (defaults to site_logo)
-    # "login_logo": None,
-    # Logo to use for login form in dark themes (defaults to login_logo)
-    # "login_logo_dark": None,
-    # CSS classes that are applied to the logo above
-    # "site_logo_classes": "img-circle",
-    # Relative path to a favicon for your site, will default to site_logo if absent (ideally 32x32 px)
-    # "site_icon": None,
-    # Welcome text on the login screen
     "welcome_sign": "Welcome to Ajeen POS Admin",
-    # Copyright on the footer
     "copyright": "Ajeen Restaurant Ltd",
-    # Whether to show the UI customizer on the sidebar
-    "show_ui_builder": True,
-    ###############
-    # Change view #
-    ###############
-    # Render out the change view as a single form, or in tabs, current options are
-    # - single
-    # - horizontal_tabs (default)
-    # - vertical_tabs
-    # - collapsible
-    # - carousel
+    "show_ui_builder": True,  # Or False
     "changeform_format": "horizontal_tabs",
-    # override change forms on a per modeladmin basis
-    # "changeform_format_overrides": {"auth.user": "collapsible", "auth.group": "vertical_tabs"},
+    # ADD OR MODIFY "topmenu_links"
+    "topmenu_links": [
+        # Default home link (optional)
+        {"name": "Home", "url": "admin:index", "permissions": ["auth.view_user"]},
+        # Your custom reset database button/link
+        {
+            "name": "RESET DATABASE",  # Text for the link/button
+            "url": "/admin/reset-database-schema/",  # Use the direct absolute path
+            "permissions": [
+                "users.view_customuser"
+            ],  # Show for users who can view users (typically superusers).
+            # The actual security is handled by your view's decorator.
+            # You can also create a specific dummy permission if needed.
+            "attrs": {  # HTML attributes for the link
+                "class": "btn btn-danger btn-sm jazzmin-reset-db-button",  # Bootstrap classes for styling + custom class
+                "title": "EXTREME WARNING: This will WIPE your database and rerun migrations. For pre-launch testing ONLY. Click for details and final confirmation. Enabled via DEBUG or specific ENV VAR.",
+                "onclick": "return confirm('EXTREME WARNING:\\n\\nThis action will attempt to WIPE ALL DATA in your database...\\n\\nAre you ABSOLUTELY SURE you want to proceed to the confirmation page?');",
+                "style": "margin-left: 10px;",  # Example inline style
+            },
+        },
+        # Example of an app link (if you have one)
+        # {"model": "auth.User"},
+    ],
 }
 JAZZMIN_UI_TWEAKS = {
     "navbar_small_text": False,

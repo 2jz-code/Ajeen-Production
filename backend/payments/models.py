@@ -1,11 +1,23 @@
 # combined/backend/payments/models.py
 from django.db import models
-from orders.models import Order  # Assuming Order is in orders app
+from orders.models import Order
 import json
+import decimal  # Keep this import for DecimalEncoder
 
 
-# Keep Payment model largely the same for now, but prepare for transactions
+# Define DecimalEncoder directly in this file
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, decimal.Decimal):
+            return str(o)
+        return super().default(o)
+
+
+# REMOVE: from .views import DecimalEncoder  # <--- REMOVE THIS IMPORT
+
+
 class Payment(models.Model):
+    # ... (rest of Payment model code remains the same) ...
     PAYMENT_STATUS_CHOICES = [
         ("pending", "Pending"),
         ("completed", "Completed"),
@@ -13,8 +25,8 @@ class Payment(models.Model):
         ("partially_refunded", "Partially Refunded"),
         ("refunded", "Refunded"),
         ("voided", "Voided"),
-        ("disputed", "Disputed"),  # New
-        ("canceled", "Canceled"),  # New
+        ("disputed", "Disputed"),
+        ("canceled", "Canceled"),
     ]
 
     PAYMENT_METHOD_CHOICES = [
@@ -43,15 +55,13 @@ class Payment(models.Model):
 
 
 class PaymentTransaction(models.Model):
+    # ... (rest of PaymentTransaction fields remain the same) ...
     TRANSACTION_STATUS_CHOICES = [
         ("pending", "Pending"),
         ("completed", "Completed"),
         ("failed", "Failed"),
         ("refunded", "Refunded"),
-        (
-            "canceled",
-            "Canceled",
-        ),  # New for consistency if a PI is canceled before charge
+        ("canceled", "Canceled"),
     ]
     TRANSACTION_METHOD_CHOICES = [
         ("cash", "Cash"),
@@ -81,9 +91,12 @@ class PaymentTransaction(models.Model):
 
     def set_metadata(self, data):
         try:
-            self.metadata_json = json.dumps(data)
+            # DecimalEncoder is now defined in this file
+            self.metadata_json = json.dumps(data, cls=DecimalEncoder)
         except TypeError:
-            self.metadata_json = json.dumps({"error": "Data not serializable"})
+            self.metadata_json = json.dumps(
+                {"error": "Data not serializable (unexpected type)"}
+            )
 
     def get_metadata(self):
         if not self.metadata_json:

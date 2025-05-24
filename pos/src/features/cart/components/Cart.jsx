@@ -1,16 +1,20 @@
-// src/features/cart/components/Cart.jsx
+"use client";
+
 import { useState } from "react";
 import { useCart } from "../hooks/useCart";
 import { useCartActions } from "../hooks/useCartActions";
 import { CartHeader } from "./CartHeader";
-import { CartItemList } from "./CartItemList";
-import { CartSummary } from "./CartSummary";
+import CartItemList from "./CartItemList";
+import CartSummary from "./CartSummary";
 import { useOrderValidation } from "../../../utils/useOrderValidation";
 import PaymentFlow from "../../payment/components/PaymentFlow";
 import { calculateCartTotals } from "../utils/cartCalculations";
 import axiosInstance from "../../../api/config/axiosConfig";
 import DiscountSelector from "../../../components/discounts/DiscountSelector";
 import { useCartStore } from "../../../store/cartStore";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import { motion } from "framer-motion";
 
 export const Cart = () => {
 	const { cart, orderId, showOverlay, orderDiscount } = useCart();
@@ -20,7 +24,6 @@ export const Cart = () => {
 	const [showDiscountSelector, setShowDiscountSelector] = useState(false);
 	const { canHoldOrder } = useOrderValidation(cart, orderId);
 
-	// Get setOrderDiscount and removeOrderDiscount from the store
 	const setOrderDiscount = useCartStore((state) => state.setOrderDiscount);
 	const removeOrderDiscount = useCartStore(
 		(state) => state.removeOrderDiscount
@@ -28,19 +31,13 @@ export const Cart = () => {
 
 	const handlePaymentComplete = async (paymentDetails) => {
 		try {
-			// console.log("1. Payment completion started");
 			const success = await cartActions.completeOrder(orderId, paymentDetails);
-			// console.log("2. Complete order result:", success);
-
 			if (success) {
-				// console.log("3. Payment successful - keeping payment flow open");
 				return true;
 			}
-
-			// console.log("4. Payment failed");
 			return false;
 		} catch (error) {
-			console.error("5. Payment completion error:", error);
+			console.error("Payment completion error:", error);
 			return false;
 		}
 	};
@@ -49,11 +46,10 @@ export const Cart = () => {
 		setOrderDiscount(discount);
 	};
 
-	// Calculate cart totals once to avoid recalculation
 	const cartTotals = calculateCartTotals(cart, orderDiscount);
 
 	return (
-		<div className="relative w-full bg-white flex flex-col border-l border-slate-200 shadow-lg h-full">
+		<div className="relative w-full bg-white flex flex-col h-full shadow-lg">
 			<CartHeader
 				activeOrderId={orderId}
 				setActiveOrderId={cartActions.setOrderId}
@@ -64,27 +60,31 @@ export const Cart = () => {
 			/>
 
 			{showOverlay ? (
-				<div className="absolute inset-0 bg-white/95 backdrop-blur-sm z-10 flex items-center justify-center">
-					<button
-						className="px-8 py-3.5 bg-blue-600 text-white rounded-lg shadow-lg text-lg hover:bg-blue-700 transition-all flex items-center gap-2 group"
-						onClick={cartActions.startOrder}
+				<div className="absolute inset-0 bg-gradient-to-br from-white via-slate-50 to-slate-100 z-10 flex items-center justify-center">
+					<motion.div
+						initial={{ opacity: 0, scale: 0.9 }}
+						animate={{ opacity: 1, scale: 1 }}
+						transition={{ duration: 0.3 }}
+						className="text-center"
 					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							className="h-6 w-6 group-hover:scale-110 transition-transform"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
+						<div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
+							<Plus className="h-10 w-10 text-white" />
+						</div>
+						<h3 className="text-xl font-semibold text-slate-800 mb-2">
+							Ready for New Order
+						</h3>
+						<p className="text-muted-foreground mb-6">
+							Start adding items to begin a new order
+						</p>
+						<Button
+							size="lg"
+							onClick={cartActions.startOrder}
+							className="gap-2"
 						>
-							<path
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								strokeWidth={2}
-								d="M12 4v16m8-8H4"
-							/>
-						</svg>
-						<span>Start New Order</span>
-					</button>
+							<Plus className="h-5 w-5" />
+							Start New Order
+						</Button>
+					</motion.div>
 				</div>
 			) : (
 				<>
@@ -115,7 +115,6 @@ export const Cart = () => {
 				</div>
 			)}
 
-			{/* Discount Selector Modal */}
 			{showDiscountSelector && (
 				<DiscountSelector
 					isOpen={showDiscountSelector}

@@ -1,33 +1,37 @@
+// src/pages/products/AddProduct.jsx
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axiosInstance from "../../api/config/axiosConfig";
-import { ENDPOINTS } from "../../api/config/apiEndpoints"; // Import ENDPOINTS
+import { ENDPOINTS } from "../../api/config/apiEndpoints";
 import {
 	ArrowLeftIcon,
-	PlusIcon,
+	PlusCircleIcon,
 	ExclamationTriangleIcon,
-	QrCodeIcon, // Icon for barcode
+	ArrowPathIcon,
+	QrCodeIcon,
 } from "@heroicons/react/24/outline";
-import { toast } from "react-toastify"; // For user feedback
+import { PackageIcon } from "lucide-react"; // Example if using lucide for main page icon
+import { toast } from "react-toastify";
+import MainLayout from "../layout/MainLayout";
 
-const AddProduct = () => {
+export default function AddProduct() {
 	const [name, setName] = useState("");
 	const [price, setPrice] = useState("");
 	const [description, setDescription] = useState("");
 	const [category, setCategory] = useState("");
-	const [barcode, setBarcode] = useState(""); // <-- New state for barcode
+	const [barcode, setBarcode] = useState("");
 	const [categories, setCategories] = useState([]);
-	const [error, setError] = useState(null);
-	const [fieldErrors, setFieldErrors] = useState({}); // For individual field errors
+	const [error, setError] = useState(null); // General API error
+	const [fieldErrors, setFieldErrors] = useState({});
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const navigate = useNavigate();
 
 	useEffect(() => {
 		axiosInstance
-			.get(ENDPOINTS.PRODUCTS.CATEGORIES) // Use ENDPOINTS
+			.get(ENDPOINTS.PRODUCTS.CATEGORIES)
 			.then((response) => setCategories(response.data))
-			.catch((error) => {
-				console.error("Error fetching categories:", error);
+			.catch((err) => {
+				console.error("Error fetching categories:", err);
 				toast.error("Could not load categories.");
 			});
 	}, []);
@@ -40,9 +44,6 @@ const AddProduct = () => {
 			errors.price = "Price must be a positive number.";
 		if (!description.trim()) errors.description = "Description is required.";
 		if (!category) errors.category = "Category is required.";
-		// Barcode can be optional or have specific validation (e.g., length, checksum)
-		// For now, we'll make it optional. Add validation if needed:
-		// if (barcode.trim() && barcode.trim().length < 6) errors.barcode = "Barcode seems too short.";
 		setFieldErrors(errors);
 		return Object.keys(errors).length === 0;
 	};
@@ -55,31 +56,27 @@ const AddProduct = () => {
 			toast.error("Please correct the errors in the form.");
 			return;
 		}
-
 		setIsSubmitting(true);
 		try {
 			const payload = {
 				name,
 				price,
 				description,
-				category, // Send category ID
-				barcode: barcode.trim() === "" ? null : barcode.trim(), // Send barcode, or null if empty
+				category,
+				barcode: barcode.trim() === "" ? null : barcode.trim(),
 			};
-			await axiosInstance.post(ENDPOINTS.PRODUCTS.ADD, payload); // Use ENDPOINTS
+			await axiosInstance.post(ENDPOINTS.PRODUCTS.ADD, payload);
 			toast.success("Product added successfully!");
 			navigate("/products");
-		} catch (error) {
-			console.error("Add product error:", error);
-			const errorData = error.response?.data;
+		} catch (err) {
+			console.error("Add product error:", err);
+			const errorData = err.response?.data;
 			if (errorData && typeof errorData === "object") {
-				// Handle specific field errors from backend
 				const backendFieldErrors = {};
 				for (const key in errorData) {
-					if (Array.isArray(errorData[key])) {
-						backendFieldErrors[key] = errorData[key].join(" ");
-					} else {
-						backendFieldErrors[key] = String(errorData[key]);
-					}
+					backendFieldErrors[key] = Array.isArray(errorData[key])
+						? errorData[key].join(" ")
+						: String(errorData[key]);
 				}
 				setFieldErrors(backendFieldErrors);
 				if (errorData.detail) {
@@ -89,8 +86,7 @@ const AddProduct = () => {
 					toast.error("Failed to add product. Please check the details.");
 				}
 			} else {
-				const errorMsg =
-					"Failed to add product. Check details or ensure you have admin rights.";
+				const errorMsg = "Failed to add product. Please try again.";
 				setError(errorMsg);
 				toast.error(errorMsg);
 			}
@@ -99,204 +95,214 @@ const AddProduct = () => {
 		}
 	};
 
+	const inputBaseClass =
+		"block w-full rounded-md border-0 px-3 py-1.5 text-slate-900 shadow-sm ring-1 ring-inset placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6";
+	const inputNormalClass = `${inputBaseClass} ring-slate-300`;
+	const inputErrorClass = `${inputBaseClass} ring-red-500 focus:ring-red-600 text-red-800 placeholder-red-300`;
+	const selectClass = `${inputNormalClass} appearance-none bg-white bg-no-repeat bg-right-3`;
+	const labelClass = "block text-xs font-medium text-slate-600 mb-1";
+	const primaryButtonClass =
+		"inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500";
+	const secondaryButtonClass =
+		"inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 focus:ring-slate-500";
+
 	return (
-		<div className="w-screen h-screen flex flex-col bg-slate-100 text-slate-900 p-4 sm:p-6">
-			<header className="flex justify-between items-center mb-6 pb-4 border-b border-slate-200">
-				<h1 className="text-xl sm:text-2xl font-bold text-slate-800">
-					Add New Product
-				</h1>
-				<button
-					onClick={() => navigate("/products")}
-					disabled={isSubmitting}
-					className="px-3 py-2 bg-white text-slate-700 border border-slate-300 rounded-lg text-sm hover:bg-slate-50 transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
-				>
-					<ArrowLeftIcon className="h-4 w-4" />
-					Back to Products
-				</button>
-			</header>
-
-			<div className="flex-1 flex items-center justify-center py-6">
-				<div className="w-full max-w-lg">
-					<div className="bg-white rounded-lg shadow-xl border border-slate-200 p-6 sm:p-8">
-						{error && (
-							<div className="mb-5 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md flex items-center gap-2 text-sm shadow-sm">
-								<ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0" />
-								<span>{error}</span>
-							</div>
-						)}
-						<form
-							onSubmit={handleSubmit}
-							className="space-y-5"
+		<MainLayout pageTitle="Add New Product">
+			<div className="max-w-2xl mx-auto">
+				{" "}
+				{/* Centered content */}
+				<div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+					<h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
+						<PackageIcon className="h-6 w-6 text-slate-600" />
+						Product Information
+					</h2>
+					<button
+						className={secondaryButtonClass}
+						onClick={() => navigate("/products")}
+						disabled={isSubmitting}
+					>
+						<ArrowLeftIcon className="h-4 w-4" /> Cancel
+					</button>
+				</div>
+				<div className="bg-white rounded-lg shadow-md border border-slate-200 p-6 sm:p-8">
+					{error && (
+						<div
+							role="alert"
+							className="mb-5 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 shadow-sm"
 						>
-							<div>
-								<label
-									htmlFor="product-name"
-									className="block text-sm font-medium text-slate-700 mb-1.5"
-								>
-									Product Name <span className="text-red-500">*</span>
-								</label>
+							<ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0" />
+							<span>{error}</span>
+						</div>
+					)}
+					<form
+						onSubmit={handleSubmit}
+						className="space-y-5"
+						noValidate
+					>
+						{/* Form fields remain the same as your original, just styled */}
+						<div>
+							<label
+								htmlFor="product-name"
+								className={labelClass}
+							>
+								Product Name <span className="text-red-500">*</span>
+							</label>
+							<input
+								type="text"
+								id="product-name"
+								value={name}
+								onChange={(e) => setName(e.target.value)}
+								className={
+									fieldErrors.name ? inputErrorClass : inputNormalClass
+								}
+								required
+								placeholder="e.g., Zaatar Mana'eesh"
+							/>
+							{fieldErrors.name && (
+								<p className="mt-1 text-xs text-red-500">{fieldErrors.name}</p>
+							)}
+						</div>
+						<div>
+							<label
+								htmlFor="product-barcode"
+								className="flex items-center text-xs font-medium text-slate-600 mb-1"
+							>
+								<QrCodeIcon className="h-3.5 w-3.5 mr-1 text-slate-500" />{" "}
+								Barcode (Optional)
+							</label>
+							<input
+								type="text"
+								id="product-barcode"
+								value={barcode}
+								onChange={(e) => setBarcode(e.target.value)}
+								className={
+									fieldErrors.barcode ? inputErrorClass : inputNormalClass
+								}
+								placeholder="Scan or type product barcode"
+							/>
+							{fieldErrors.barcode && (
+								<p className="mt-1 text-xs text-red-500">
+									{fieldErrors.barcode}
+								</p>
+							)}
+						</div>
+						<div>
+							<label
+								htmlFor="product-price"
+								className={labelClass}
+							>
+								Price <span className="text-red-500">*</span>
+							</label>
+							<div className="relative">
+								<span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500 pointer-events-none">
+									$
+								</span>
 								<input
-									id="product-name"
-									type="text"
-									value={name}
-									onChange={(e) => setName(e.target.value)}
-									className={`w-full px-3 py-2 border rounded-md focus:ring-1 transition-shadow duration-150 ease-in-out shadow-sm placeholder-slate-400 ${
-										fieldErrors.name
-											? "border-red-500 ring-red-500"
-											: "border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+									type="number"
+									id="product-price"
+									step="0.01"
+									min="0"
+									value={price}
+									onChange={(e) => setPrice(e.target.value)}
+									className={`pl-7 pr-3 ${
+										fieldErrors.price ? inputErrorClass : inputNormalClass
 									}`}
 									required
-									placeholder="e.g., Zaatar Mana'eesh"
+									placeholder="0.00"
 								/>
-								{fieldErrors.name && (
-									<p className="mt-1 text-xs text-red-500">
-										{fieldErrors.name}
-									</p>
-								)}
 							</div>
-
-							{/* Barcode Field */}
-							<div>
-								<label
-									htmlFor="product-barcode"
-									className="flex items-center text-sm font-medium text-slate-700 mb-1.5"
+							{fieldErrors.price && (
+								<p className="mt-1 text-xs text-red-500">{fieldErrors.price}</p>
+							)}
+						</div>
+						<div>
+							<label
+								htmlFor="product-description"
+								className={labelClass}
+							>
+								Description <span className="text-red-500">*</span>
+							</label>
+							<textarea
+								id="product-description"
+								value={description}
+								onChange={(e) => setDescription(e.target.value)}
+								className={`h-24 resize-none ${
+									fieldErrors.description ? inputErrorClass : inputNormalClass
+								}`}
+								required
+								placeholder="Enter a brief description..."
+							/>
+							{fieldErrors.description && (
+								<p className="mt-1 text-xs text-red-500">
+									{fieldErrors.description}
+								</p>
+							)}
+						</div>
+						<div>
+							<label
+								htmlFor="product-category"
+								className={labelClass}
+							>
+								Category <span className="text-red-500">*</span>
+							</label>
+							<select
+								id="product-category"
+								value={category}
+								onChange={(e) => setCategory(e.target.value)}
+								className={`${selectClass} ${
+									fieldErrors.category
+										? "ring-red-500 border-red-500"
+										: "ring-slate-300 border-slate-300"
+								}`}
+								required
+							>
+								<option
+									value=""
+									disabled
 								>
-									<QrCodeIcon className="h-4 w-4 mr-1 text-slate-500" /> Barcode
-									(Optional)
-								</label>
-								<input
-									id="product-barcode"
-									type="text"
-									value={barcode}
-									onChange={(e) => setBarcode(e.target.value)}
-									className={`w-full px-3 py-2 border rounded-md focus:ring-1 transition-shadow duration-150 ease-in-out shadow-sm placeholder-slate-400 ${
-										fieldErrors.barcode
-											? "border-red-500 ring-red-500"
-											: "border-slate-300 focus:ring-blue-500 focus:border-blue-500"
-									}`}
-									placeholder="Scan or type product barcode"
-								/>
-								{fieldErrors.barcode && (
-									<p className="mt-1 text-xs text-red-500">
-										{fieldErrors.barcode}
-									</p>
-								)}
-							</div>
-
-							<div>
-								<label
-									htmlFor="product-price"
-									className="block text-sm font-medium text-slate-700 mb-1.5"
-								>
-									Price <span className="text-red-500">*</span>
-								</label>
-								<div className="relative">
-									<span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500 pointer-events-none">
-										$
-									</span>
-									<input
-										id="product-price"
-										type="number"
-										step="0.01"
-										min="0"
-										value={price}
-										onChange={(e) => setPrice(e.target.value)}
-										className={`w-full pl-7 pr-3 py-2 border rounded-md focus:ring-1 transition-shadow duration-150 ease-in-out shadow-sm placeholder-slate-400 ${
-											fieldErrors.price
-												? "border-red-500 ring-red-500"
-												: "border-slate-300 focus:ring-blue-500 focus:border-blue-500"
-										}`}
-										required
-										placeholder="0.00"
-									/>
-								</div>
-								{fieldErrors.price && (
-									<p className="mt-1 text-xs text-red-500">
-										{fieldErrors.price}
-									</p>
-								)}
-							</div>
-
-							<div>
-								<label
-									htmlFor="product-description"
-									className="block text-sm font-medium text-slate-700 mb-1.5"
-								>
-									Description <span className="text-red-500">*</span>
-								</label>
-								<textarea
-									id="product-description"
-									value={description}
-									onChange={(e) => setDescription(e.target.value)}
-									className={`w-full px-3 py-2 border rounded-md focus:ring-1 transition-shadow duration-150 ease-in-out shadow-sm h-24 resize-none placeholder-slate-400 ${
-										fieldErrors.description
-											? "border-red-500 ring-red-500"
-											: "border-slate-300 focus:ring-blue-500 focus:border-blue-500"
-									}`}
-									required
-									placeholder="Enter a brief description..."
-								/>
-								{fieldErrors.description && (
-									<p className="mt-1 text-xs text-red-500">
-										{fieldErrors.description}
-									</p>
-								)}
-							</div>
-
-							<div>
-								<label
-									htmlFor="product-category"
-									className="block text-sm font-medium text-slate-700 mb-1.5"
-								>
-									Category <span className="text-red-500">*</span>
-								</label>
-								<select
-									id="product-category"
-									value={category}
-									onChange={(e) => setCategory(e.target.value)}
-									className={`w-full px-3 py-2 border rounded-md focus:ring-1 transition-shadow duration-150 ease-in-out shadow-sm appearance-none bg-white bg-no-repeat bg-right-3 text-slate-700 ${
-										fieldErrors.category
-											? "border-red-500 ring-red-500"
-											: "border-slate-300 focus:ring-blue-500 focus:border-blue-500"
-									}`}
-									required
-								>
+									Select Category...
+								</option>
+								{categories.map((cat) => (
 									<option
-										value=""
-										disabled
+										key={cat.id}
+										value={cat.id}
 									>
-										Select Category...
+										{cat.name}
 									</option>
-									{categories.map((cat) => (
-										<option
-											key={cat.id}
-											value={cat.id}
-										>
-											{cat.name}
-										</option>
-									))}
-								</select>
-								{fieldErrors.category && (
-									<p className="mt-1 text-xs text-red-500">
-										{fieldErrors.category}
-									</p>
-								)}
-							</div>
-
+								))}
+							</select>
+							{fieldErrors.category && (
+								<p className="mt-1 text-xs text-red-500">
+									{fieldErrors.category}
+								</p>
+							)}
+						</div>
+						<div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-slate-200">
+							<button
+								type="button"
+								onClick={() => navigate("/products")}
+								className={secondaryButtonClass}
+								disabled={isSubmitting}
+							>
+								Cancel
+							</button>
 							<button
 								type="submit"
 								disabled={isSubmitting}
-								className="w-full mt-2 px-4 py-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 active:bg-blue-800 transition-colors font-medium flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-sm disabled:opacity-50"
+								className={`${primaryButtonClass} min-w-[120px]`}
 							>
-								<PlusIcon className="h-5 w-5" />
-								{isSubmitting ? "Adding Product..." : "Add Product"}
+								{isSubmitting ? (
+									<ArrowPathIcon className="h-4 w-4 animate-spin" />
+								) : (
+									<PlusCircleIcon className="h-5 w-5" />
+								)}
+								{isSubmitting ? "Adding..." : "Add Product"}
 							</button>
-						</form>
-					</div>
+						</div>
+					</form>
 				</div>
 			</div>
-		</div>
+		</MainLayout>
 	);
-};
-
-export default AddProduct;
+}
+// No direct props for AddProduct

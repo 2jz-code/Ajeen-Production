@@ -1,4 +1,3 @@
-// src/features/customerDisplay/components/flow/CustomerFlowView.jsx
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import PropTypes from "prop-types";
@@ -8,9 +7,7 @@ import TipSelectionView from "../tip/TipSelectionView";
 import PaymentView from "../payment/PaymentView";
 import ReceiptView from "../receipt/ReceiptView";
 import CashFlowView from "../payment/CashFlowView";
-// calculateCartTotals is not directly used here anymore for primary display,
-// but kept if cartData prop structure relies on it.
-// import { calculateCartTotals } from "../../../cart/utils/cartCalculations";
+import { Progress } from "@/components/ui/progress";
 
 const CustomerFlowView = ({ flowData, onStepComplete }) => {
 	const [currentStep, setCurrentStep] = useState(
@@ -25,32 +22,33 @@ const CustomerFlowView = ({ flowData, onStepComplete }) => {
 
 	const handleStepComplete = (stepDataFromChild) => {
 		if (onStepComplete) {
-			// console.log(`[CustomerFlowView] Completing step: ${currentStep}`, stepDataFromChild);
 			onStepComplete(currentStep, stepDataFromChild);
 		}
 	};
 
-	const renderStepContent = () => {
-		// console.log("[CustomerFlowView] Rendering step. Current flowData:", JSON.stringify(flowData, null, 2));
+	// Calculate progress based on current step
+	const getStepProgress = () => {
+		const steps = ["cart", "rewards", "tip", "payment", "receipt"];
+		const currentIndex = steps.indexOf(currentStep);
+		return currentIndex >= 0 ? ((currentIndex + 1) / steps.length) * 100 : 0;
+	};
 
-		// orderDataForView now primarily uses values directly from flowData,
-		// which should be set correctly by usePaymentFlow and useCustomerFlow
+	const renderStepContent = () => {
 		const orderDataForView = {
 			items: flowData?.cartData?.items || [],
-			subtotal: flowData?.cartData?.subtotal || 0, // Raw cart subtotal
-			tax: flowData?.cartData?.taxAmount || 0, // Raw cart tax
-			total: flowData?.currentPaymentAmount || 0, // Amount due for THIS step (base+surcharge+tax)
+			subtotal: flowData?.cartData?.subtotal || 0,
+			tax: flowData?.cartData?.taxAmount || 0,
+			total: flowData?.currentPaymentAmount || 0,
 			baseForTipCalculation:
-				flowData?.baseForTipCalculation || flowData?.currentPaymentAmount || 0, // Crucial for TipSelectionView
-			tipAmount: flowData?.tip?.tipAmount || 0, // Accumulated or current tip
+				flowData?.baseForTipCalculation || flowData?.currentPaymentAmount || 0,
+			tipAmount: flowData?.tip?.tipAmount || 0,
 			orderId: flowData?.orderId,
 			discountAmount: flowData?.cartData?.discountAmount || 0,
 			orderDiscount: flowData?.cartData?.orderDiscount,
 			isSplitPayment: flowData?.isSplitPayment || false,
 			splitDetails: flowData?.splitDetails,
-			originalTotal: flowData?.cartData?.total || 0, // Original total of the cart (subtotal-disc+tax)
+			originalTotal: flowData?.cartData?.total || 0,
 		};
-		// console.log("[CustomerFlowView] Constructed orderDataForView:", JSON.stringify(orderDataForView, null, 2));
 
 		switch (currentStep) {
 			case "cart":
@@ -60,9 +58,8 @@ const CustomerFlowView = ({ flowData, onStepComplete }) => {
 			case "tip":
 				return (
 					<TipSelectionView
-						// Pass the specific base amount for tip calculation
 						orderTotal={orderDataForView.baseForTipCalculation}
-						orderData={orderDataForView} // Pass full object if needed for other display elements
+						orderData={orderDataForView}
 						onComplete={handleStepComplete}
 					/>
 				);
@@ -70,7 +67,7 @@ const CustomerFlowView = ({ flowData, onStepComplete }) => {
 				if (flowData?.paymentMethod === "cash") {
 					return (
 						<CashFlowView
-							orderData={orderDataForView} // Contains currentPaymentAmount as 'total' for this step
+							orderData={orderDataForView}
 							cashData={flowData?.cashData}
 							isComplete={flowData?.cashPaymentComplete}
 							onComplete={handleStepComplete}
@@ -78,8 +75,8 @@ const CustomerFlowView = ({ flowData, onStepComplete }) => {
 					);
 				}
 				return (
-					<PaymentView // For credit card
-						orderData={orderDataForView} // Contains currentPaymentAmount as 'total' and tipAmount
+					<PaymentView
+						orderData={orderDataForView}
 						onComplete={handleStepComplete}
 					/>
 				);
@@ -93,18 +90,35 @@ const CustomerFlowView = ({ flowData, onStepComplete }) => {
 					/>
 				);
 			default:
-				return <div>Unknown step in CustomerFlowView: {currentStep}</div>;
+				return (
+					<div className="flex items-center justify-center h-full">
+						<div className="text-center">
+							<p className="text-lg text-slate-600">
+								Unknown step: {currentStep}
+							</p>
+						</div>
+					</div>
+				);
 		}
 	};
+
 	return (
-		<div className="w-full h-screen bg-gray-50 flex flex-col overflow-hidden">
-			<motion.div
-				className="h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-blue-600 w-full flex-shrink-0 z-10 shadow-sm"
-				initial={{ scaleX: 0 }}
-				animate={{ scaleX: 1 }}
-				transition={{ duration: 0.8, ease: "easeOut" }}
-			></motion.div>
-			<div className="flex-1 overflow-auto relative z-10">
+		<div className="w-full h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex flex-col overflow-hidden">
+			{/* Progress Bar */}
+			<div className="flex-shrink-0 bg-white/80 backdrop-blur-sm border-b border-slate-200 p-4">
+				<div className="max-w-md mx-auto">
+					<Progress
+						value={getStepProgress()}
+						className="h-2"
+					/>
+					<p className="text-xs text-slate-500 text-center mt-2 capitalize">
+						{currentStep.replace("_", " ")} Step
+					</p>
+				</div>
+			</div>
+
+			{/* Main Content */}
+			<div className="flex-1 overflow-auto relative">
 				<motion.div
 					key={currentStep}
 					initial={{ opacity: 0, y: 15 }}
@@ -116,12 +130,6 @@ const CustomerFlowView = ({ flowData, onStepComplete }) => {
 					{renderStepContent()}
 				</motion.div>
 			</div>
-			<motion.div
-				className="h-1 bg-gradient-to-r from-blue-600 via-indigo-500 to-blue-500 w-full flex-shrink-0 z-10 shadow-sm"
-				initial={{ scaleX: 0 }}
-				animate={{ scaleX: 1 }}
-				transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
-			></motion.div>
 		</div>
 	);
 };
@@ -130,12 +138,12 @@ CustomerFlowView.propTypes = {
 	flowData: PropTypes.shape({
 		currentStep: PropTypes.string,
 		cartData: PropTypes.object,
-		baseForTipCalculation: PropTypes.number, // Added this
+		baseForTipCalculation: PropTypes.number,
 		splitDetails: PropTypes.object,
 		tip: PropTypes.shape({
 			tipAmount: PropTypes.number,
 			tipPercentage: PropTypes.number,
-		}), // Expect tip object
+		}),
 		payment: PropTypes.object,
 		orderId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
 		cashData: PropTypes.object,

@@ -1,35 +1,36 @@
 import { useState, useEffect, useRef } from "react";
 import PropTypes from "prop-types";
 import { motion } from "framer-motion";
-import { useTerminalSimulation } from "../../hooks/useTerminalSimulation"; // Ensure path is correct
-import { formatPrice } from "../../../../utils/numberUtils"; // Ensure path is correct
+import { useTerminalSimulation } from "../../hooks/useTerminalSimulation";
+import { formatPrice } from "../../../../utils/numberUtils";
 import {
-	CheckCircleIcon,
-	ExclamationCircleIcon,
-	CreditCardIcon,
-	ArrowPathIcon as ArrowPathSolidIcon, // Use Solid for consistency
-	WifiIcon, // Added for waiting state
-	CpuChipIcon, // Added for processing state
-} from "@heroicons/react/24/solid"; // Using solid icons for status
+	CheckCircle,
+	AlertCircle,
+	CreditCard,
+	RotateCcw,
+	Wifi,
+	Cpu,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 /**
- * PaymentView Component (UI Revamped)
+ * PaymentView Component
  * Displays payment status and amount during card transactions on the customer display.
  */
 const PaymentView = ({ orderData, onComplete }) => {
-	const [isInitiating, setIsInitiating] = useState(true); // Track initial setup phase
+	const [isInitiating, setIsInitiating] = useState(true);
 	const { processPayment, paymentStatus, paymentResult, error, readerInfo } =
 		useTerminalSimulation();
-	const hasStartedPaymentRef = useRef(false); // Prevent multiple payment starts
-	const isMountedRef = useRef(true); // Track mount status for async operations
+	const hasStartedPaymentRef = useRef(false);
+	const isMountedRef = useRef(true);
 
-	// Safely get order details
 	const tipAmount = orderData?.tipAmount || 0;
-	const baseTotal = typeof orderData?.total === "number" ? orderData.total : 0; // Base amount for this payment step
-	const finalTotal = baseTotal + tipAmount; // Total including tip for display
+	const baseTotal = typeof orderData?.total === "number" ? orderData.total : 0;
+	const finalTotal = baseTotal + tipAmount;
 	const orderId = orderData?.orderId;
 
-	// Mount/Unmount effect
 	useEffect(() => {
 		isMountedRef.current = true;
 		return () => {
@@ -37,9 +38,7 @@ const PaymentView = ({ orderData, onComplete }) => {
 		};
 	}, []);
 
-	// Effect to start the payment process via the simulation hook
 	useEffect(() => {
-		// Guards to prevent running multiple times or with invalid data
 		if (
 			hasStartedPaymentRef.current ||
 			!orderData ||
@@ -50,18 +49,11 @@ const PaymentView = ({ orderData, onComplete }) => {
 			return;
 		}
 
-		// Short delay before initiating payment processing
 		const timer = setTimeout(() => {
 			if (!isMountedRef.current) return;
-
-			setIsInitiating(false); // Mark initiation complete
-			// console.log(
-			// 	`PaymentView: Initiating payment for Order ${orderId}, Base: ${baseTotal}, Tip: ${tipAmount}, Final: ${finalTotal}`
-			// );
-
-			// Prepare data object for the simulation hook
+			setIsInitiating(false);
 			const dataForSimulation = {
-				total: baseTotal, // Pass the BASE total for the payment intent
+				total: baseTotal,
 				tipAmount: tipAmount,
 				orderId: orderId,
 				isSplitPayment: orderData?.isSplitPayment,
@@ -70,92 +62,78 @@ const PaymentView = ({ orderData, onComplete }) => {
 				discountAmount: orderData?.discountAmount,
 				orderDiscount: orderData?.orderDiscount,
 			};
+			hasStartedPaymentRef.current = true;
+			processPayment(dataForSimulation);
+		}, 1500);
 
-			// console.log(
-			// 	"PaymentView: Calling processPayment with data:",
-			// 	JSON.stringify(dataForSimulation, null, 2)
-			// );
-			hasStartedPaymentRef.current = true; // Mark payment as started
-			processPayment(dataForSimulation); // Trigger the simulation hook
-		}, 1500); // Delay before starting
-
-		return () => clearTimeout(timer); // Cleanup timer
+		return () => clearTimeout(timer);
 	}, [orderData, orderId, baseTotal, tipAmount, processPayment, isInitiating]);
 
-	// Effect to handle completion when payment succeeds
 	useEffect(() => {
 		if (paymentStatus === "success" && paymentResult && onComplete) {
 			if (!isMountedRef.current) return;
-
-			// Delay before calling onComplete to allow user to see success message
 			const timer = setTimeout(() => {
 				if (!isMountedRef.current) return;
-
 				const completionData = {
 					status: "success",
-					...paymentResult, // Include result details (amount, cardInfo, etc.)
+					...paymentResult,
 					orderId,
 				};
-				// console.log(
-				// 	"PaymentView: Payment successful, calling onComplete:",
-				// 	completionData
-				// );
-				onComplete(completionData); // Signal completion to parent
-			}, 2000); // 2-second delay
-
+				onComplete(completionData);
+			}, 2000);
 			return () => clearTimeout(timer);
 		}
 	}, [paymentStatus, paymentResult, onComplete, orderId]);
 
-	// Effect to allow retry on error
 	useEffect(() => {
 		if (paymentStatus === "error" && isMountedRef.current) {
-			hasStartedPaymentRef.current = false; // Reset flag to allow retry
+			hasStartedPaymentRef.current = false;
 		}
 	}, [paymentStatus]);
 
-	// Retry handler
 	const handleRetry = () => {
 		if (!orderData || !orderId || !isMountedRef.current || isInitiating) return;
-		// console.log("PaymentView: Retrying payment...");
-		setIsInitiating(true); // Re-trigger the payment initiation effect
+		setIsInitiating(true);
 		hasStartedPaymentRef.current = false;
-		// The processPayment hook should handle resetting its internal state
 	};
 
-	// Determine status message and icon based on paymentStatus
 	const getStatusDisplay = () => {
+		// ... (getStatusDisplay function remains the same)
 		switch (paymentStatus) {
 			case "success":
 				return {
-					Icon: CheckCircleIcon,
+					Icon: CheckCircle,
 					text: "Payment Successful",
 					color: "text-green-500",
+					variant: "success",
 					message: paymentResult?.cardInfo
 						? `${paymentResult.cardInfo.brand} •••• ${paymentResult.cardInfo.last4}`
 						: "Approved",
 				};
 			case "error":
 				return {
-					Icon: ExclamationCircleIcon,
+					Icon: AlertCircle,
 					text: "Payment Failed",
 					color: "text-red-500",
+					variant: "destructive",
 					message: error || "An unknown error occurred.",
 				};
 			case "processing":
 			case "processing_intent":
 				return {
-					Icon: CpuChipIcon,
+					Icon: Cpu,
 					text: "Processing Payment...",
 					color: "text-blue-500",
+					variant: "default",
 					message: "Please wait...",
 					animate: true,
 				};
 			case "waiting_for_card":
 				return {
-					Icon: WifiIcon,
+					Icon: Wifi,
 					text: "Complete Payment on Terminal",
 					color: "text-blue-500",
+					variant: "default",
 					message: `Follow instructions on ${readerInfo?.label || "terminal"}.`,
 					animate: true,
 				};
@@ -165,21 +143,23 @@ const PaymentView = ({ orderData, onComplete }) => {
 			case "idle":
 			default:
 				return {
-					Icon: CreditCardIcon,
+					Icon: CreditCard,
 					text: "Preparing Payment",
 					color: "text-slate-400",
+					variant: "secondary",
 					message: "Please wait, connecting...",
 				};
 		}
 	};
-	const { Icon, text, color, message, animate } = getStatusDisplay();
 
-	// Animation variants
+	const { Icon, text, color, message, animate, variant } = getStatusDisplay();
+
 	const containerVariants = {
 		hidden: { opacity: 0 },
 		visible: { opacity: 1 },
 		exit: { opacity: 0 },
 	};
+
 	const itemVariants = {
 		hidden: { opacity: 0, scale: 0.8 },
 		visible: {
@@ -191,8 +171,8 @@ const PaymentView = ({ orderData, onComplete }) => {
 
 	return (
 		<motion.div
-			key="payment" // Key for AnimatePresence
-			className="flex h-full flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-8 text-center md:p-12 lg:p-16"
+			key="payment"
+			className="flex h-full flex-col items-center justify-center bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-6 md:p-8 text-center" // Padding on root
 			variants={containerVariants}
 			initial="hidden"
 			animate="visible"
@@ -200,9 +180,10 @@ const PaymentView = ({ orderData, onComplete }) => {
 			transition={{ duration: 0.3 }}
 		>
 			<div className="w-full max-w-md">
-				{/* Status Icon */}
+				{" "}
+				{/* Simple div for max-width and centering content */}
 				<motion.div
-					key={paymentStatus}
+					key={paymentStatus} // Animate presence of icon based on status change
 					variants={itemVariants}
 					className="mb-6"
 				>
@@ -212,44 +193,56 @@ const PaymentView = ({ orderData, onComplete }) => {
 						}`}
 					/>
 				</motion.div>
-
-				{/* Status Header */}
 				<motion.h1
 					variants={itemVariants}
-					className="mb-2 text-3xl font-bold text-slate-900"
+					className="mb-4 text-3xl font-bold text-slate-900"
 				>
 					{text}
 				</motion.h1>
-
-				{/* Amount Display */}
-				<motion.p
-					variants={itemVariants}
-					className="mb-4 text-4xl font-bold text-blue-600"
-				>
-					{formatPrice(finalTotal)}
-				</motion.p>
-
-				{/* Status Message */}
 				<motion.div
 					variants={itemVariants}
-					className="min-h-[3rem] text-lg text-slate-600" // Ensure minimum height
+					className="mb-6"
 				>
-					{message}
-				</motion.div>
-
-				{/* Retry Button */}
-				{paymentStatus === "error" && (
-					<motion.div
-						variants={itemVariants}
-						className="mt-8"
-					>
-						<button
-							onClick={handleRetry}
-							className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-base font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+					<div className="text-4xl font-bold text-blue-600 mb-2">
+						{formatPrice(finalTotal)}
+					</div>
+					{tipAmount > 0 && (
+						<Badge
+							variant="secondary"
+							className="bg-blue-100 text-blue-700"
 						>
-							<ArrowPathSolidIcon className="h-5 w-5" />
+							Includes {formatPrice(tipAmount)} tip
+						</Badge>
+					)}
+				</motion.div>
+				<motion.div
+					variants={itemVariants}
+					className="mb-6"
+				>
+					{/* Alert background will make it stand out, this is likely desired for alerts */}
+					<Alert
+						variant={variant === "destructive" ? "destructive" : "default"}
+						className={`${
+							variant === "destructive"
+								? "bg-red-50/80 border-red-300"
+								: "bg-blue-50/80 border-blue-300"
+						} backdrop-blur-sm`}
+					>
+						<AlertDescription className="text-center">
+							{message}
+						</AlertDescription>
+					</Alert>
+				</motion.div>
+				{paymentStatus === "error" && (
+					<motion.div variants={itemVariants}>
+						<Button
+							onClick={handleRetry}
+							className="w-full backdrop-blur-sm"
+							size="lg"
+						>
+							<RotateCcw className="mr-2 h-4 w-4" />
 							Try Again
-						</button>
+						</Button>
 					</motion.div>
 				)}
 			</div>
@@ -259,7 +252,7 @@ const PaymentView = ({ orderData, onComplete }) => {
 
 PaymentView.propTypes = {
 	orderData: PropTypes.shape({
-		total: PropTypes.number, // Base total for this step
+		total: PropTypes.number,
 		tipAmount: PropTypes.number,
 		orderId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
 		isSplitPayment: PropTypes.bool,

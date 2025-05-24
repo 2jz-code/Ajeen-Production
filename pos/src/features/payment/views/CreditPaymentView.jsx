@@ -1,8 +1,8 @@
-// src/features/payment/views/CreditPaymentView.jsx
+"use client";
+
 import { motion } from "framer-motion";
-import { CreditCardIcon, XCircleIcon } from "@heroicons/react/24/solid";
+import { CreditCard, XCircle, AlertCircle } from "lucide-react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import PaymentButton from "../PaymentButton";
 import { paymentAnimations } from "../../../animations/paymentAnimations";
 import PropTypes from "prop-types";
 import { ScrollableViewWrapper } from "./ScrollableViewWrapper";
@@ -14,28 +14,12 @@ import { useTerminal } from "../hooks/useTerminal";
 import { Decimal } from "decimal.js";
 import customerDisplayManager from "../../customerDisplay/utils/windowManager";
 import { toast } from "react-toastify";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const { pageVariants, pageTransition } = paymentAnimations;
-
-const commonPropTypes = {
-	state: PropTypes.shape({
-		orderId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-		direction: PropTypes.number.isRequired,
-		paymentMethod: PropTypes.string,
-		splitMode: PropTypes.bool.isRequired,
-		amountPaid: PropTypes.number.isRequired,
-		transactions: PropTypes.array.isRequired,
-		splitDetails: PropTypes.object,
-		nextSplitAmount: PropTypes.number,
-		currentStepAmount: PropTypes.number,
-		currentBaseForTipCalc: PropTypes.number, // Added this to propTypes
-	}).isRequired,
-	remainingAmount: PropTypes.number.isRequired,
-	handlePayment: PropTypes.func.isRequired,
-	completePaymentFlow: PropTypes.func.isRequired,
-	handleNavigation: PropTypes.func.isRequired,
-	totalAmount: PropTypes.number.isRequired,
-};
 
 const commonMotionProps = {
 	variants: pageVariants,
@@ -79,37 +63,35 @@ export const CreditPaymentView = ({
 			state.currentStepAmount !== undefined &&
 			state.currentStepAmount >= 0
 		) {
-			return parseFloat(state.currentStepAmount.toFixed(2));
+			return Number.parseFloat(state.currentStepAmount.toFixed(2));
 		}
 		if (!state.splitMode) {
 			const overallRemaining = Math.max(0, remainingAmountProp);
-			return parseFloat(overallRemaining.toFixed(2));
+			return Number.parseFloat(overallRemaining.toFixed(2));
 		}
 		console.warn(
 			"CreditPaymentView: currentStepAmount not set in split mode, falling back to overall remaining amount."
 		);
 		const fallbackRemaining = Math.max(0, remainingAmountProp);
-		return parseFloat(fallbackRemaining.toFixed(2));
+		return Number.parseFloat(fallbackRemaining.toFixed(2));
 	}, [state.splitMode, state.currentStepAmount, remainingAmountProp]);
 
-	// This is the amount (base + surcharge + tax) that the tip will be calculated on
 	const baseForTipCalculation = useMemo(() => {
-		return parseFloat(
+		return Number.parseFloat(
 			(state.currentBaseForTipCalc || currentPaymentAmount || 0).toFixed(2)
 		);
 	}, [state.currentBaseForTipCalc, currentPaymentAmount]);
 
 	const tipForThisPayment = stepData?.tip?.tipAmount || 0;
-	const amountChargedThisTxnNum = parseFloat(
-		new Decimal(baseForTipCalculation) // Tip is added to the baseForTipCalculation
+	const amountChargedThisTxnNum = Number.parseFloat(
+		new Decimal(baseForTipCalculation)
 			.plus(new Decimal(tipForThisPayment))
 			.toFixed(2)
 	);
-	const currentPaymentAmountNum = parseFloat(
-		// This is base + surcharge + tax for the step
+	const currentPaymentAmountNum = Number.parseFloat(
 		new Decimal(currentPaymentAmount).toFixed(2)
 	);
-	const tipForThisPaymentNum = parseFloat(
+	const tipForThisPaymentNum = Number.parseFloat(
 		new Decimal(tipForThisPayment).toFixed(2)
 	);
 
@@ -137,10 +119,9 @@ export const CreditPaymentView = ({
 
 			const payloadForDisplay = {
 				orderData: {
-					total: currentPaymentAmountNum, // Amount for this step (base+surcharge+tax)
+					total: currentPaymentAmountNum,
 					isSplitPayment: state.splitMode,
-					originalTotal: totalAmount, // Overall order original total (subtotal-discount)
-					// Pass the correct base for tip calculation to the customer display
+					originalTotal: totalAmount,
 					baseForTipCalculation: baseForTipCalculation,
 				},
 			};
@@ -148,8 +129,8 @@ export const CreditPaymentView = ({
 				orderId: orderId,
 				initialStep: "tip",
 				paymentMethod: "credit",
-				amountDue: currentPaymentAmountNum, // Amount for this step (base+surcharge+tax)
-				baseForTipCalculation: baseForTipCalculation, // Explicitly pass this
+				amountDue: currentPaymentAmountNum,
+				baseForTipCalculation: baseForTipCalculation,
 				isSplitPayment: state.splitMode,
 				splitDetails: state.splitMode ? state.splitDetails : null,
 				payload: payloadForDisplay,
@@ -168,7 +149,7 @@ export const CreditPaymentView = ({
 		state.splitMode,
 		state.splitDetails,
 		currentPaymentAmountNum,
-		baseForTipCalculation, // Use this for tip base
+		baseForTipCalculation,
 		totalAmount,
 		flowStarted,
 		viewProcessingState,
@@ -192,13 +173,13 @@ export const CreditPaymentView = ({
 			const nestedPaymentObject = {
 				status: "success",
 				transactionId: paymentInfo.transactionId,
-				amount: amountChargedThisTxnNum, // Total charged including tip
+				amount: amountChargedThisTxnNum,
 				timestamp: paymentInfo.timestamp || new Date().toISOString(),
 				cardInfo: paymentInfo.cardInfo || { brand: "Card", last4: "****" },
 				reader: paymentInfo.reader || null,
 				splitPayment: state.splitMode,
-				splitAmount: state.splitMode ? currentPaymentAmountNum : null, // Base + Surcharge + Tax for step
-				originalTotal: totalAmount, // Original order total (subtotal-discount)
+				splitAmount: state.splitMode ? currentPaymentAmountNum : null,
+				originalTotal: totalAmount,
 				orderId: state.orderId,
 				tipAmount: tipForThisPaymentNum,
 			};
@@ -207,7 +188,7 @@ export const CreditPaymentView = ({
 				cardInfo: paymentInfo.cardInfo,
 				transactionId: paymentInfo.transactionId,
 				flowData: { ...stepData, payment: nestedPaymentObject },
-				tipAmount: tipForThisPaymentNum, // Ensure tip is included here
+				tipAmount: tipForThisPaymentNum,
 			};
 
 			handlePayment(amountChargedThisTxnNum, transactionDetails)
@@ -265,18 +246,18 @@ export const CreditPaymentView = ({
 						setFlowStarted(false);
 						const orderTotalPreTaxPreSurcharge = new Decimal(totalAmount)
 							.div(new Decimal(1).plus(0.1))
-							.toNumber(); // Assuming TAX_RATE is 0.10
+							.toNumber();
 						const amountPaidSoFarPreTaxPreSurcharge =
-							paymentResult.newAmountPaid; // This is base (pre-tax, pre-surcharge)
+							paymentResult.newAmountPaid;
 						const remainingAfterThisSplitPreTaxPreSurcharge = Math.max(
 							0,
 							orderTotalPreTaxPreSurcharge - amountPaidSoFarPreTaxPreSurcharge
 						);
 
 						resetFlowForSplitContinuation({
-							amountPaid: amountPaidSoFarPreTaxPreSurcharge, // Pass the base amount paid
-							remainingAmount: remainingAfterThisSplitPreTaxPreSurcharge, // Pass remaining base
-							currentPaymentAmount: amountChargedThisTxnNum, // Amount of this transaction
+							amountPaid: amountPaidSoFarPreTaxPreSurcharge,
+							remainingAmount: remainingAfterThisSplitPreTaxPreSurcharge,
+							currentPaymentAmount: amountChargedThisTxnNum,
 						});
 						setTimeout(() => {
 							if (isMountedRef.current) {
@@ -322,20 +303,17 @@ export const CreditPaymentView = ({
 		amountChargedThisTxnNum,
 		currentPaymentAmountNum,
 		tipForThisPaymentNum,
-		viewProcessingState, // Added viewProcessingState
+		viewProcessingState,
 	]);
 
-	// Cancel Payment (remains the same)
 	const cancelCardPayment = async () => {
 		if (viewProcessingState) return;
 		setViewProcessingState(true);
 		setError(null);
-		// console.log("CREDIT VIEW: Attempting to cancel credit payment flow...");
 		try {
-			// console.log("CREDIT VIEW: Calling cancelTerminalAction...");
 			const cancelResult = await cancelTerminalAction();
 			if (cancelResult.success) {
-				// console.log("CREDIT VIEW: cancelTerminalAction request sent.");
+				// Success
 			} else {
 				console.warn(
 					"CREDIT VIEW: cancelTerminalAction failed.",
@@ -348,7 +326,6 @@ export const CreditPaymentView = ({
 				);
 			}
 			if (flowActive) {
-				// console.log("CREDIT VIEW: Resetting customer display flow.");
 				completeCustomerDisplayFlow();
 			}
 			handleNavigation(state.splitMode ? "Split" : "InitialOptions", -1);
@@ -366,109 +343,136 @@ export const CreditPaymentView = ({
 		}
 	};
 
-	// --- Render Logic ---
 	return (
 		<motion.div
 			key="credit-payment"
-			className="absolute inset-0 p-4 space-y-3"
+			className="absolute inset-0 bg-gradient-to-br from-slate-50 to-slate-100"
 			custom={state.direction}
 			{...commonMotionProps}
 		>
-			<ScrollableViewWrapper>
+			<ScrollableViewWrapper className="space-y-6 p-6">
 				{/* Split payment indicator */}
 				{state.splitMode && (
 					<motion.div
-						className="p-3 bg-amber-50 text-amber-700 rounded-lg mb-3 flex items-center justify-between text-sm shadow-sm"
 						initial={{ opacity: 0, y: -10 }}
 						animate={{ opacity: 1, y: 0 }}
 					>
-						<span>
-							Split Payment: Paying{" "}
-							<b>{formatPrice(currentPaymentAmountNum)}</b>
-						</span>
-						{!flowStarted && !viewProcessingState && (
-							<button
-								onClick={() => handleNavigation("Split", -1)}
-								className="px-2 py-0.5 bg-white text-amber-700 border border-amber-200 rounded-md text-xs hover:bg-amber-50"
-							>
-								Back
-							</button>
-						)}
+						<Card className="border-amber-200 bg-gradient-to-r from-amber-50 to-amber-100">
+							<CardContent className="pt-4">
+								<div className="flex items-center justify-between">
+									<div className="flex items-center gap-2">
+										<Badge variant="secondary">Split Payment</Badge>
+										<span className="text-amber-800">
+											Paying{" "}
+											<strong>{formatPrice(currentPaymentAmountNum)}</strong>
+										</span>
+									</div>
+									{!flowStarted && !viewProcessingState && (
+										<Button
+											variant="outline"
+											size="sm"
+											onClick={() => handleNavigation("Split", -1)}
+										>
+											Back
+										</Button>
+									)}
+								</div>
+							</CardContent>
+						</Card>
 					</motion.div>
 				)}
 
 				{/* Error display */}
 				{error && (
 					<motion.div
-						className="p-3 bg-red-50 text-red-600 rounded-lg flex items-center text-sm shadow-sm border border-red-200"
 						initial={{ opacity: 0, y: -10 }}
 						animate={{ opacity: 1, y: 0 }}
 					>
-						<XCircleIcon className="h-5 w-5 mr-2 flex-shrink-0" /> {error}
+						<Alert variant="destructive">
+							<XCircle className="h-4 w-4" />
+							<AlertDescription>{error}</AlertDescription>
+						</Alert>
 					</motion.div>
 				)}
 
 				{/* Amount display */}
-				<div className="p-3 bg-blue-50 text-blue-700 rounded-lg shadow-sm border border-blue-100">
-					<div className="font-medium text-sm mb-0.5 text-blue-800">
-						Amount Due This Payment (Inc. Tax & Surcharge)
-					</div>
-					<div className="text-xl font-bold text-blue-900">
-						{formatPrice(currentPaymentAmountNum)}
-					</div>
-					{state.splitMode &&
-						Math.abs(remainingAmountProp - currentPaymentAmountNum) >
-							epsilon && (
-							<div className="text-xs mt-0.5 opacity-80 text-blue-600">
-								Total Order Remaining (Inc. Tax & Surcharge):{" "}
-								{formatPrice(remainingAmountProp)}
-							</div>
-						)}
-				</div>
+				<Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-blue-100">
+					<CardHeader className="pb-3">
+						<CardTitle className="text-blue-800 flex items-center gap-2">
+							<CreditCard className="h-5 w-5" />
+							Amount Due This Payment
+						</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<div className="text-2xl font-bold text-blue-900 mb-2">
+							{formatPrice(currentPaymentAmountNum)}
+						</div>
+						<div className="text-sm text-blue-700">(Inc. Tax & Surcharge)</div>
+						{state.splitMode &&
+							Math.abs(remainingAmountProp - currentPaymentAmountNum) >
+								epsilon && (
+								<div className="text-sm text-blue-600 mt-2">
+									Total Order Remaining (Inc. Tax & Surcharge):{" "}
+									{formatPrice(remainingAmountProp)}
+								</div>
+							)}
+					</CardContent>
+				</Card>
 
 				{/* Terminal Status Indicator */}
 				<TerminalStatusIndicator />
 
 				{/* Control Buttons / Status Display */}
-				<div className="mt-4">
-					{/* Show Start Button or Waiting Status */}
+				<div className="space-y-4">
 					{!flowStarted ? (
-						<PaymentButton
-							icon={CreditCardIcon}
-							label={viewProcessingState ? "Starting..." : "Start Card Payment"}
-							variant="primary"
+						<Button
 							onClick={startCreditPaymentFlow}
 							disabled={viewProcessingState || currentPaymentAmountNum <= 0}
-							className="w-full py-3 text-lg"
-						/>
+							className="w-full py-6 text-lg"
+							size="lg"
+						>
+							<CreditCard className="mr-2 h-5 w-5" />
+							{viewProcessingState ? "Starting..." : "Start Card Payment"}
+						</Button>
 					) : (
-						<div className="p-4 bg-white border border-slate-200 rounded-lg shadow-sm text-center">
-							<div className="text-sm font-medium text-slate-600 mb-2">
-								Customer Interaction Required
-							</div>
-							<div className="flex items-center justify-center text-slate-800">
-								<div className="w-3 h-3 bg-blue-500 rounded-full mr-2 animate-pulse"></div>
-								<span>
-									{customerFlowStep
-										? `Waiting for: ${customerFlowStep
-												.replace(/_/g, " ")
-												.toUpperCase()}`
-										: "Initializing Flow..."}
-								</span>
-							</div>
-							<p className="text-xs text-slate-500 mt-2">
-								Guide customer through steps on their display.
-							</p>
-							<button
-								onClick={cancelCardPayment}
-								className="mt-4 text-sm text-red-600 hover:text-red-800 disabled:opacity-50"
-								disabled={viewProcessingState}
-							>
-								{viewProcessingState
-									? "Processing..."
-									: "Cancel Payment Process"}
-							</button>
-						</div>
+						<Card>
+							<CardContent className="pt-6 text-center">
+								<div className="space-y-4">
+									<div className="flex items-center justify-center gap-2">
+										<AlertCircle className="h-5 w-5 text-blue-600" />
+										<span className="font-medium text-slate-700">
+											Customer Interaction Required
+										</span>
+									</div>
+
+									<div className="flex items-center justify-center text-slate-800">
+										<div className="w-3 h-3 bg-blue-500 rounded-full mr-2 animate-pulse"></div>
+										<span>
+											{customerFlowStep
+												? `Waiting for: ${customerFlowStep
+														.replace(/_/g, " ")
+														.toUpperCase()}`
+												: "Initializing Flow..."}
+										</span>
+									</div>
+
+									<p className="text-sm text-slate-500">
+										Guide customer through steps on their display.
+									</p>
+
+									<Button
+										variant="destructive"
+										onClick={cancelCardPayment}
+										disabled={viewProcessingState}
+										size="sm"
+									>
+										{viewProcessingState
+											? "Processing..."
+											: "Cancel Payment Process"}
+									</Button>
+								</div>
+							</CardContent>
+						</Card>
 					)}
 				</div>
 			</ScrollableViewWrapper>
@@ -476,5 +480,24 @@ export const CreditPaymentView = ({
 	);
 };
 
-CreditPaymentView.propTypes = commonPropTypes;
+CreditPaymentView.propTypes = {
+	state: PropTypes.shape({
+		orderId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+		direction: PropTypes.number.isRequired,
+		paymentMethod: PropTypes.string,
+		splitMode: PropTypes.bool.isRequired,
+		amountPaid: PropTypes.number.isRequired,
+		transactions: PropTypes.array.isRequired,
+		splitDetails: PropTypes.object,
+		nextSplitAmount: PropTypes.number,
+		currentStepAmount: PropTypes.number,
+		currentBaseForTipCalc: PropTypes.number,
+	}).isRequired,
+	remainingAmount: PropTypes.number.isRequired,
+	handlePayment: PropTypes.func.isRequired,
+	completePaymentFlow: PropTypes.func.isRequired,
+	handleNavigation: PropTypes.func.isRequired,
+	totalAmount: PropTypes.number.isRequired,
+};
+
 export default CreditPaymentView;

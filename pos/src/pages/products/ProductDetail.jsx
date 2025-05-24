@@ -1,176 +1,173 @@
-import { useState, useEffect } from "react"; // Added React import
+// src/pages/products/ProductDetail.jsx
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import axiosInstance from "../../api/config/axiosConfig"; // Original import
-// Icons for UI
+import axiosInstance from "../../api/config/axiosConfig";
 import {
 	ArrowLeftIcon,
 	ExclamationTriangleIcon,
 	PhotoIcon,
-	PencilSquareIcon,
-} from "@heroicons/react/24/outline"; // Use outline icons
+	PencilSquareIcon, // Changed from PencilIcon for consistency with EditProduct button
+	TagIcon, // For category
+	CurrencyDollarIcon, // For price
+	Bars3BottomLeftIcon, // For description
+	QrCodeIcon,
+} from "@heroicons/react/24/outline";
+import { PackageIcon } from "lucide-react";
+import LoadingSpinner from "../reports/components/LoadingSpinner";
+import MainLayout from "../layout/MainLayout";
 
-/**
- * ProductDetail Component (Logic Preserved from User Provided Code)
- *
- * Displays details for a single product.
- * UI updated for a modern look and feel (v2); Logic remains unchanged based on user input.
- */
-const ProductDetail = () => {
-	// --- ORIGINAL LOGIC (UNCHANGED from user provided code) ---
+export default function ProductDetail() {
 	const { name } = useParams();
 	const [product, setProduct] = useState(null);
-	const [loading, setLoading] = useState(true); // Added loading state
-	const [error, setError] = useState(null); // Added error state
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState(null);
 	const navigate = useNavigate();
 
 	useEffect(() => {
 		let isMounted = true;
 		setLoading(true);
 		setError(null);
-
 		axiosInstance
 			.get(`products/${encodeURIComponent(name)}/`)
 			.then((response) => {
 				if (isMounted) setProduct(response.data);
 			})
-			.catch((error) => {
-				console.error("Error fetching product:", error);
+			.catch((err) => {
+				console.error("Error fetching product:", err);
 				if (isMounted) setError("Failed to load product details.");
 			})
 			.finally(() => {
 				if (isMounted) setLoading(false);
 			});
-
 		return () => {
 			isMounted = false;
-		}; // Cleanup
+		};
 	}, [name]);
-	// --- END OF ORIGINAL LOGIC ---
 
-	// --- UPDATED UI v2 (JSX Structure and Styling Only) ---
-	// Loading State - Styled
+	const pageTitle = product ? product.name : "Product Details";
+
 	if (loading) {
 		return (
-			<div className="flex items-center justify-center h-screen bg-slate-100">
-				<div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-				<p className="text-slate-500 ml-3">Loading product...</p>
-			</div>
+			<MainLayout pageTitle="Loading Product...">
+				<div className="flex items-center justify-center h-full">
+					<LoadingSpinner size="lg" />
+				</div>
+			</MainLayout>
 		);
 	}
-
-	// Error State - Styled
-	if (error) {
+	if (error || !product) {
 		return (
-			<div className="flex flex-col items-center justify-center h-screen bg-slate-100 p-6">
-				<div className="bg-white p-8 rounded-lg shadow-md text-center max-w-md">
-					<ExclamationTriangleIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
-					<p className="text-red-600 mb-4">{error}</p>
+			<MainLayout pageTitle="Error Loading Product">
+				<div className="flex flex-col items-center justify-center h-full p-6 text-center">
+					<ExclamationTriangleIcon className="mb-4 h-12 w-12 text-red-400" />
+					<h1 className="mb-2 text-xl font-semibold text-slate-800">Error</h1>
+					<p className="mb-6 text-slate-600">{error || "Product not found."}</p>
 					<button
-						onClick={() => navigate("/products")} // Original handler
-						className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors"
+						className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
+						onClick={() => navigate("/products")}
 					>
-						Back to Products
+						<ArrowLeftIcon className="h-4 w-4" /> Back to Products
 					</button>
 				</div>
-			</div>
-		);
-	}
-
-	// Product Not Found (after loading and no error) - Styled
-	if (!product) {
-		return (
-			<div className="flex flex-col items-center justify-center h-screen bg-slate-100 p-6">
-				<div className="bg-white p-8 rounded-lg shadow-md text-center max-w-md">
-					<ExclamationTriangleIcon className="h-12 w-12 text-amber-500 mx-auto mb-4" />
-					<p className="text-slate-700 mb-4">Product not found.</p>
-					<button
-						onClick={() => navigate("/products")} // Original handler
-						className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors"
-					>
-						Back to Products
-					</button>
-				</div>
-			</div>
+			</MainLayout>
 		);
 	}
 
 	return (
-		// Main container - Centered content with background
-		<div className="min-h-screen flex flex-col items-center justify-center bg-slate-100 p-4 sm:p-6">
-			{/* Back Button - Positioned top-left */}
-			<button
-				onClick={() => navigate("/products")} // Original handler
-				className="absolute top-4 left-4 sm:top-6 sm:left-6 z-10 px-3 py-2 bg-white text-slate-700 border border-slate-300 rounded-lg text-sm hover:bg-slate-50 transition-colors flex items-center gap-1.5 shadow-sm"
-			>
-				<ArrowLeftIcon className="h-4 w-4" />
-				Back
-			</button>
-
-			{/* Product Detail Card - Improved Styling */}
-			<div className="w-full max-w-lg bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden">
-				{/* Image Area */}
-				<div className="w-full h-60 sm:h-72 bg-slate-200 flex items-center justify-center overflow-hidden">
-					{product.image ? (
-						<img
-							src={product.image} // Original state
-							alt={product.name} // Original state
-							className="w-full h-full object-cover"
-							onError={(e) => {
-								e.target.onerror = null;
-								e.target.src =
-									"https://placehold.co/400x300/e2e8f0/94a3b8?text=No+Image";
-							}}
-						/>
-					) : (
-						<div className="flex flex-col items-center text-slate-400">
-							<PhotoIcon className="h-16 w-16 mb-1" />
-							<span className="text-xs">No Image</span>
-						</div>
-					)}
+		<MainLayout pageTitle={pageTitle}>
+			<div className="max-w-3xl mx-auto">
+				{" "}
+				{/* Centered content */}
+				<div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+					<h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
+						<PackageIcon className="h-6 w-6 text-slate-600" />
+						{product.name}
+					</h2>
+					<div className="flex items-center gap-2">
+						<button
+							onClick={() =>
+								navigate(`/products/edit/${encodeURIComponent(product.name)}`)
+							}
+							className="flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-blue-600"
+						>
+							<PencilSquareIcon className="h-4 w-4" /> Edit
+						</button>
+						<button
+							onClick={() => navigate("/products")}
+							className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+						>
+							<ArrowLeftIcon className="h-4 w-4" /> All Products
+						</button>
+					</div>
 				</div>
-
-				{/* Content Area */}
-				<div className="p-5 sm:p-6">
-					{/* Category Badge */}
-					{product.category_name && (
-						<span className="inline-block bg-indigo-100 text-indigo-700 text-xs font-semibold px-2.5 py-1 rounded-full mb-2">
-							{product.category_name}
-						</span>
-					)}
-					{/* Product Name */}
-					<h1 className="text-xl sm:text-2xl font-bold text-slate-800 mb-1">
-						{product.name} {/* Original state */}
-					</h1>
-					{/* Product Price */}
-					<p className="text-xl font-semibold text-blue-600 mb-3">
-						${Number(product.price).toFixed(2)} {/* Original state */}
-					</p>
-					{/* Product Description */}
-					<p className="text-sm text-slate-600 leading-relaxed">
-						{product.description || (
-							<span className="italic text-slate-400">
-								No description provided.
-							</span>
-						)}{" "}
-						{/* Original state */}
-					</p>
-
-					{/* Edit Button (Optional - could be added for admins) */}
-					{/* Example: Add isAdmin check here */}
-					<button
-						onClick={() =>
-							navigate(`/products/edit/${encodeURIComponent(product.name)}`)
-						}
-						className="mt-5 w-full px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-sm hover:bg-blue-100 transition-colors flex items-center justify-center gap-1.5"
-					>
-						<PencilSquareIcon className="h-4 w-4" />
-						Edit Product
-					</button>
+				<div className="bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden">
+					<div className="w-full h-60 sm:h-80 bg-slate-200 flex items-center justify-center overflow-hidden">
+						{product.image ? (
+							<img
+								src={product.image}
+								alt={product.name}
+								className="w-full h-full object-cover"
+								onError={(e) => {
+									e.target.onerror = null;
+									e.target.src = `https://placehold.co/400x300/e2e8f0/94a3b8?text=No+Image`;
+								}}
+							/>
+						) : (
+							<div className="flex flex-col items-center text-slate-400">
+								<PhotoIcon className="h-16 w-16 mb-1" />
+								<span className="text-xs">No Image</span>
+							</div>
+						)}
+					</div>
+					<div className="p-5 sm:p-6 space-y-4">
+						<div>
+							<label className="text-xs font-medium text-slate-500 flex items-center gap-1">
+								<TagIcon className="h-3.5 w-3.5" />
+								Category
+							</label>
+							<p className="text-sm text-indigo-700 font-medium bg-indigo-50 px-2 py-0.5 rounded-full inline-block mt-0.5">
+								{product.category_name || (
+									<span className="italic text-slate-400">Uncategorized</span>
+								)}
+							</p>
+						</div>
+						<div>
+							<label className="text-xs font-medium text-slate-500 flex items-center gap-1">
+								<CurrencyDollarIcon className="h-3.5 w-3.5" />
+								Price
+							</label>
+							<p className="text-2xl font-semibold text-blue-600">
+								${Number(product.price).toFixed(2)}
+							</p>
+						</div>
+						<div>
+							<label className="text-xs font-medium text-slate-500 flex items-center gap-1">
+								<Bars3BottomLeftIcon className="h-3.5 w-3.5" />
+								Description
+							</label>
+							<p className="text-sm text-slate-600 leading-relaxed mt-0.5 whitespace-pre-wrap">
+								{product.description || (
+									<span className="italic text-slate-400">
+										No description provided.
+									</span>
+								)}
+							</p>
+						</div>
+						{product.barcode && (
+							<div>
+								<label className="text-xs font-medium text-slate-500 flex items-center gap-1">
+									<QrCodeIcon className="h-3.5 w-3.5" />
+									Barcode
+								</label>
+								<p className="text-sm text-slate-700 font-mono bg-slate-100 px-2 py-1 rounded inline-block mt-0.5">
+									{product.barcode}
+								</p>
+							</div>
+						)}
+					</div>
 				</div>
 			</div>
-		</div>
+		</MainLayout>
 	);
-	// --- END OF UPDATED UI v2 ---
-};
-
-export default ProductDetail; // Assuming default export
+}
+// No direct props, PropTypes for the component itself is optional.

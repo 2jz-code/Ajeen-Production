@@ -7,7 +7,7 @@ import {
 	CheckCircleIcon,
 	GiftIcon,
 	ArrowLeftIcon,
-} from "@heroicons/react/24/solid"; // Using solid icons
+} from "@heroicons/react/24/solid";
 
 const RewardsRegistrationView = ({ onComplete }) => {
 	const [formData, setFormData] = useState({
@@ -20,7 +20,6 @@ const RewardsRegistrationView = ({ onComplete }) => {
 	const [step, setStep] = useState("intro"); // intro, form, success
 	const [formErrors, setFormErrors] = useState({});
 
-	// Animations
 	const containerVariants = {
 		hidden: { opacity: 0 },
 		visible: { opacity: 1, transition: { duration: 0.4 } },
@@ -46,13 +45,12 @@ const RewardsRegistrationView = ({ onComplete }) => {
 	};
 
 	const validateForm = () => {
-		// Basic validation (enhance as needed)
 		const errors = {};
 		if (!formData.firstName.trim()) errors.firstName = "First name required";
 		if (!formData.lastName.trim()) errors.lastName = "Last name required";
 		if (!formData.email.trim() || !/\S+@\S+\.\S+/.test(formData.email))
 			errors.email = "Valid email required";
-		if (!formData.phone.trim()) errors.phone = "Phone number required"; // Add more specific phone validation if needed
+		if (!formData.phone.trim()) errors.phone = "Phone number required";
 		if (!formData.acceptTerms) errors.acceptTerms = "Agreement required";
 		setFormErrors(errors);
 		return Object.keys(errors).length === 0;
@@ -61,11 +59,10 @@ const RewardsRegistrationView = ({ onComplete }) => {
 	const handleSubmit = (e) => {
 		e.preventDefault();
 		if (!validateForm()) return;
-		// console.log("Submitting rewards:", formData);
 		setStep("success");
 		setTimeout(() => {
 			if (onComplete) onComplete(formData);
-		}, 2500); // Shorter success display
+		}, 2500);
 	};
 
 	const handleSkip = () => {
@@ -80,21 +77,22 @@ const RewardsRegistrationView = ({ onComplete }) => {
 		if (onComplete) onComplete(null);
 	};
 
-	// Brand colors (assuming blue)
 	const primaryColor = "blue-600";
 	const primaryHoverColor = "blue-700";
 	const primaryRingColor = "blue-300";
 	const secondaryColor = "slate-700";
 	const secondaryBorder = "slate-300";
-	const secondaryHoverBg = "slate-100";
+	const secondaryHoverBg = "slate-100/70"; // Adjusted for transparency
 	const secondaryRingColor = "slate-400";
 	const errorColor = "red-500";
 	const errorRingColor = "red-300";
 	const successColor = "green-500";
 
-	const inputBaseClass = `w-full px-4 py-3 border-2 rounded-lg text-lg focus:outline-none focus:ring-2 focus:ring-offset-1`;
+	const inputBaseClass = `w-full px-4 py-3 border-2 rounded-lg text-lg focus:outline-none focus:ring-2 focus:ring-offset-1 bg-white/70 backdrop-blur-sm`;
 	const inputNormalClass = `border-slate-300 focus:border-${primaryColor} focus:ring-${primaryRingColor}`;
 	const inputErrorClass = `border-${errorColor} focus:ring-${errorRingColor}`;
+
+	// Removed stepContentWrapperClass, styles will be applied directly or to a simple div
 
 	const renderIntroStep = () => (
 		<motion.div
@@ -103,7 +101,7 @@ const RewardsRegistrationView = ({ onComplete }) => {
 			initial="hidden"
 			animate="visible"
 			exit="exit"
-			className="text-center"
+			className="w-full max-w-lg text-center" // max-width and text-center here
 		>
 			<motion.div variants={itemVariants}>
 				<GiftIcon className={`w-20 h-20 text-${primaryColor} mx-auto mb-6`} />
@@ -121,13 +119,13 @@ const RewardsRegistrationView = ({ onComplete }) => {
 			>
 				<button
 					onClick={() => setStep("form")}
-					className={`w-full py-4 bg-${primaryColor} text-white rounded-lg shadow-sm hover:bg-${primaryHoverColor} transition-colors font-semibold text-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-${primaryRingColor}`}
+					className={`w-full py-4 bg-${primaryColor} text-white rounded-lg shadow-sm hover:bg-${primaryHoverColor} transition-colors font-semibold text-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-${primaryRingColor} backdrop-blur-sm`}
 				>
 					Sign Up
 				</button>
 				<button
 					onClick={handleSkip}
-					className={`w-full py-4 bg-white text-${secondaryColor} border-2 border-${secondaryBorder} rounded-lg hover:bg-${secondaryHoverBg} transition-colors font-semibold text-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-${secondaryRingColor}`}
+					className={`w-full py-4 bg-white/70 text-${secondaryColor} border-2 border-${secondaryBorder} rounded-lg hover:bg-${secondaryHoverBg} transition-colors font-semibold text-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-${secondaryRingColor} backdrop-blur-sm`}
 				>
 					No Thanks
 				</button>
@@ -142,18 +140,11 @@ const RewardsRegistrationView = ({ onComplete }) => {
 			initial="hidden"
 			animate="visible"
 			exit="exit"
+			className="w-full max-w-lg" // max-width here
 		>
-			{/* Back Button */}
-			<button
-				onClick={() => setStep("intro")}
-				className="absolute top-6 left-6 text-slate-500 hover:text-slate-700 transition-colors"
-			>
-				<ArrowLeftIcon className="w-6 h-6" />
-			</button>
-
 			<motion.h2
 				variants={itemVariants}
-				className="text-2xl font-semibold text-gray-800 mb-6 text-center pt-8"
+				className="text-2xl font-semibold text-gray-800 mb-6 text-center"
 			>
 				Create Rewards Account
 			</motion.h2>
@@ -269,7 +260,7 @@ const RewardsRegistrationView = ({ onComplete }) => {
 							formErrors.acceptTerms
 								? `border-${errorColor}`
 								: `border-${secondaryBorder}`
-						}`}
+						} bg-white/50`}
 					/>
 					<label
 						htmlFor="acceptTerms"
@@ -293,14 +284,14 @@ const RewardsRegistrationView = ({ onComplete }) => {
 				<div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 pt-4">
 					<button
 						type="submit"
-						className={`flex-1 py-4 bg-${primaryColor} text-white rounded-lg shadow-sm hover:bg-${primaryHoverColor} transition-colors font-semibold text-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-${primaryRingColor}`}
+						className={`flex-1 py-4 bg-${primaryColor} text-white rounded-lg shadow-sm hover:bg-${primaryHoverColor} transition-colors font-semibold text-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-${primaryRingColor} backdrop-blur-sm`}
 					>
 						Create Account
 					</button>
 					<button
 						type="button"
 						onClick={handleSkip}
-						className={`flex-1 py-4 bg-white text-${secondaryColor} border-2 border-${secondaryBorder} rounded-lg hover:bg-${secondaryHoverBg} transition-colors font-semibold text-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-${secondaryRingColor}`}
+						className={`flex-1 py-4 bg-white/70 text-${secondaryColor} border-2 border-${secondaryBorder} rounded-lg hover:bg-${secondaryHoverBg} transition-colors font-semibold text-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-${secondaryRingColor} backdrop-blur-sm`}
 					>
 						Skip
 					</button>
@@ -316,7 +307,7 @@ const RewardsRegistrationView = ({ onComplete }) => {
 			initial="hidden"
 			animate="visible"
 			exit="exit"
-			className="text-center"
+			className="w-full max-w-lg text-center" // max-width and text-center here
 		>
 			<motion.div variants={itemVariants}>
 				<CheckCircleIcon
@@ -345,9 +336,16 @@ const RewardsRegistrationView = ({ onComplete }) => {
 	);
 
 	return (
-		// Added relative positioning for back button
-		<div className="w-full h-screen bg-white flex flex-col items-center justify-center p-8 md:p-12 lg:p-16 relative">
-			{/* Use AnimatePresence for smooth step transitions */}
+		// Main background for the entire view is white
+		<div className="w-full h-screen bg-white flex flex-col items-center justify-center p-4 md:p-8 lg:p-12 relative">
+			{step === "form" && (
+				<button
+					onClick={() => setStep("intro")}
+					className="absolute top-6 left-6 text-slate-500 hover:text-slate-700 transition-colors z-10 p-2 bg-white/50 rounded-full backdrop-blur-sm"
+				>
+					<ArrowLeftIcon className="w-6 h-6" />
+				</button>
+			)}
 			<AnimatePresence mode="wait">
 				{step === "intro" && renderIntroStep()}
 				{step === "form" && renderFormStep()}

@@ -1,35 +1,56 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import PropTypes from "prop-types"; // Import PropTypes
+import PropTypes from "prop-types";
 import { rewardsService } from "../../api/services/rewardsService";
 import { useApi } from "../../api/hooks/useApi";
 import { toast } from "react-toastify";
 import {
-	ArrowLeftIcon,
-	PlusIcon,
-	PencilSquareIcon, // Updated Icon
-	TrashIcon,
-	GiftIcon, // For Reward Items title
-	CheckCircleIcon, // For Active status
-	XCircleIcon, // For Inactive status
-	CurrencyDollarIcon, // For fixed discount
-	TicketIcon, // For percentage discount
-	CubeIcon, // For free product	HashtagIcon, // For product ID
-	ExclamationTriangleIcon, // For errors
-	ArrowPathIcon, // For retry
-	InformationCircleIcon,
-} from "@heroicons/react/24/outline";
+	ArrowLeft,
+	Plus,
+	Edit2,
+	Trash2,
+	Gift,
+	CheckCircle2,
+	XCircle,
+	DollarSign,
+	Percent,
+	Box,
+	AlertTriangle,
+	RefreshCw,
+	Info,
+} from "lucide-react";
 import LoadingSpinner from "../reports/components/LoadingSpinner";
-import ConfirmationModal from "../../components/ConfirmationModal"; // Assuming this is styled
-import Modal from "../../components/common/Modal"; // Use the common Modal component
+import ConfirmationModal from "../../components/ConfirmationModal";
+import Modal from "../../components/common/Modal";
+import MainLayout from "../layout/MainLayout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 // Helper: Format Reward Value Display
 const formatRewardValue = (reward) => {
-	if (!reward) return <span className="italic text-slate-400">N/A</span>;
+	if (!reward) return <span className="italic text-muted-foreground">N/A</span>;
 	if (reward.free_product) {
 		return (
-			<span className="inline-flex items-center gap-1 text-indigo-700">
-				<CubeIcon className="h-3.5 w-3.5" />
+			<span className="inline-flex items-center gap-1.5 text-indigo-600">
+				<Box className="h-4 w-4" />
 				{reward.product_id
 					? `Free Product #${reward.product_id}`
 					: "Any Free Product"}
@@ -38,16 +59,16 @@ const formatRewardValue = (reward) => {
 	}
 	if (reward.discount_type === "percentage") {
 		return (
-			<span className="inline-flex items-center gap-1 text-teal-700">
-				<TicketIcon className="h-3.5 w-3.5" />
+			<span className="inline-flex items-center gap-1.5 text-teal-600">
+				<Percent className="h-4 w-4" />
 				{reward.discount_value || 0}% Off
 			</span>
 		);
 	}
 	if (reward.discount_type === "fixed") {
 		return (
-			<span className="inline-flex items-center gap-1 text-blue-700">
-				<CurrencyDollarIcon className="h-3.5 w-3.5" />
+			<span className="inline-flex items-center gap-1.5 text-blue-600">
+				<DollarSign className="h-4 w-4" />
 				{new Intl.NumberFormat("en-US", {
 					style: "currency",
 					currency: "USD",
@@ -56,33 +77,32 @@ const formatRewardValue = (reward) => {
 			</span>
 		);
 	}
-	return <span className="italic text-slate-400">No Value Set</span>;
+	return <span className="italic text-muted-foreground">No Value Set</span>;
 };
 
 // Helper: Get status pill styling
 const getStatusPill = (isActive) => {
 	const baseClasses =
-		"px-2 py-0.5 rounded-full text-[10px] font-medium inline-flex items-center gap-1 border";
+		"px-2.5 py-1 rounded-full text-xs font-semibold inline-flex items-center gap-1.5 border";
 	if (isActive) {
 		return (
 			<span
-				className={`${baseClasses} bg-emerald-50 text-emerald-700 border-emerald-200`}
+				className={`${baseClasses} bg-green-500/10 text-green-700 border-green-500/20`}
 			>
-				<CheckCircleIcon className="h-3 w-3" /> ACTIVE
+				<CheckCircle2 className="h-3.5 w-3.5" /> ACTIVE
 			</span>
 		);
 	} else {
 		return (
 			<span
-				className={`${baseClasses} bg-rose-50 text-rose-700 border-rose-200`}
+				className={`${baseClasses} bg-red-500/10 text-red-700 border-red-500/20`}
 			>
-				<XCircleIcon className="h-3 w-3" /> INACTIVE
+				<XCircle className="h-3.5 w-3.5" /> INACTIVE
 			</span>
 		);
 	}
 };
 
-// Helper component for form fields (similar to DiscountForm)
 const FormField = ({
 	label,
 	id,
@@ -90,24 +110,22 @@ const FormField = ({
 	required = false,
 	helpText = null,
 	error = null,
+	className = "",
 }) => (
-	<div className="mb-4">
-		<label
-			htmlFor={id}
-			className="mb-1 block text-sm font-medium text-slate-700"
-		>
-			{label} {required && <span className="text-red-500">*</span>}
-		</label>
+	<div className={`space-y-1.5 ${className}`}>
+		<Label htmlFor={id}>
+			{label} {required && <span className="text-destructive">*</span>}
+		</Label>
 		{children}
 		{helpText && !error && (
-			<p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
-				<InformationCircleIcon className="h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
+			<p className="text-xs text-muted-foreground flex items-center gap-1">
+				<Info className="h-3 w-3 flex-shrink-0" />
 				{helpText}
 			</p>
 		)}
 		{error && (
-			<p className="mt-1 flex items-center gap-1 text-xs text-red-600">
-				<ExclamationTriangleIcon className="h-3.5 w-3.5 flex-shrink-0" />
+			<p className="text-xs text-destructive flex items-center gap-1">
+				<AlertTriangle className="h-3 w-3 flex-shrink-0" />
 				{error}
 			</p>
 		)}
@@ -120,35 +138,32 @@ FormField.propTypes = {
 	required: PropTypes.bool,
 	helpText: PropTypes.string,
 	error: PropTypes.string,
+	className: PropTypes.string,
 };
 
 export default function RewardItems() {
 	const navigate = useNavigate();
-	// eslint-disable-next-line no-unused-vars
-	const { execute, isLoading: isApiLoading, error: apiError } = useApi(); // Use isApiLoading for API calls
+	const { execute, isLoading: isApiLoading, error: apiErrorHook } = useApi();
 
-	// State
 	const [rewards, setRewards] = useState([]);
-	const [showAddEditModal, setShowAddEditModal] = useState(false); // Combined modal state
+	const [showAddEditModal, setShowAddEditModal] = useState(false);
 	const [isEditMode, setIsEditMode] = useState(false);
 	const [showDeleteModal, setShowDeleteModal] = useState(false);
-	const [currentReward, setCurrentReward] = useState(null); // Reward being edited or deleted
+	const [currentReward, setCurrentReward] = useState(null);
 	const [rewardForm, setRewardForm] = useState({
-		// Initial form state
 		name: "",
 		description: "",
 		points_required: "",
 		is_active: true,
-		discount_type: "", // 'percentage', 'fixed', or '' if free_product is true
+		discount_type: "",
 		discount_value: "",
 		free_product: false,
-		product_id: "", // Store as string for input, convert on submit
+		product_id: "",
 	});
-	const [formErrors, setFormErrors] = useState({}); // Frontend validation errors
-	const [isSubmitting, setIsSubmitting] = useState(false); // Separate submitting state
-	const [fetchError, setFetchError] = useState(null); // Fetch-specific error
+	const [formErrors, setFormErrors] = useState({});
+	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [fetchError, setFetchError] = useState(null);
 
-	// Fetch rewards on mount
 	const fetchRewards = useCallback(async () => {
 		setFetchError(null);
 		try {
@@ -157,19 +172,19 @@ export default function RewardItems() {
 		} catch (error) {
 			console.error("Error fetching rewards:", error);
 			const message =
-				error.message || "Failed to load rewards. Please try again.";
+				apiErrorHook ||
+				error.message ||
+				"Failed to load rewards. Please try again.";
 			setFetchError(message);
 			toast.error(message);
 			setRewards([]);
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [execute]); // execute is stable
+	}, [execute, apiErrorHook]);
 
 	useEffect(() => {
 		fetchRewards();
 	}, [fetchRewards]);
 
-	// --- Modal Handling ---
 	const resetForm = () => {
 		setRewardForm({
 			name: "",
@@ -197,12 +212,12 @@ export default function RewardItems() {
 		setRewardForm({
 			name: reward.name || "",
 			description: reward.description || "",
-			points_required: reward.points_required ?? "", // Keep as string for input
+			points_required: reward.points_required ?? "",
 			is_active: reward.is_active ?? true,
 			discount_type: reward.discount_type || "",
-			discount_value: reward.discount_value ?? "", // Keep as string
+			discount_value: reward.discount_value ?? "",
 			free_product: reward.free_product ?? false,
-			product_id: reward.product_id ?? "", // Keep as string
+			product_id: reward.product_id ?? "",
 		});
 		setFormErrors({});
 		setIsEditMode(true);
@@ -218,59 +233,50 @@ export default function RewardItems() {
 	const handleCloseModal = () => {
 		setShowAddEditModal(false);
 		setShowDeleteModal(false);
-		// Delay resetting form slightly to avoid visual glitch during modal close animation
 		setTimeout(resetForm, 300);
 	};
 
-	// --- Form Handling ---
 	const handleFormChange = (e) => {
 		const { name, value, type, checked } = e.target;
 		let newValue = value;
 
-		if (type === "checkbox") {
+		if (type === "checkbox" && name === "free_product") {
 			newValue = checked;
-			// If 'free_product' is checked, clear discount fields
-			if (name === "free_product" && checked) {
-				setRewardForm((prev) => ({
-					...prev,
-					discount_type: "",
-					discount_value: "",
-					[name]: newValue,
-				}));
-				// Clear related errors
-				setFormErrors((prev) => ({
-					...prev,
-					discount_type: null,
-					discount_value: null,
-				}));
-				return; // Exit early
-			}
-			// If 'free_product' is unchecked, clear product_id
-			if (name === "free_product" && !checked) {
-				setRewardForm((prev) => ({
-					...prev,
-					product_id: "",
-					[name]: newValue,
-				}));
-				setFormErrors((prev) => ({ ...prev, product_id: null })); // Clear product_id error if any
-				return; // Exit early
-			}
+			setRewardForm((prev) => ({
+				...prev,
+				discount_type: checked ? "" : prev.discount_type,
+				discount_value: checked ? "" : prev.discount_value,
+				product_id: !checked ? "" : prev.product_id,
+				[name]: newValue,
+			}));
+			setFormErrors((prev) => ({
+				...prev,
+				discount_type: null,
+				discount_value: null,
+				product_id: !checked ? prev.product_id : null,
+			}));
+			return;
+		}
+		if (type === "checkbox" && name === "is_active") {
+			newValue = checked;
 		}
 
-		// Update form state
 		setRewardForm((prev) => ({ ...prev, [name]: newValue }));
-
-		// Clear validation error for the field being changed
 		if (formErrors[name]) {
 			setFormErrors((prev) => ({ ...prev, [name]: null }));
 		}
-		// Clear dependent validation errors
 		if (name === "discount_type" && formErrors.discount_value) {
 			setFormErrors((prev) => ({ ...prev, discount_value: null }));
 		}
 	};
 
-	// --- Frontend Validation ---
+	const handleSelectChange = (name, value) => {
+		setRewardForm((prev) => ({ ...prev, [name]: value }));
+		if (formErrors[name]) {
+			setFormErrors((prev) => ({ ...prev, [name]: null }));
+		}
+	};
+
 	const validateForm = () => {
 		const errors = {};
 		if (!rewardForm.name.trim()) errors.name = "Reward Name is required.";
@@ -283,7 +289,6 @@ export default function RewardItems() {
 		}
 
 		if (rewardForm.free_product) {
-			// Validation for free product (product_id is optional)
 			if (
 				rewardForm.product_id !== "" &&
 				(isNaN(Number(rewardForm.product_id)) ||
@@ -292,7 +297,6 @@ export default function RewardItems() {
 				errors.product_id = "Product ID must be a positive number if provided.";
 			}
 		} else {
-			// Validation for discount type
 			if (!rewardForm.discount_type) {
 				errors.discount_type =
 					"Discount Type is required if not a Free Product.";
@@ -312,267 +316,249 @@ export default function RewardItems() {
 				errors.discount_value = "Percentage cannot exceed 100.";
 			}
 		}
-
 		setFormErrors(errors);
 		return Object.keys(errors).length === 0;
 	};
 
-	// --- Form Submission ---
 	const handleSubmitForm = async (e) => {
 		e.preventDefault();
 		if (!validateForm()) {
 			toast.warn("Please fix the errors in the form.");
 			return;
 		}
-
 		setIsSubmitting(true);
-
-		// Prepare data for API
 		const payload = {
 			...rewardForm,
 			points_required: Number(rewardForm.points_required),
-			// Only include discount fields if not free product
 			discount_type: rewardForm.free_product ? null : rewardForm.discount_type,
 			discount_value: rewardForm.free_product
 				? null
 				: rewardForm.discount_value
 				? Number(rewardForm.discount_value)
 				: null,
-			// Only include product_id if free product is true
 			product_id: rewardForm.free_product
 				? rewardForm.product_id
 					? Number(rewardForm.product_id)
 					: null
 				: null,
+			is_active: Boolean(rewardForm.is_active),
+			free_product: Boolean(rewardForm.free_product),
 		};
-		// Ensure boolean values are correct
-		payload.is_active = Boolean(payload.is_active);
-		payload.free_product = Boolean(payload.free_product);
 
 		try {
-			let result;
 			if (isEditMode && currentReward) {
-				result = await execute(
+				await execute(
 					() => rewardsService.updateReward(currentReward.id, payload),
-					{
-						successMessage: "Reward updated successfully!",
-					}
+					{ successMessage: "Reward updated successfully!" }
 				);
-				if (result) {
-					setRewards((prev) =>
-						prev.map((r) => (r.id === currentReward.id ? result : r))
-					);
-				}
 			} else {
-				result = await execute(() => rewardsService.createReward(payload), {
+				await execute(() => rewardsService.createReward(payload), {
 					successMessage: "Reward created successfully!",
 				});
-				if (result) {
-					setRewards((prev) => [...prev, result]);
-				}
 			}
-			handleCloseModal(); // Close modal on success
+			fetchRewards();
+			handleCloseModal();
 		} catch (error) {
 			console.error(
 				`Error ${isEditMode ? "updating" : "creating"} reward:`,
 				error
 			);
-			// Error toast is likely handled by useApi hook
 		} finally {
 			setIsSubmitting(false);
 		}
 	};
 
-	// --- Delete Confirmation ---
 	const handleConfirmDelete = async () => {
 		if (!currentReward?.id) return;
+		setIsSubmitting(true);
 		try {
 			await execute(() => rewardsService.deleteReward(currentReward.id), {
 				successMessage: `Reward "${currentReward.name}" deleted.`,
 			});
-			setRewards((prev) => prev.filter((r) => r.id !== currentReward.id));
+			fetchRewards();
 			handleCloseModal();
 		} catch (error) {
 			console.error("Error deleting reward:", error);
-			// Error toast handled by useApi
+		} finally {
+			setIsSubmitting(false);
 		}
 	};
 
-	// --- UI Rendering ---
 	const isLoadingPage = isApiLoading && rewards.length === 0 && !fetchError;
 
 	return (
-		<div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-100 p-4 text-slate-900 sm:p-6">
-			{/* Header */}
-			<header className="mb-4 flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
-				<h1 className="flex items-center gap-2 text-xl font-bold text-slate-800 sm:text-2xl">
-					<GiftIcon className="h-6 w-6 text-purple-600" />
+		<MainLayout pageTitle="Reward Items">
+			<div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+				<h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
+					<Gift className="h-6 w-6 text-primary" />
 					Manage Reward Items
 				</h1>
-				<div className="flex items-center gap-3">
-					<button
+				<div className="flex items-center gap-2">
+					<Button
 						onClick={handleOpenAddModal}
-						className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+						disabled={isApiLoading || isSubmitting}
 					>
-						<PlusIcon className="h-4 w-4" />
+						<Plus className="h-4 w-4 mr-2" />
 						Add Reward
-					</button>
-					<button
-						className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+					</Button>
+					<Button
+						variant="outline"
 						onClick={() => navigate("/rewards")}
+						disabled={isApiLoading || isSubmitting}
 					>
-						<ArrowLeftIcon className="h-4 w-4" />
-						Back
-					</button>
+						<ArrowLeft className="h-4 w-4 mr-2" />
+						Back to Rewards Hub
+					</Button>
 				</div>
-			</header>
-
-			{/* Main Content Area */}
-			<div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-				{isLoadingPage ? (
-					<div className="flex h-full items-center justify-center">
-						<LoadingSpinner size="md" />
-					</div>
-				) : fetchError ? (
-					<div className="flex h-full flex-col items-center justify-center p-6 text-center">
-						<ExclamationTriangleIcon className="mb-2 h-8 w-8 text-red-400" />
-						<p className="mb-3 text-sm text-red-600">{fetchError}</p>
-						<button
-							onClick={fetchRewards}
-							disabled={isApiLoading}
-							className="flex items-center gap-1 rounded-md border border-red-300 bg-red-100 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 disabled:opacity-50"
-						>
-							<ArrowPathIcon className="h-3.5 w-3.5" /> Retry
-						</button>
-					</div>
-				) : (
-					<div className="custom-scrollbar h-full overflow-auto">
-						<table className="min-w-full divide-y divide-slate-100">
-							<thead className="sticky top-0 z-10 bg-slate-50">
-								<tr>
-									<Th>Reward Name</Th>
-									<Th align="center">Points</Th>
-									<Th>Value / Type</Th>
-									<Th>Status</Th>
-									<Th align="right">Actions</Th>
-								</tr>
-							</thead>
-							<tbody className="divide-y divide-slate-100 bg-white">
-								{rewards.length === 0 ? (
-									<tr>
-										<td
-											colSpan="5"
-											className="p-8 text-center text-sm text-slate-500"
-										>
-											No reward items found. Click &quot;Add Reward&quot; to
-											create one.
-										</td>
-									</tr>
-								) : (
-									rewards.map((reward) => (
-										<tr
-											key={reward.id}
-											className="transition-colors hover:bg-slate-50/50"
-										>
-											<Td>
-												<div className="font-medium text-slate-800">
-													{reward.name}
-												</div>
-												<div
-													className="mt-0.5 text-xs text-slate-500 line-clamp-1"
-													title={reward.description}
-												>
-													{reward.description || (
-														<span className="italic">No description</span>
-													)}
-												</div>
-											</Td>
-											<Td
-												align="center"
-												isHeader
-											>
-												{reward.points_required}
-											</Td>
-											<Td>{formatRewardValue(reward)}</Td>
-											<Td>{getStatusPill(reward.is_active)}</Td>
-											<Td align="right">
-												<button
-													onClick={() => handleOpenEditModal(reward)}
-													className="mr-1 rounded p-1.5 text-slate-500 transition-colors hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
-													title="Edit Reward"
-													disabled={isApiLoading || isSubmitting}
-												>
-													<PencilSquareIcon className="h-4 w-4" />
-												</button>
-												<button
-													onClick={() => handleOpenDeleteModal(reward)}
-													className="rounded p-1.5 text-slate-500 transition-colors hover:bg-red-50 hover:text-red-700 focus:outline-none focus:ring-1 focus:ring-red-400"
-													title="Delete Reward"
-													disabled={isApiLoading || isSubmitting}
-												>
-													<TrashIcon className="h-4 w-4" />
-												</button>
-											</Td>
-										</tr>
-									))
-								)}
-							</tbody>
-						</table>
-					</div>
-				)}
 			</div>
 
-			{/* Add/Edit Reward Modal */}
+			{isLoadingPage ? (
+				<div className="flex h-[calc(100vh-250px)] items-center justify-center">
+					<LoadingSpinner size="lg" />
+				</div>
+			) : fetchError ? (
+				<Card className="border-destructive/50 bg-destructive/10">
+					<CardHeader>
+						<CardTitle className="text-destructive flex items-center gap-2">
+							<AlertTriangle className="h-5 w-5" />
+							Error Loading Rewards
+						</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<p className="text-sm text-destructive mb-3">{fetchError}</p>
+						<Button
+							variant="destructive"
+							size="sm"
+							onClick={fetchRewards}
+							disabled={isApiLoading || isSubmitting}
+						>
+							<RefreshCw className="h-4 w-4 mr-2" /> Retry
+						</Button>
+					</CardContent>
+				</Card>
+			) : (
+				<Card>
+					<CardHeader>
+						<CardTitle>Available Reward Items</CardTitle>
+					</CardHeader>
+					<CardContent className="p-0">
+						<div className="overflow-x-auto">
+							<Table>
+								<TableHeader>
+									<TableRow>
+										<TableHead>Name</TableHead>
+										<TableHead className="text-center">Points</TableHead>
+										<TableHead>Value / Type</TableHead>
+										<TableHead>Status</TableHead>
+										<TableHead className="text-right">Actions</TableHead>
+									</TableRow>
+								</TableHeader>
+								<TableBody>
+									{rewards.length === 0 ? (
+										<TableRow>
+											<TableCell
+												colSpan="5"
+												className="h-24 text-center text-muted-foreground"
+											>
+												No reward items found. Add one to get started.
+											</TableCell>
+										</TableRow>
+									) : (
+										rewards.map((reward) => (
+											<TableRow
+												key={reward.id}
+												className="hover:bg-muted/50"
+											>
+												<TableCell>
+													<div className="font-medium text-foreground">
+														{reward.name}
+													</div>
+													<div
+														className="text-xs text-muted-foreground line-clamp-1"
+														title={reward.description}
+													>
+														{reward.description || (
+															<span className="italic">No description</span>
+														)}
+													</div>
+												</TableCell>
+												<TableCell className="text-center font-semibold text-primary">
+													{reward.points_required}
+												</TableCell>
+												<TableCell>{formatRewardValue(reward)}</TableCell>
+												<TableCell>{getStatusPill(reward.is_active)}</TableCell>
+												<TableCell className="text-right">
+													<Button
+														variant="ghost"
+														size="icon"
+														className="h-8 w-8 mr-1"
+														onClick={() => handleOpenEditModal(reward)}
+														disabled={isApiLoading || isSubmitting}
+														title="Edit Reward"
+													>
+														<Edit2 className="h-4 w-4" />
+													</Button>
+													<Button
+														variant="ghost"
+														size="icon"
+														className="h-8 w-8 text-destructive-foreground hover:bg-destructive/10"
+														onClick={() => handleOpenDeleteModal(reward)}
+														disabled={isApiLoading || isSubmitting}
+														title="Delete Reward"
+													>
+														<Trash2 className="h-4 w-4" />
+													</Button>
+												</TableCell>
+											</TableRow>
+										))
+									)}
+								</TableBody>
+							</Table>
+						</div>
+					</CardContent>
+				</Card>
+			)}
+
 			<Modal
 				isOpen={showAddEditModal}
 				onClose={handleCloseModal}
-				title={isEditMode ? "Edit Reward" : "Add New Reward"}
+				title={isEditMode ? "Edit Reward Item" : "Add New Reward Item"}
+				size="lg"
 			>
 				<form
 					onSubmit={handleSubmitForm}
 					noValidate
 				>
-					{/* Form fields */}
-					<div className="space-y-4 p-1">
-						{" "}
-						{/* Add padding inside modal content */}
+					<div className="space-y-4 p-1 max-h-[70vh] overflow-y-auto custom-scrollbar pr-2">
 						<FormField
 							label="Reward Name"
 							id="reward-name"
 							required
 							error={formErrors.name}
 						>
-							<input
-								type="text"
+							<Input
 								id="reward-name"
 								name="name"
 								value={rewardForm.name}
 								onChange={handleFormChange}
 								required
-								className={`block w-full rounded-md border-0 px-3 py-1.5 text-slate-900 shadow-sm ring-1 ring-inset ${
-									formErrors.name
-										? "ring-red-500 focus:ring-red-600"
-										: "ring-slate-300 focus:ring-blue-600"
-								} placeholder:text-slate-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6`}
+								placeholder="e.g., Free Coffee"
+								className={formErrors.name ? "border-destructive" : ""}
 							/>
 						</FormField>
 						<FormField
 							label="Description"
 							id="reward-description"
-							helpText="Optional description for the reward."
+							helpText="Optional description for the reward (e.g., for staff)."
 							error={formErrors.description}
 						>
-							<textarea
+							<Input
 								id="reward-description"
 								name="description"
-								rows="2"
 								value={rewardForm.description}
 								onChange={handleFormChange}
-								className={`block w-full rounded-md border-0 px-3 py-1.5 text-slate-900 shadow-sm ring-1 ring-inset ${
-									formErrors.description
-										? "ring-red-500 focus:ring-red-600"
-										: "ring-slate-300 focus:ring-blue-600"
-								} placeholder:text-slate-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6`}
+								placeholder="e.g., Any regular-size hot coffee"
+								className={formErrors.description ? "border-destructive" : ""}
 							/>
 						</FormField>
 						<FormField
@@ -581,7 +567,7 @@ export default function RewardItems() {
 							required
 							error={formErrors.points_required}
 						>
-							<input
+							<Input
 								type="number"
 								id="reward-points"
 								name="points_required"
@@ -590,59 +576,74 @@ export default function RewardItems() {
 								required
 								value={rewardForm.points_required}
 								onChange={handleFormChange}
-								className={`block w-full rounded-md border-0 px-3 py-1.5 text-slate-900 shadow-sm ring-1 ring-inset ${
-									formErrors.points_required
-										? "ring-red-500 focus:ring-red-600"
-										: "ring-slate-300 focus:ring-blue-600"
-								} placeholder:text-slate-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6`}
+								placeholder="e.g., 100"
+								className={
+									formErrors.points_required ? "border-destructive" : ""
+								}
 							/>
 						</FormField>
-						{/* Reward Type Selection */}
-						<div className="space-y-3 border-t border-slate-200 pt-4">
-							<label className="block text-sm font-medium text-slate-700">
-								Reward Type*
-							</label>
+
+						<div className="space-y-3 pt-3 border-t border-border">
+							<Label className="font-medium">Reward Type*</Label>
 							<div className="flex items-center gap-4">
-								<label className="flex items-center cursor-pointer">
-									<input
-										type="checkbox"
+								<div className="flex items-center">
+									<Checkbox
+										id="free_product_checkbox"
 										name="free_product"
 										checked={rewardForm.free_product}
-										onChange={handleFormChange}
-										className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+										onCheckedChange={(checked) =>
+											handleFormChange({
+												target: {
+													name: "free_product",
+													checked,
+													type: "checkbox",
+												},
+											})
+										}
 									/>
-									<span className="ml-2 text-sm text-slate-700">
+									<Label
+										htmlFor="free_product_checkbox"
+										className="ml-2 cursor-pointer"
+									>
 										Free Product
-									</span>
-								</label>
-								<label className="flex items-center cursor-pointer">
+									</Label>
+								</div>
+								<div className="flex items-center">
 									<input
 										type="radio"
-										name="reward_type_selector"
+										id="discount_type_radio"
+										name="reward_type_selector_radio"
 										value="discount"
 										checked={!rewardForm.free_product}
 										onChange={() =>
-											setRewardForm((prev) => ({
-												...prev,
-												free_product: false,
-											}))
+											handleFormChange({
+												target: {
+													name: "free_product",
+													checked: false,
+													type: "checkbox",
+												},
+											})
 										}
-										className="h-4 w-4 border-slate-300 text-blue-600 focus:ring-blue-500"
+										className="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
 									/>
-									<span className="ml-2 text-sm text-slate-700">Discount</span>
-								</label>
+									<Label
+										htmlFor="discount_type_radio"
+										className="ml-2 cursor-pointer"
+									>
+										Discount
+									</Label>
+								</div>
 							</div>
 						</div>
-						{/* Conditional Fields */}
+
 						{rewardForm.free_product ? (
-							// Free Product Fields
 							<FormField
-								label="Specific Product ID"
+								label="Specific Product ID (Optional)"
 								id="reward-product-id"
-								helpText="Optional. Leave blank to allow any product."
+								helpText="Leave blank if reward is for any product (e.g. any free drink)."
 								error={formErrors.product_id}
 							>
-								<input
+								<Input
 									type="number"
 									id="reward-product-id"
 									name="product_id"
@@ -650,38 +651,39 @@ export default function RewardItems() {
 									step="1"
 									value={rewardForm.product_id}
 									onChange={handleFormChange}
-									className={`block w-full rounded-md border-0 px-3 py-1.5 text-slate-900 shadow-sm ring-1 ring-inset ${
-										formErrors.product_id
-											? "ring-red-500 focus:ring-red-600"
-											: "ring-slate-300 focus:ring-blue-600"
-									} placeholder:text-slate-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6`}
+									placeholder="Enter Product ID if specific"
+									className={formErrors.product_id ? "border-destructive" : ""}
 								/>
 							</FormField>
 						) : (
-							// Discount Fields
-							<div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 								<FormField
 									label="Discount Type"
 									id="reward-discount-type"
 									required={!rewardForm.free_product}
 									error={formErrors.discount_type}
 								>
-									<select
-										id="reward-discount-type"
+									<Select
 										name="discount_type"
-										required={!rewardForm.free_product}
 										value={rewardForm.discount_type}
-										onChange={handleFormChange}
-										className={`block w-full rounded-md border-0 px-3 py-1.5 text-slate-900 shadow-sm ring-1 ring-inset ${
-											formErrors.discount_type
-												? "ring-red-500 focus:ring-red-600"
-												: "ring-slate-300 focus:ring-blue-600"
-										} focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6`}
+										onValueChange={(value) =>
+											handleSelectChange("discount_type", value)
+										}
+										disabled={rewardForm.free_product}
 									>
-										<option value="">Select Type...</option>
-										<option value="percentage">Percentage (%)</option>
-										<option value="fixed">Fixed Amount ($)</option>
-									</select>
+										<SelectTrigger
+											id="reward-discount-type"
+											className={
+												formErrors.discount_type ? "border-destructive" : ""
+											}
+										>
+											<SelectValue placeholder="Select Type..." />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="percentage">Percentage (%)</SelectItem>
+											<SelectItem value="fixed">Fixed Amount ($)</SelectItem>
+										</SelectContent>
+									</Select>
 								</FormField>
 								<FormField
 									label={`Value ${
@@ -693,7 +695,7 @@ export default function RewardItems() {
 									}
 									error={formErrors.discount_value}
 								>
-									<input
+									<Input
 										type="number"
 										id="reward-discount-value"
 										name="discount_value"
@@ -713,123 +715,75 @@ export default function RewardItems() {
 										step={
 											rewardForm.discount_type === "percentage" ? "1" : "0.01"
 										}
-										disabled={!rewardForm.discount_type} // Disable if type not selected
-										className={`block w-full rounded-md border-0 px-3 py-1.5 text-slate-900 shadow-sm ring-1 ring-inset ${
-											formErrors.discount_value
-												? "ring-red-500 focus:ring-red-600"
-												: "ring-slate-300 focus:ring-blue-600"
-										} placeholder:text-slate-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500 disabled:ring-slate-200`}
+										disabled={
+											!rewardForm.discount_type || rewardForm.free_product
+										}
+										className={
+											formErrors.discount_value ? "border-destructive" : ""
+										}
+										placeholder="e.g., 10 or 5.00"
 									/>
 								</FormField>
 							</div>
 						)}
-						{/* Active Checkbox */}
-						<div className="flex items-center pt-2">
-							<input
-								type="checkbox"
+						<div className="flex items-center pt-3">
+							<Checkbox
 								id="reward-is-active"
 								name="is_active"
 								checked={rewardForm.is_active}
-								onChange={handleFormChange}
-								className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+								onCheckedChange={(checked) =>
+									handleFormChange({
+										target: { name: "is_active", checked, type: "checkbox" },
+									})
+								}
 							/>
-							<label
+							<Label
 								htmlFor="reward-is-active"
-								className="ml-2 block text-sm font-medium text-slate-700"
+								className="ml-2 cursor-pointer"
 							>
 								Reward is Active
-							</label>
+							</Label>
 						</div>
 					</div>
 
-					{/* Modal Footer Actions */}
-					<div className="mt-6 flex justify-end gap-3 border-t border-slate-200 pt-4">
-						<button
+					<div className="mt-6 flex justify-end gap-3 border-t border-border pt-4">
+						<Button
 							type="button"
+							variant="outline"
 							onClick={handleCloseModal}
 							disabled={isSubmitting}
-							className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
 						>
 							Cancel
-						</button>
-						<button
+						</Button>
+						<Button
 							type="submit"
 							disabled={isSubmitting || isApiLoading}
-							className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-blue-400"
 						>
 							{isSubmitting ? (
-								<>
-									<svg
-										className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-										xmlns="http://www.w3.org/2000/svg"
-										fill="none"
-										viewBox="0 0 24 24"
-									>
-										<circle
-											className="opacity-25"
-											cx="12"
-											cy="12"
-											r="10"
-											stroke="currentColor"
-											strokeWidth="4"
-										></circle>
-										<path
-											className="opacity-75"
-											fill="currentColor"
-											d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-										></path>
-									</svg>
-									Saving...
-								</>
-							) : isEditMode ? (
-								"Update Reward"
-							) : (
-								"Create Reward"
-							)}
-						</button>
+								<RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+							) : null}
+							{isSubmitting
+								? "Saving..."
+								: isEditMode
+								? "Update Reward"
+								: "Create Reward"}
+						</Button>
 					</div>
 				</form>
 			</Modal>
 
-			{/* Delete Confirmation Modal */}
 			{showDeleteModal && currentReward && (
 				<ConfirmationModal
 					isOpen={showDeleteModal}
 					onClose={handleCloseModal}
 					onConfirm={handleConfirmDelete}
 					title="Delete Reward Item"
-					message={`Are you sure you want to delete the reward "${currentReward.name}"? This cannot be undone.`}
-					confirmButtonText={isApiLoading ? "Deleting..." : "Delete"}
-					confirmButtonClass="bg-red-600 hover:bg-red-700 disabled:bg-red-300"
-					isConfirmDisabled={isApiLoading}
+					message={`Are you sure you want to delete the reward "${currentReward.name}"? This action cannot be undone.`}
+					confirmButtonText={isSubmitting ? "Deleting..." : "Delete"}
+					confirmButtonClass="bg-red-600 hover:bg-red-700"
+					isConfirmDisabled={isSubmitting || isApiLoading}
 				/>
 			)}
-		</div>
+		</MainLayout>
 	);
 }
-
-// Helper components for table styling
-const Th = ({ children, align = "left" }) => (
-	<th
-		scope="col"
-		className={`whitespace-nowrap px-4 py-2.5 text-${align} text-xs font-semibold uppercase tracking-wider text-slate-500`}
-	>
-		{children}
-	</th>
-);
-Th.propTypes = { children: PropTypes.node, align: PropTypes.string };
-
-const Td = ({ children, align = "left", isHeader = false }) => (
-	<td
-		className={`px-4 py-2.5 text-${align} text-sm ${
-			isHeader ? "font-semibold text-slate-800" : "text-slate-600"
-		}`}
-	>
-		{children}
-	</td>
-);
-Td.propTypes = {
-	children: PropTypes.node,
-	align: PropTypes.string,
-	isHeader: PropTypes.bool,
-};

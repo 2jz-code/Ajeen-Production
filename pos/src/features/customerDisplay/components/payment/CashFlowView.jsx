@@ -1,58 +1,45 @@
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import { motion, AnimatePresence } from "framer-motion";
-import { formatPrice } from "../../../../utils/numberUtils"; // Ensure path is correct
-import {
-	BanknotesIcon, // Main icon
-	CheckCircleIcon, // Success icon
-	ClockIcon, // Waiting icon
-	ExclamationTriangleIcon, // Remaining due icon
-	TagIcon, // Discount icon
-} from "@heroicons/react/24/solid"; // Using solid icons
+import { formatPrice } from "../../../../utils/numberUtils";
+import { Banknote, CheckCircle, Clock, AlertTriangle, Tag } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 /**
- * CashFlowView Component (UI Revamped)
- * Displays cash payment progress (total, tendered, change) on the customer display.
+ * CashFlowView Component
+ * Displays cash payment progress on the customer display.
  */
 const CashFlowView = ({ orderData, cashData, onComplete, isComplete }) => {
-	const [stage, setStage] = useState("processing"); // 'processing', 'complete'
+	const [stage, setStage] = useState("processing");
 
-	// Safely extract data from props
 	const {
 		subtotal = 0,
 		tax = 0,
-		total = 0, // Amount due for this specific cash transaction/step
+		total = 0,
 		discountAmount = 0,
-		// orderDiscount = null,
 		isSplitPayment = false,
-		originalTotal, // Total of the original order before splitting
+		originalTotal,
 	} = orderData || {};
-	const {
-		cashTendered = 0,
-		change = 0,
-		amountPaid = 0, // Accumulated amount paid *before* this step (for splits)
-	} = cashData || {};
 
-	// Calculate remaining amount based on the *original* total if splitting
+	const { cashTendered = 0, change = 0, amountPaid = 0 } = cashData || {};
+
 	const effectiveTotal = isSplitPayment ? originalTotal ?? total : total;
-	// Amount remaining includes the amount for the *current* step ('total')
 	const remainingAmount = Math.max(
 		0,
 		effectiveTotal - amountPaid - total + change
-	); // Simplified logic
-	const isFullyPaid = remainingAmount < 0.01; // Check if fully paid with tolerance
+	);
+	const isFullyPaid = remainingAmount < 0.01;
 
-	// Update stage based on isComplete prop from parent
 	useEffect(() => {
 		if (isComplete && stage !== "complete") {
 			setStage("complete");
 		} else if (!isComplete && stage === "complete") {
-			// Allow resetting if needed (e.g., cashier cancels completion)
 			setStage("processing");
 		}
 	}, [isComplete, stage]);
 
-	// Call onComplete when the 'complete' stage is reached and data is available
 	useEffect(() => {
 		let timerId = null;
 		if (stage === "complete" && onComplete && cashData) {
@@ -63,14 +50,13 @@ const CashFlowView = ({ orderData, cashData, onComplete, isComplete }) => {
 					timestamp: new Date().toISOString(),
 					cashTendered: cashTendered,
 					changeGiven: change,
-					amountPaid: total, // Amount paid in *this* specific cash transaction
+					amountPaid: total,
 				});
-			}, 2000); // Delay before signaling completion
+			}, 2000);
 		}
-		return () => clearTimeout(timerId); // Cleanup timer
+		return () => clearTimeout(timerId);
 	}, [stage, onComplete, cashData, total, change, cashTendered]);
 
-	// Animation variants
 	const variants = {
 		hidden: { opacity: 0, y: 20 },
 		visible: {
@@ -83,12 +69,11 @@ const CashFlowView = ({ orderData, cashData, onComplete, isComplete }) => {
 
 	return (
 		<motion.div
-			key="cashflow-container" // Key for potential parent AnimatePresence
-			className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-8 text-center md:p-12 lg:p-16" // Cash-themed gradient
+			key="cashflow-container"
+			className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-6 md:p-8"
 		>
 			<AnimatePresence mode="wait">
 				{stage === "processing" ? (
-					// --- Processing Stage ---
 					<motion.div
 						key="processing"
 						className="w-full max-w-md"
@@ -97,95 +82,111 @@ const CashFlowView = ({ orderData, cashData, onComplete, isComplete }) => {
 						animate="visible"
 						exit="exit"
 					>
-						<BanknotesIcon className="mx-auto mb-5 h-16 w-16 text-emerald-500 md:h-20 md:w-20" />
-						<h1 className="mb-2 text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
-							Cash Payment
-						</h1>
-						<p className="mb-8 text-lg text-slate-600">
-							{isSplitPayment
-								? "Split Payment Details"
-								: "Please provide payment to cashier"}
-						</p>
-
-						{/* Order Summary */}
-						<div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 text-left text-base shadow-sm">
-							<div className="space-y-1.5">
-								<div className="flex justify-between text-slate-600">
-									<span>Subtotal</span>
-									<span className="font-medium text-slate-800">
-										{formatPrice(subtotal)}
-									</span>
-								</div>
-								{discountAmount > 0 && (
-									<div className="flex justify-between text-emerald-600">
-										<span className="flex items-center gap-1">
-											<TagIcon className="h-4 w-4" />
-											Discount
-										</span>
-										<span className="font-medium">
-											-{formatPrice(discountAmount)}
-										</span>
-									</div>
-								)}
-								<div className="flex justify-between text-slate-600">
-									<span>Tax</span>
-									<span className="font-medium text-slate-800">
-										{formatPrice(tax)}
-									</span>
-								</div>
+						<div className="pb-4">
+							<div className="flex justify-center mb-4">
+								{" "}
+								{/* Icon centered with flex */}
+								<Banknote className="h-16 w-16 text-emerald-500" />
 							</div>
-							<div className="mt-3 flex justify-between border-t border-slate-200 pt-3">
-								<span className="font-semibold text-slate-900">
-									Amount Due Now
-								</span>
-								<span className="text-xl font-bold text-blue-600">
-									{formatPrice(total)}
-								</span>
+							<div className="text-center">
+								{" "}
+								{/* Title/subtitle centered */}
+								<h2 className="text-3xl font-bold tracking-tight text-slate-900">
+									Cash Payment
+								</h2>
+								<p className="text-lg text-slate-600">
+									{isSplitPayment
+										? "Split Payment Details"
+										: "Please provide payment to cashier"}
+								</p>
 							</div>
-							{isSplitPayment && originalTotal != null && (
-								<div className="mt-1 text-right text-xs text-slate-500">
-									(Original Total: {formatPrice(originalTotal)})
-								</div>
-							)}
 						</div>
 
-						{/* Payment Status */}
-						<div className="flex min-h-[6rem] flex-col items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-lg">
-							{cashTendered > 0 ? (
-								<div className="w-full space-y-1.5 text-emerald-800">
-									<div className="flex justify-between">
-										<span className="font-medium">Tendered:</span>
-										<span className="font-semibold">
-											{formatPrice(cashTendered)}
+						<div className="space-y-6">
+							<Card className="border-slate-200 bg-white/70 backdrop-blur-sm shadow-sm">
+								<CardContent className="p-4 space-y-3">
+									<div className="flex justify-between text-slate-600">
+										<span>Subtotal</span>
+										<span className="font-medium text-slate-800">
+											{formatPrice(subtotal)}
 										</span>
 									</div>
-									{(change > 0 || isFullyPaid) && (
-										<div className="mt-1 flex justify-between border-t border-emerald-200/60 pt-1.5">
-											<span className="font-medium">Change Due:</span>
-											<span className="font-semibold">
-												{formatPrice(change)}
+									{discountAmount > 0 && (
+										<div className="flex justify-between text-emerald-600">
+											<span className="flex items-center gap-2">
+												<Tag className="h-4 w-4" />
+												Discount
+											</span>
+											<span className="font-medium">
+												-{formatPrice(discountAmount)}
 											</span>
 										</div>
 									)}
-								</div>
-							) : (
-								<div className="flex items-center text-emerald-700">
-									<ClockIcon className="mr-2 h-6 w-6 animate-pulse" />
-									<span className="font-medium">Awaiting Cash...</span>
-								</div>
+									<div className="flex justify-between text-slate-600">
+										<span>Tax</span>
+										<span className="font-medium text-slate-800">
+											{formatPrice(tax)}
+										</span>
+									</div>
+									<Separator />
+									<div className="flex justify-between">
+										<span className="font-semibold text-slate-900">
+											Amount Due Now
+										</span>
+										<span className="text-xl font-bold text-blue-600">
+											{formatPrice(total)}
+										</span>
+									</div>
+									{isSplitPayment && originalTotal != null && (
+										<p className="text-xs text-slate-500 text-right">
+											(Original Total: {formatPrice(originalTotal)})
+										</p>
+									)}
+								</CardContent>
+							</Card>
+
+							<Card className="border-emerald-200 bg-emerald-50/70 backdrop-blur-sm shadow-sm">
+								<CardContent className="p-4">
+									{cashTendered > 0 ? (
+										<div className="space-y-3 text-emerald-800">
+											<div className="flex justify-between">
+												<span className="font-medium">Tendered:</span>
+												<span className="font-semibold">
+													{formatPrice(cashTendered)}
+												</span>
+											</div>
+											{(change > 0 || isFullyPaid) && (
+												<>
+													<Separator className="bg-emerald-200" />
+													<div className="flex justify-between">
+														<span className="font-medium">Change Due:</span>
+														<span className="font-semibold">
+															{formatPrice(change)}
+														</span>
+													</div>
+												</>
+											)}
+										</div>
+									) : (
+										<div className="flex items-center justify-center text-emerald-700">
+											<Clock className="mr-2 h-6 w-6 animate-pulse" />
+											<span className="font-medium">Awaiting Cash...</span>
+										</div>
+									)}
+								</CardContent>
+							</Card>
+
+							{isSplitPayment && !isFullyPaid && remainingAmount > 0.01 && (
+								<Alert className="bg-amber-50/70 border-amber-300 text-amber-700 backdrop-blur-sm">
+									<AlertTriangle className="h-4 w-4 text-amber-600" />
+									<AlertDescription>
+										Remaining Order Total: {formatPrice(remainingAmount)}
+									</AlertDescription>
+								</Alert>
 							)}
 						</div>
-
-						{/* Remaining Amount (only if split and not fully paid yet) */}
-						{isSplitPayment && !isFullyPaid && remainingAmount > 0.01 && (
-							<div className="mt-4 flex items-center justify-center gap-1 text-sm font-medium text-orange-600">
-								<ExclamationTriangleIcon className="h-4 w-4" />
-								Remaining Order Total: {formatPrice(remainingAmount)}
-							</div>
-						)}
 					</motion.div>
 				) : (
-					// --- Complete Stage ---
 					<motion.div
 						key="complete"
 						className="w-full max-w-md"
@@ -194,36 +195,53 @@ const CashFlowView = ({ orderData, cashData, onComplete, isComplete }) => {
 						animate="visible"
 						exit="exit"
 					>
-						<CheckCircleIcon className="mx-auto mb-6 h-20 w-20 text-green-500 md:h-24 md:w-24" />
-						<h1 className="mb-3 text-3xl font-bold text-slate-900 md:text-4xl">
-							Payment Complete
-						</h1>
-						<p className="mb-8 text-lg text-slate-600 md:text-xl">Thank you!</p>
-						<div className="space-y-2 rounded-xl border border-slate-200 bg-white p-5 text-left text-base shadow-sm">
-							<div className="flex justify-between text-slate-600">
-								<span>Amount Paid:</span>
-								<span className="font-medium text-slate-800">
-									{formatPrice(total)}
-								</span>
+						<div className="pb-4">
+							<div className="flex justify-center mb-4">
+								{" "}
+								{/* Icon centered with flex */}
+								<CheckCircle className="h-20 w-20 text-green-500" />
 							</div>
-							<div className="flex justify-between text-slate-600">
-								<span>Cash Tendered:</span>
-								<span className="font-medium text-slate-800">
-									{formatPrice(cashTendered)}
-								</span>
-							</div>
-							<div className="flex justify-between border-t border-slate-200 pt-2 mt-2">
-								<span className="font-semibold text-slate-900">
-									Change Given:
-								</span>
-								<span className="font-semibold text-emerald-600">
-									{formatPrice(change)}
-								</span>
+							<div className="text-center">
+								{" "}
+								{/* Title/subtitle centered */}
+								<h2 className="text-3xl font-bold text-slate-900">
+									Payment Complete
+								</h2>
+								<p className="text-lg text-slate-600">Thank you!</p>
 							</div>
 						</div>
-						<p className="mt-8 text-base text-slate-500">
-							Your receipt is printing.
-						</p>
+
+						<div>
+							<Card className="border-slate-200 bg-white/70 backdrop-blur-sm shadow-sm">
+								<CardContent className="p-4 space-y-3">
+									<div className="flex justify-between text-slate-600">
+										<span>Amount Paid:</span>
+										<span className="font-medium text-slate-800">
+											{formatPrice(total)}
+										</span>
+									</div>
+									<div className="flex justify-between text-slate-600">
+										<span>Cash Tendered:</span>
+										<span className="font-medium text-slate-800">
+											{formatPrice(cashTendered)}
+										</span>
+									</div>
+									<Separator />
+									<div className="flex justify-between">
+										<span className="font-semibold text-slate-900">
+											Change Given:
+										</span>
+										<span className="font-semibold text-emerald-600">
+											{formatPrice(change)}
+										</span>
+									</div>
+								</CardContent>
+							</Card>
+
+							<p className="mt-6 text-base text-slate-500 text-center">
+								Your receipt is printing.
+							</p>
+						</div>
 					</motion.div>
 				)}
 			</AnimatePresence>
@@ -235,19 +253,19 @@ CashFlowView.propTypes = {
 	orderData: PropTypes.shape({
 		subtotal: PropTypes.number,
 		tax: PropTypes.number,
-		total: PropTypes.number, // Amount due for this cash step
+		total: PropTypes.number,
 		discountAmount: PropTypes.number,
 		orderDiscount: PropTypes.object,
 		isSplitPayment: PropTypes.bool,
-		originalTotal: PropTypes.number, // Original total before splitting
+		originalTotal: PropTypes.number,
 	}),
 	cashData: PropTypes.shape({
 		cashTendered: PropTypes.number,
 		change: PropTypes.number,
-		amountPaid: PropTypes.number, // Accumulated amount paid *before* this step
+		amountPaid: PropTypes.number,
 	}),
 	onComplete: PropTypes.func,
-	isComplete: PropTypes.bool, // Signal from POS that this cash step is done
+	isComplete: PropTypes.bool,
 };
 
 export default CashFlowView;

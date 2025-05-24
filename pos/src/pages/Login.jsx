@@ -2,6 +2,19 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axiosInstance from "../api/config/axiosConfig";
 import { useCartStore } from "../store/cartStore";
+import { Building2, AlertTriangle } from "lucide-react"; // Lucide icons
+import { Button } from "@/components/ui/button"; // Assuming you have a Button component
+import { Input } from "@/components/ui/input"; // Assuming you have an Input component
+import { Label } from "@/components/ui/label"; // Assuming you have a Label component
+import {
+	Card,
+	CardContent,
+	CardHeader,
+	CardTitle,
+	CardDescription,
+	CardFooter,
+} from "@/components/ui/card"; // Assuming Card components
+
 const Login = () => {
 	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
@@ -14,81 +27,79 @@ const Login = () => {
 
 		try {
 			await axiosInstance.post("/auth/login/", { username, password });
-			useCartStore.getState().clearCart(); // This will clear orderId, cart, etc., and set showOverlay to true.
+			useCartStore.getState().clearCart(); // This will clear orderId, cart, etc.
 
 			navigate("/dashboard"); // Redirect user to dashboard on success
 		} catch (error) {
 			console.error("Error logging in:", error);
-			setError("Invalid username or password");
+			setError("Invalid username or password. Please try again."); // More user-friendly message
 		}
 	};
 
 	return (
-		<div className="flex h-screen w-screen justify-center items-center bg-slate-50">
-			<div className="bg-white p-8 rounded-xl shadow-lg w-96 border border-slate-100">
-				<div className="text-center mb-6">
-					<h2 className="text-2xl font-bold text-slate-800">Welcome Back</h2>
-					<p className="text-slate-500 text-sm mt-1">Login to your account</p>
-				</div>
-
-				{error && (
-					<div className="bg-red-50 text-red-700 p-3 rounded-lg mb-4 flex items-center">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							className="h-5 w-5 mr-2"
-							viewBox="0 0 20 20"
-							fill="currentColor"
+		<div className="flex h-screen w-screen flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-slate-50 p-4">
+			<Card className="w-full max-w-md shadow-2xl">
+				<CardHeader className="text-center">
+					<div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+						<Building2 className="h-6 w-6 text-primary" />
+					</div>
+					<CardTitle className="text-2xl font-bold tracking-tight text-foreground">
+						Welcome Back
+					</CardTitle>
+					<CardDescription className="text-muted-foreground">
+						Please sign in to access your Ajeen POS dashboard.
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					{error && (
+						<div
+							role="alert"
+							className="mb-4 flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive"
 						>
-							<path
-								fillRule="evenodd"
-								d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-								clipRule="evenodd"
-							/>
-						</svg>
-						{error}
-					</div>
-				)}
-
-				<form
-					onSubmit={handleLogin}
-					className="space-y-4"
-				>
-					<div>
-						<label className="block text-sm font-medium text-slate-700 mb-1">
-							Username
-						</label>
-						<input
-							type="text"
-							placeholder="Enter your username"
-							value={username}
-							onChange={(e) => setUsername(e.target.value)}
-							className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-							required
-						/>
-					</div>
-
-					<div>
-						<label className="block text-sm font-medium text-slate-700 mb-1">
-							Password
-						</label>
-						<input
-							type="password"
-							placeholder="Enter your password"
-							value={password}
-							onChange={(e) => setPassword(e.target.value)}
-							className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-							required
-						/>
-					</div>
-
-					<button
-						type="submit"
-						className="w-full bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-medium mt-2"
+							<AlertTriangle className="h-4 w-4 flex-shrink-0" />
+							<span>{error}</span>
+						</div>
+					)}
+					<form
+						onSubmit={handleLogin}
+						className="space-y-4"
 					>
-						Sign In
-					</button>
-				</form>
-			</div>
+						<div className="space-y-1.5">
+							<Label htmlFor="username">Username</Label>
+							<Input
+								id="username"
+								type="text"
+								placeholder="Enter your username"
+								value={username}
+								onChange={(e) => setUsername(e.target.value)}
+								required
+								className="h-10" // Consistent height
+							/>
+						</div>
+						<div className="space-y-1.5">
+							<Label htmlFor="password">Password</Label>
+							<Input
+								id="password"
+								type="password"
+								placeholder="Enter your password"
+								value={password}
+								onChange={(e) => setPassword(e.target.value)}
+								required
+								className="h-10" // Consistent height
+							/>
+						</div>
+						<Button
+							type="submit"
+							className="w-full h-10"
+						>
+							Sign In
+						</Button>
+					</form>
+				</CardContent>
+				<CardFooter className="text-center text-xs text-muted-foreground pt-4">
+					© {new Date().getFullYear()} Ajeen POS. All rights reserved.
+				</CardFooter>
+			</Card>
 		</div>
 	);
 };

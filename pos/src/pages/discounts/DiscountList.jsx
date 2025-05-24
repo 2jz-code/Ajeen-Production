@@ -1,39 +1,41 @@
+// src/pages/discounts/DiscountList.jsx
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import PropTypes from "prop-types"; // Import PropTypes
+import PropTypes from "prop-types";
 import { discountService } from "../../api/services/discountService";
 import { authService } from "../../api/services/authService";
 import { useApi } from "../../api/hooks/useApi";
 import {
-	TagIcon,
+	TagIcon as PageIcon, // Renamed for page title
 	PlusIcon,
 	PencilSquareIcon,
 	TrashIcon,
-	CalendarDaysIcon, // Updated icon
-	Bars3Icon, // For dashboard button
-	BuildingStorefrontIcon, // For permanent discounts
-	ExclamationTriangleIcon, // For errors
-	ArrowPathIcon, // For retry
-	InformationCircleIcon, // For info footer
-	CheckCircleIcon, // For active status
-	XCircleIcon, // For inactive status
-	ArchiveBoxXMarkIcon, // For expired status
+	CalendarDaysIcon,
+	// Bars3Icon, // Handled by MainLayout
+	BuildingStorefrontIcon,
+	ExclamationTriangleIcon,
+	ArrowPathIcon,
+	InformationCircleIcon,
+	CheckCircleIcon,
+	XCircleIcon,
+	ArchiveBoxXMarkIcon,
+	TagIcon, // Keep for general discount icon
 } from "@heroicons/react/24/outline";
 import LoadingSpinner from "../reports/components/LoadingSpinner";
-import ConfirmationModal from "../../components/ConfirmationModal"; // Assuming this is styled appropriately
+import ConfirmationModal from "../../components/ConfirmationModal";
+import MainLayout from "../layout/MainLayout";
 
 // Helper: Format date string
 const formatDate = (dateString) => {
 	if (!dateString) return "N/A";
 	try {
-		// Only show date part
 		return new Date(dateString).toLocaleDateString(undefined, {
 			year: "numeric",
 			month: "short",
 			day: "numeric",
 		});
+		//eslint-disable-next-line
 	} catch (e) {
-		console.warn("Invalid date format:", dateString, e);
 		return "Invalid Date";
 	}
 };
@@ -41,16 +43,13 @@ const formatDate = (dateString) => {
 // Helper: Format discount value
 const formatValue = (discount) => {
 	if (!discount) return "N/A";
-	if (discount.discount_type === "percentage") {
-		return `${discount.value}%`;
-	} else if (discount.discount_type === "fixed") {
-		// Use Intl.NumberFormat for currency
+	if (discount.discount_type === "percentage") return `${discount.value}%`;
+	if (discount.discount_type === "fixed")
 		return new Intl.NumberFormat("en-US", {
 			style: "currency",
 			currency: "USD",
 		}).format(discount.value);
-	}
-	return String(discount.value); // Fallback
+	return String(discount.value);
 };
 
 // Helper: Get discount type label
@@ -79,7 +78,7 @@ const getDiscountTypeLabel = (discount) => {
 const getStatusPill = (isActive) => {
 	const baseClasses =
 		"px-2 py-0.5 rounded-full text-[10px] font-medium inline-flex items-center gap-1 border";
-	if (isActive) {
+	if (isActive)
 		return (
 			<span
 				className={`${baseClasses} bg-emerald-50 text-emerald-700 border-emerald-200`}
@@ -87,22 +86,18 @@ const getStatusPill = (isActive) => {
 				<CheckCircleIcon className="h-3 w-3" /> ACTIVE
 			</span>
 		);
-	} else {
-		return (
-			<span
-				className={`${baseClasses} bg-rose-50 text-rose-700 border-rose-200`}
-			>
-				<XCircleIcon className="h-3 w-3" /> INACTIVE
-			</span>
-		);
-	}
+	return (
+		<span className={`${baseClasses} bg-rose-50 text-rose-700 border-rose-200`}>
+			<XCircleIcon className="h-3 w-3" /> INACTIVE
+		</span>
+	);
 };
 
 // Helper: Get category/schedule pill styling
 const getCategoryPill = (discount) => {
 	const baseClasses =
 		"px-2 py-0.5 rounded text-[10px] font-medium inline-flex items-center gap-1 border";
-	if (discount.discount_category === "permanent") {
+	if (discount.discount_category === "permanent")
 		return (
 			<span
 				className={`${baseClasses} bg-indigo-50 text-indigo-700 border-indigo-200`}
@@ -110,14 +105,12 @@ const getCategoryPill = (discount) => {
 				<BuildingStorefrontIcon className="h-3 w-3" /> PERMANENT
 			</span>
 		);
-	} else if (discount.start_date || discount.end_date) {
+	if (discount.start_date || discount.end_date)
 		return (
 			<span className={`${baseClasses} bg-sky-50 text-sky-700 border-sky-200`}>
 				<CalendarDaysIcon className="h-3 w-3" /> SCHEDULED
 			</span>
 		);
-	}
-	// Default promotional without dates (should ideally have dates)
 	return (
 		<span
 			className={`${baseClasses} bg-orange-50 text-orange-700 border-orange-200`}
@@ -127,23 +120,95 @@ const getCategoryPill = (discount) => {
 	);
 };
 
+// Stat Card Component
+const StatCard = ({ title, value, icon: Icon, color = "gray" }) => {
+	const colors = {
+		green: {
+			bg: "bg-emerald-50",
+			text: "text-emerald-600",
+			iconBg: "bg-emerald-100",
+		},
+		sky: { bg: "bg-sky-50", text: "text-sky-600", iconBg: "bg-sky-100" },
+		slate: {
+			bg: "bg-slate-50",
+			text: "text-slate-600",
+			iconBg: "bg-slate-100",
+		},
+		indigo: {
+			bg: "bg-indigo-50",
+			text: "text-indigo-600",
+			iconBg: "bg-indigo-100",
+		},
+	};
+	const selectedColor = colors[color] || colors.slate;
+	return (
+		<div
+			className={`flex items-center rounded-lg border border-slate-200 ${selectedColor.bg} p-3 shadow-sm`}
+		>
+			<div
+				className={`mr-3 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${selectedColor.iconBg} ${selectedColor.text}`}
+			>
+				<Icon className="h-4 w-4" />
+			</div>
+			<div>
+				<dt className="truncate text-xs font-medium text-slate-500">{title}</dt>
+				<dd className="text-xl font-semibold text-slate-800">{value}</dd>
+			</div>
+		</div>
+	);
+};
+StatCard.propTypes = {
+	title: PropTypes.string.isRequired,
+	value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+	icon: PropTypes.elementType.isRequired,
+	color: PropTypes.string,
+};
+
+// Table Header Cell Component
+const Th = ({ children, align = "left" }) => (
+	<th
+		scope="col"
+		className={`whitespace-nowrap px-4 py-2.5 text-${align} text-xs font-semibold uppercase tracking-wider text-slate-500`}
+	>
+		{children}
+	</th>
+);
+Th.propTypes = { children: PropTypes.node, align: PropTypes.string };
+
+// Table Data Cell Component
+const Td = ({ children, align = "left", isHeader = false }) => (
+	<td
+		className={`px-4 py-2.5 text-${align} text-xs ${
+			isHeader ? "font-medium text-slate-800" : "text-slate-600"
+		}`}
+	>
+		{children}
+	</td>
+);
+Td.propTypes = {
+	children: PropTypes.node,
+	align: PropTypes.string,
+	isHeader: PropTypes.bool,
+};
+
 export default function DiscountList() {
 	const navigate = useNavigate();
-	// Use isLoading state from useApi for data fetching indication
-	// eslint-disable-next-line no-unused-vars
-	const { execute, isLoading: isApiLoading, error: apiError } = useApi();
+	const {
+		execute,
+		isLoading: isApiLoadingInitial,
+		error: apiErrorHook,
+	} = useApi(); // isLoading for initial, isSubmitting for actions
 
-	// State variables
 	const [discounts, setDiscounts] = useState([]);
 	const [filteredDiscounts, setFilteredDiscounts] = useState([]);
 	const [showDeleteModal, setShowDeleteModal] = useState(false);
-	const [currentDiscount, setCurrentDiscount] = useState(null); // Discount selected for deletion
-	const [filter, setFilter] = useState("all"); // Filter type: all, active, inactive, scheduled, permanent
-	const [isAdmin, setIsAdmin] = useState(false);
-	const [userName, setUserName] = useState("");
-	const [fetchError, setFetchError] = useState(null); // Specific error state for fetching
+	const [currentDiscount, setCurrentDiscount] = useState(null);
+	const [filter, setFilter] = useState("all");
+	const [isAdmin, setIsAdmin] = useState(false); // Retained for add/edit/delete buttons
+	// const [userName, setUserName] = useState(""); // Handled by MainLayout footer
+	const [fetchError, setFetchError] = useState(null);
+	const [isSubmittingAction, setIsSubmittingAction] = useState(false); // For delete operation
 
-	// Summary stats state
 	const [stats, setStats] = useState({
 		activeCount: 0,
 		upcomingCount: 0,
@@ -151,60 +216,42 @@ export default function DiscountList() {
 		permanentCount: 0,
 	});
 
-	// Fetch discounts and user status on component mount
 	const fetchData = useCallback(async () => {
-		setFetchError(null); // Clear previous fetch errors
+		setFetchError(null);
+		// isApiLoadingInitial is true here via execute
 		try {
-			// Fetch discounts and auth status in parallel
 			const [discountsResponse, authResponse] = await Promise.all([
 				execute(() => discountService.getDiscounts()),
-				execute(() => authService.checkStatus()),
+				execute(() => authService.checkStatus()), // Still need admin status for buttons
 			]);
-
 			const discountData = Array.isArray(discountsResponse)
 				? discountsResponse
 				: [];
-			setDiscounts(discountData); // Store all fetched discounts
-
-			// Set user info
+			setDiscounts(discountData);
 			setIsAdmin(authResponse.is_admin);
-			setUserName(authResponse.username);
+			// setUserName(authResponse.username); // Handled by MainLayout
 
-			// Calculate stats
 			const now = new Date();
-			let active = 0;
-			let upcoming = 0;
-			let expired = 0;
-			let permanent = 0;
-
-			discountData.forEach((discount) => {
-				const startDate = discount.start_date
-					? new Date(discount.start_date)
-					: null;
-				const endDate = discount.end_date ? new Date(discount.end_date) : null;
+			let active = 0,
+				upcoming = 0,
+				expired = 0,
+				permanent = 0;
+			discountData.forEach((d) => {
+				const startDate = d.start_date ? new Date(d.start_date) : null;
+				const endDate = d.end_date ? new Date(d.end_date) : null;
 				const isActiveNow =
-					discount.is_active &&
+					d.is_active &&
 					(!startDate || startDate <= now) &&
 					(!endDate || endDate >= now);
-
-				if (discount.discount_category === "permanent" && discount.is_active) {
+				if (d.discount_category === "permanent" && d.is_active) {
 					permanent++;
-					if (isActiveNow) active++; // Permanent active counts towards overall active
-				} else if (discount.discount_category === "promotional") {
-					if (startDate && startDate > now && discount.is_active) {
-						upcoming++;
-					} else if (endDate && endDate < now) {
-						// Expired discounts might still be marked is_active=true in DB, check date
-						expired++;
-					} else if (isActiveNow) {
-						active++;
-					}
-				} else if (isActiveNow) {
-					// Handle potential other categories if added later
-					active++;
-				}
+					if (isActiveNow) active++;
+				} else if (d.discount_category === "promotional") {
+					if (startDate && startDate > now && d.is_active) upcoming++;
+					else if (endDate && endDate < now) expired++;
+					else if (isActiveNow) active++;
+				} else if (isActiveNow) active++;
 			});
-
 			setStats({
 				activeCount: active,
 				upcomingCount: upcoming,
@@ -213,26 +260,23 @@ export default function DiscountList() {
 			});
 		} catch (error) {
 			console.error("Error fetching data:", error);
-			setFetchError(
-				"Failed to load discounts. Please check connection or try again."
-			);
-			setDiscounts([]); // Clear discounts on error
+			const message =
+				apiErrorHook || "Failed to load discounts. Please try again.";
+			setFetchError(message);
+			setDiscounts([]);
 			setStats({
 				activeCount: 0,
 				upcomingCount: 0,
 				expiredCount: 0,
 				permanentCount: 0,
-			}); // Reset stats
+			});
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [execute]); // Dependency array includes execute from useApi
+	}, [execute, apiErrorHook]);
 
-	// Initial data fetch
 	useEffect(() => {
 		fetchData();
 	}, [fetchData]);
 
-	// Apply filtering whenever discounts or filter type changes
 	useEffect(() => {
 		const now = new Date();
 		const filtered = discounts.filter((discount) => {
@@ -246,12 +290,11 @@ export default function DiscountList() {
 				(!endDate || endDate >= now);
 			const isUpcoming = discount.is_active && startDate && startDate > now;
 			const isExpired = endDate && endDate < now;
-
 			switch (filter) {
 				case "active":
 					return isActiveNow;
 				case "inactive":
-					return !discount.is_active || isExpired; // Inactive OR Expired
+					return !discount.is_active || isExpired;
 				case "scheduled":
 					return (
 						discount.discount_category === "promotional" &&
@@ -263,7 +306,6 @@ export default function DiscountList() {
 					return isUpcoming;
 				case "expired":
 					return isExpired;
-				case "all":
 				default:
 					return true;
 			}
@@ -271,85 +313,65 @@ export default function DiscountList() {
 		setFilteredDiscounts(filtered);
 	}, [discounts, filter]);
 
-	// Handler to open delete confirmation modal
 	const handleDeleteDiscount = (discount) => {
 		setCurrentDiscount(discount);
 		setShowDeleteModal(true);
 	};
 
-	// Handler to confirm deletion
 	const handleConfirmDelete = async () => {
 		if (!currentDiscount) return;
-
+		setIsSubmittingAction(true); // For delete button specifically
 		try {
-			// Use execute from useApi for consistent loading/error handling
 			await execute(() => discountService.deleteDiscount(currentDiscount.id), {
 				successMessage: `Discount "${currentDiscount.name}" deleted successfully`,
 				errorMessage: "Failed to delete discount",
 			});
-
-			// Refetch data to update list and stats after successful deletion
-			fetchData();
+			fetchData(); // Refetch all data
 			setShowDeleteModal(false);
 			setCurrentDiscount(null);
 		} catch (error) {
-			// Error handled by useApi, toast might already be shown
 			console.error("Error deleting discount:", error);
-			// Optionally show a specific error toast here if useApi doesn't cover it
-			// toast.error("Could not delete discount. Please try again.");
 		} finally {
-			setShowDeleteModal(false); // Ensure modal closes even on error
+			setIsSubmittingAction(false);
+			setShowDeleteModal(false);
 		}
 	};
 
-	// --- UI Rendering ---
-
-	// Loading state during initial fetch
-	if (isApiLoading && discounts.length === 0 && !fetchError) {
-		return (
-			<div className="flex h-screen w-screen items-center justify-center bg-slate-100">
-				<LoadingSpinner size="lg" />
-			</div>
-		);
-	}
-
-	// Tab button styles
 	const tabButtonBase =
 		"flex-shrink-0 px-3 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-1";
 	const tabButtonActive = "bg-orange-600 text-white shadow-sm";
 	const tabButtonInactive =
 		"bg-white text-slate-500 border border-slate-200 hover:bg-slate-50 hover:text-slate-700";
-	// Action button styles
 	const actionButtonClass =
 		"p-1.5 rounded text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-orange-400";
 
-	return (
-		<div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-100 p-4 text-slate-900 sm:p-6">
-			{/* Header Section */}
-			<header className="mb-4 flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
-				<h1 className="flex items-center gap-2 text-xl font-bold text-slate-800 sm:text-2xl">
-					<TagIcon className="h-6 w-6 text-orange-500" />
-					Discount Management
-				</h1>
-				<div className="flex items-center gap-3">
-					{isAdmin && (
-						<button
-							onClick={() => navigate("/discounts/create")}
-							className="flex items-center gap-1.5 rounded-lg bg-orange-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
-						>
-							<PlusIcon className="h-4 w-4" />
-							Add Discount
-						</button>
-					)}
-					<button
-						className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-						onClick={() => navigate("/dashboard")}
-					>
-						<Bars3Icon className="h-4 w-4" />
-						<span className="hidden sm:inline">Dashboard</span>
-					</button>
+	if (isApiLoadingInitial && discounts.length === 0 && !fetchError) {
+		return (
+			<MainLayout pageTitle="Loading Discounts...">
+				<div className="flex h-full items-center justify-center">
+					<LoadingSpinner size="lg" />
 				</div>
-			</header>
+			</MainLayout>
+		);
+	}
+
+	return (
+		<MainLayout pageTitle="Discount Management">
+			<div className="mb-4 flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+				<h2 className="flex items-center gap-2 text-xl font-bold text-slate-800 sm:text-2xl">
+					<PageIcon className="h-6 w-6 text-orange-500" />
+					Discounts
+				</h2>
+				{isAdmin && (
+					<button
+						onClick={() => navigate("/discounts/create")}
+						className="flex items-center gap-1.5 rounded-lg bg-orange-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+					>
+						{" "}
+						<PlusIcon className="h-4 w-4" /> Add Discount
+					</button>
+				)}
+			</div>
 
 			{/* Stats Summary */}
 			<div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 flex-shrink-0">
@@ -404,31 +426,33 @@ export default function DiscountList() {
 				</div>
 			</div>
 
-			{/* Discounts List Area */}
 			<div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-				{/* Show loading overlay only when actively making API calls (useApi loading state) */}
-				{isApiLoading && discounts.length > 0 && (
-					<div className="absolute inset-0 z-20 flex items-center justify-center bg-white/70">
-						<LoadingSpinner size="md" />
-					</div>
-				)}
-
-				{fetchError ? (
-					// Error state when fetching fails
+				{isApiLoadingInitial &&
+					discounts.length === 0 && ( // Show main loader if it's initial load AND no data
+						<div className="flex h-full items-center justify-center">
+							<LoadingSpinner size="md" />
+						</div>
+					)}
+				{fetchError && !isApiLoadingInitial && (
 					<div className="flex h-full flex-col items-center justify-center p-6 text-center">
 						<ExclamationTriangleIcon className="mb-2 h-8 w-8 text-red-400" />
 						<p className="mb-3 text-sm text-red-600">{fetchError}</p>
 						<button
-							onClick={fetchData} // Retry button
-							disabled={isApiLoading}
+							onClick={fetchData}
+							disabled={isApiLoadingInitial || isSubmittingAction}
 							className="flex items-center gap-1 rounded-md border border-red-300 bg-red-100 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 disabled:opacity-50"
 						>
 							<ArrowPathIcon className="h-3.5 w-3.5" /> Retry
 						</button>
 					</div>
-				) : (
-					// Table display
+				)}
+				{!isApiLoadingInitial && !fetchError && (
 					<div className="custom-scrollbar h-full overflow-auto">
+						{isSubmittingAction && (
+							<div className="absolute inset-0 z-20 flex items-center justify-center bg-white/70">
+								<LoadingSpinner size="sm" />
+							</div>
+						)}
 						<table className="min-w-full divide-y divide-slate-100">
 							<thead className="sticky top-0 z-10 bg-slate-50">
 								<tr>
@@ -448,7 +472,7 @@ export default function DiscountList() {
 											colSpan="7"
 											className="p-8 text-center text-sm text-slate-500"
 										>
-											No discounts match the current filters.
+											No discounts match filters.
 										</td>
 									</tr>
 								) : (
@@ -457,7 +481,6 @@ export default function DiscountList() {
 											key={discount.id}
 											className="transition-colors hover:bg-slate-50/50"
 										>
-											{/* Name & Category */}
 											<Td>
 												<div className="font-medium text-slate-800">
 													{discount.name}
@@ -466,7 +489,6 @@ export default function DiscountList() {
 													{getCategoryPill(discount)}
 												</div>
 											</Td>
-											{/* Code */}
 											<Td>
 												{discount.code ? (
 													<span className="inline-block rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-slate-700">
@@ -478,15 +500,12 @@ export default function DiscountList() {
 													</span>
 												)}
 											</Td>
-											{/* Type / Applies To */}
 											<Td>
 												<span className="text-xs text-slate-600">
 													{getDiscountTypeLabel(discount)}
 												</span>
 											</Td>
-											{/* Value */}
 											<Td isHeader>{formatValue(discount)}</Td>
-											{/* Dates */}
 											<Td>
 												{discount.start_date || discount.end_date ? (
 													<>
@@ -507,9 +526,7 @@ export default function DiscountList() {
 													</span>
 												)}
 											</Td>
-											{/* Status */}
 											<Td>{getStatusPill(discount.is_active)}</Td>
-											{/* Actions */}
 											<Td align="right">
 												<button
 													onClick={() =>
@@ -517,7 +534,7 @@ export default function DiscountList() {
 													}
 													className={`${actionButtonClass} mr-1`}
 													title="Edit Discount"
-													disabled={isApiLoading} // Disable actions during API calls
+													disabled={isSubmittingAction}
 												>
 													<PencilSquareIcon className="h-4 w-4" />
 												</button>
@@ -525,7 +542,7 @@ export default function DiscountList() {
 													onClick={() => handleDeleteDiscount(discount)}
 													className={`${actionButtonClass} text-red-500 hover:bg-red-50 hover:text-red-700 focus:ring-red-400`}
 													title="Delete Discount"
-													disabled={isApiLoading} // Disable actions during API calls
+													disabled={isSubmittingAction}
 												>
 													<TrashIcon className="h-4 w-4" />
 												</button>
@@ -539,108 +556,28 @@ export default function DiscountList() {
 				)}
 			</div>
 
-			{/* Status Bar */}
-			<footer className="mt-4 flex flex-shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs shadow-sm">
-				<span className="flex items-center gap-2 text-slate-600">
-					<InformationCircleIcon className="h-3.5 w-3.5 text-slate-400" />
-					<span>Showing: {filteredDiscounts.length} discount(s)</span>
-				</span>
-				<span className="text-slate-500">
-					User: <span className="font-medium text-slate-700">{userName}</span> (
-					<span className="font-medium text-slate-700">
-						{isAdmin ? "Admin" : "Staff"}
+			<footer className="mt-4 flex-shrink-0 rounded-lg bg-white px-4 py-2 text-xs shadow-sm border border-slate-200">
+				<div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+					<span className="flex items-center gap-2 text-slate-600">
+						<InformationCircleIcon className="h-3.5 w-3.5 text-slate-400" />
+						<span>Showing: {filteredDiscounts.length} discount(s)</span>
 					</span>
-					)
-				</span>
+					{/* User info from MainLayout's footer */}
+				</div>
 			</footer>
 
-			{/* Delete Confirmation Modal */}
 			{showDeleteModal && currentDiscount && (
 				<ConfirmationModal
 					isOpen={showDeleteModal}
 					onClose={() => setShowDeleteModal(false)}
 					onConfirm={handleConfirmDelete}
 					title="Delete Discount"
-					message={`Are you sure you want to delete the discount "${currentDiscount.name}"? This action cannot be undone.`}
-					confirmButtonText={isApiLoading ? "Deleting..." : "Delete"} // Show loading state on button
+					message={`Are you sure you want to delete "${currentDiscount.name}"? This action cannot be undone.`}
+					confirmButtonText={isSubmittingAction ? "Deleting..." : "Delete"}
 					confirmButtonClass="bg-red-600 hover:bg-red-700 disabled:bg-red-300"
-					isConfirmDisabled={isApiLoading} // Disable confirm button during API call
+					isConfirmDisabled={isSubmittingAction}
 				/>
 			)}
-		</div>
+		</MainLayout>
 	);
 }
-
-// --- Helper Components ---
-
-// Stat Card Component
-const StatCard = ({ title, value, icon: Icon, color = "gray" }) => {
-	const colors = {
-		green: {
-			bg: "bg-emerald-50",
-			text: "text-emerald-600",
-			iconBg: "bg-emerald-100",
-		},
-		sky: { bg: "bg-sky-50", text: "text-sky-600", iconBg: "bg-sky-100" },
-		slate: {
-			bg: "bg-slate-50",
-			text: "text-slate-600",
-			iconBg: "bg-slate-100",
-		},
-		indigo: {
-			bg: "bg-indigo-50",
-			text: "text-indigo-600",
-			iconBg: "bg-indigo-100",
-		},
-	};
-	const selectedColor = colors[color] || colors.slate;
-
-	return (
-		<div
-			className={`flex items-center rounded-lg border border-slate-200 ${selectedColor.bg} p-3 shadow-sm`}
-		>
-			<div
-				className={`mr-3 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${selectedColor.iconBg} ${selectedColor.text}`}
-			>
-				<Icon className="h-4 w-4" />
-			</div>
-			<div>
-				<dt className="truncate text-xs font-medium text-slate-500">{title}</dt>
-				<dd className="text-xl font-semibold text-slate-800">{value}</dd>
-			</div>
-		</div>
-	);
-};
-StatCard.propTypes = {
-	title: PropTypes.string.isRequired,
-	value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-	icon: PropTypes.elementType.isRequired,
-	color: PropTypes.string,
-};
-
-// Table Header Cell Component
-const Th = ({ children, align = "left" }) => (
-	<th
-		scope="col"
-		className={`whitespace-nowrap px-4 py-2.5 text-${align} text-xs font-semibold uppercase tracking-wider text-slate-500`}
-	>
-		{children}
-	</th>
-);
-Th.propTypes = { children: PropTypes.node, align: PropTypes.string };
-
-// Table Data Cell Component
-const Td = ({ children, align = "left", isHeader = false }) => (
-	<td
-		className={`px-4 py-2.5 text-${align} text-xs ${
-			isHeader ? "font-medium text-slate-800" : "text-slate-600"
-		}`}
-	>
-		{children}
-	</td>
-);
-Td.propTypes = {
-	children: PropTypes.node,
-	align: PropTypes.string,
-	isHeader: PropTypes.bool,
-};

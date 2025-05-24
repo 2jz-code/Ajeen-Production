@@ -1,5 +1,3 @@
-// features/customerDisplay/components/CustomerDisplay.jsx
-
 import { useEffect, useState } from "react";
 import WelcomePage from "./WelcomePage";
 import CartView from "./cart/CartView";
@@ -16,7 +14,6 @@ const CustomerDisplay = () => {
 	useEffect(() => {
 		const loadCartFromStorage = () => {
 			try {
-				// Get cart data from localStorage (where Zustand persists it)
 				const storedCartData = localStorage.getItem("cart-storage");
 				if (storedCartData) {
 					const parsedData = JSON.parse(storedCartData);
@@ -29,10 +26,8 @@ const CustomerDisplay = () => {
 			}
 		};
 
-		// Load initially
 		loadCartFromStorage();
 
-		// Set up storage event listener to update when localStorage changes
 		const handleStorageChange = (event) => {
 			if (event.key === "cart-storage") {
 				loadCartFromStorage();
@@ -53,7 +48,6 @@ const CustomerDisplay = () => {
 					setDisplayData(event.data.content);
 					setDisplayMode(event.data.content.displayMode || "custom");
 				} else if (event.data.type === "SHOW_CART") {
-					// Instead of setting displayMode to "cart", set to "flow" with cart step
 					setDisplayMode("flow");
 					setDisplayData({
 						...displayData,
@@ -62,15 +56,11 @@ const CustomerDisplay = () => {
 				} else if (event.data.type === "SHOW_WELCOME") {
 					setDisplayMode("welcome");
 				} else if (event.data.type === "START_CUSTOMER_FLOW") {
-					// Extract orderId from multiple possible sources
 					const orderId =
 						event.data.content.orderId ||
 						cartData?.orderId ||
 						useCartStore.getState().orderId;
 
-					// console.log("Starting customer flow with orderId:", orderId);
-
-					// Create a deeply cloned object to avoid reference issues
 					const flowContent = {
 						...event.data.content,
 						cartData: {
@@ -78,19 +68,12 @@ const CustomerDisplay = () => {
 							...event.data.content.cartData,
 							orderId: orderId,
 						},
-						orderId: orderId, // Explicitly set at the top level
+						orderId: orderId,
 					};
-
-					// Log the content to verify
-					// console.log(
-					// 	"Flow content prepared with orderId:",
-					// 	flowContent.orderId
-					// );
 
 					setDisplayData(flowContent);
 					setDisplayMode("flow");
 				} else if (event.data.type === "UPDATE_CUSTOMER_FLOW") {
-					// Preserve cart data and orderId if it's not included in the update
 					const updatedContent = {
 						...event.data.content,
 						cartData: {
@@ -100,11 +83,7 @@ const CustomerDisplay = () => {
 						orderId: event.data.content.orderId || displayData?.orderId,
 					};
 					setDisplayData(updatedContent);
-					// Keep the display mode as flow
 				} else if (event.data.type === "DIRECT_CASH_UPDATE") {
-					// console.log("Received DIRECT_CASH_UPDATE:", event.data.content);
-
-					// Update display data directly
 					setDisplayData((prevData) => ({
 						...prevData,
 						...event.data.content,
@@ -115,7 +94,6 @@ const CustomerDisplay = () => {
 
 		window.addEventListener("message", handleMessage);
 
-		// Notify the parent window that we're ready
 		if (window.opener) {
 			window.opener.postMessage("CUSTOMER_DISPLAY_READY", "*");
 		}
@@ -126,7 +104,6 @@ const CustomerDisplay = () => {
 	}, [displayData, cartData]);
 
 	const processedCartData = () => {
-		// Use cart from localStorage if available, otherwise fall back to display data
 		const cartItems =
 			cartData?.cart || (displayData?.cart ? displayData.cart : []);
 		const orderDiscount = cartData?.orderDiscount || displayData?.orderDiscount;
@@ -143,13 +120,11 @@ const CustomerDisplay = () => {
 			};
 		}
 
-		// Use the existing utility to calculate totals
 		const { subtotal, taxAmount, total, discountAmount } = calculateCartTotals(
 			cartItems,
 			orderDiscount
 		);
 
-		// Include the order ID from display data if available
 		return {
 			items: cartItems,
 			subtotal,
@@ -161,17 +136,12 @@ const CustomerDisplay = () => {
 		};
 	};
 
-	// Handle flow step completion
 	const handleFlowStepComplete = (step, stepData) => {
-		// Ensure we have the orderId from the most reliable source
 		const effectiveOrderId =
 			displayData?.orderId ||
 			processedCartData().orderId ||
 			useCartStore.getState().orderId;
 
-		// console.log(`Completing step: ${step} with orderId:`, effectiveOrderId);
-
-		// Send message back to parent window
 		if (window.opener) {
 			window.opener.postMessage(
 				{
@@ -180,7 +150,7 @@ const CustomerDisplay = () => {
 						step,
 						data: {
 							...stepData,
-							orderId: effectiveOrderId, // Include orderId in step completion
+							orderId: effectiveOrderId,
 						},
 					},
 				},
@@ -189,10 +159,8 @@ const CustomerDisplay = () => {
 		}
 	};
 
-	// Render the appropriate view based on the display mode
 	const renderDisplay = () => {
 		const processedData = processedCartData();
-		// console.log("Processed cart data with orderId:", processedData.orderId);
 
 		switch (displayMode) {
 			case "welcome":

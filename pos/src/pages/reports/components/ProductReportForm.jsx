@@ -1,28 +1,34 @@
-import { useState, useEffect } from "react"; // Added React import
-import { motion } from "framer-motion"; // Original import
-import LoadingSpinner from "./LoadingSpinner"; // Original import
-import { reportService } from "../../../api/services/reportService"; // Original import
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { reportService } from "../../../api/services/reportService";
 import PropTypes from "prop-types";
-// Icons for UI
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
-	ArchiveBoxIcon,
-	DocumentArrowDownIcon,
-	BookmarkIcon,
-	ArrowPathIcon,
-} from "@heroicons/react/24/outline";
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+// import { Separator } from "@/components/ui/separator"; // Not used, can be removed
+import {
+	FileArchiveIcon, // As per your snippet
+	Download,
+	Bookmark,
+	Loader2,
+	Calendar,
+	BarChart3,
+} from "lucide-react";
 
-/**
- * ProductReportForm Component (Logic Preserved from User Provided Code)
- *
- * Form for generating product performance reports.
- * UI updated for a modern look and feel; Logic remains unchanged.
- */
 const ProductReportForm = ({ onSubmit, isLoading }) => {
-	// --- ORIGINAL LOGIC (UNCHANGED from user provided code) ---
 	const [formData, setFormData] = useState({
 		start_date: new Date().toISOString().split("T")[0],
 		end_date: new Date().toISOString().split("T")[0],
-		category: "", // Store category name or ID based on what API expects
+		category: "", // This will be an empty string to signify "All Categories"
 		limit: 10,
 		sort_by: "revenue",
 		save_report: false,
@@ -31,14 +37,17 @@ const ProductReportForm = ({ onSubmit, isLoading }) => {
 	const [categories, setCategories] = useState([]);
 	const [loadingCategories, setLoadingCategories] = useState(false);
 
-	// Fetch product categories (Original)
 	useEffect(() => {
 		const fetchCategories = async () => {
 			setLoadingCategories(true);
 			try {
-				// Assuming this service returns category names or objects with names/IDs
 				const data = await reportService.getProductCategories();
-				setCategories(data);
+				// Filter out categories that might result in an empty value for SelectItem
+				const validCategories = data.filter((cat) => {
+					const catValue = typeof cat === "object" ? cat.id : cat;
+					return catValue !== "" && catValue != null;
+				});
+				setCategories(validCategories);
 			} catch (error) {
 				console.error("Error fetching categories:", error);
 			} finally {
@@ -56,228 +65,257 @@ const ProductReportForm = ({ onSubmit, isLoading }) => {
 		});
 	};
 
+	const handleSelectChange = (name, value) => {
+		if (name === "category") {
+			// If the special value for "All Categories" is selected, set formData.category to ""
+			// Otherwise, use the selected category's actual value (ID or name)
+			setFormData({
+				...formData,
+				[name]: value === "__ALL_CATEGORIES__" ? "" : value,
+			});
+		} else {
+			setFormData({
+				...formData,
+				[name]: value,
+			});
+		}
+	};
+
+	const handleCheckboxChange = (name, checked) => {
+		setFormData({
+			...formData,
+			[name]: checked,
+		});
+	};
+
 	const handleSubmit = (e) => {
 		e.preventDefault();
 		onSubmit(formData);
 	};
-	// --- END OF ORIGINAL LOGIC ---
-
-	// --- UPDATED UI (JSX Structure and Styling Only) ---
-	// Input field base class
-	const inputBaseClass =
-		"block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-1 sm:text-sm disabled:bg-slate-100";
-	const inputNormalClass = `${inputBaseClass} border-slate-300 focus:ring-blue-500 focus:border-blue-500 placeholder-slate-400`;
-	const selectClass = `${inputNormalClass} appearance-none bg-white bg-no-repeat bg-right-3`;
-	const labelClass = "block text-xs font-medium text-slate-600 mb-1";
-	const baseButtonClass =
-		"inline-flex justify-center items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed";
-	const primaryButtonClass = `${baseButtonClass} bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500`;
 
 	return (
-		<div className="p-4 sm:p-6 h-full overflow-y-auto custom-scrollbar">
+		<div className="p-6 max-w-3xl mx-auto">
 			<motion.div
-				className="max-w-2xl mx-auto" // Reduced max-width
 				initial={{ opacity: 0, y: 10 }}
 				animate={{ opacity: 1, y: 0 }}
 				transition={{ duration: 0.3 }}
+				className="space-y-6"
 			>
-				<h2 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-					<ArchiveBoxIcon className="h-5 w-5 text-slate-500" /> Generate Product
-					Report
-				</h2>
+				<div className="flex items-center gap-2">
+					<FileArchiveIcon className="h-6 w-6 text-primary" />
+					<h1 className="text-2xl font-bold">Generate Product Report</h1>
+				</div>
 
 				<form
 					onSubmit={handleSubmit}
-					className="space-y-5"
+					className="space-y-6"
 				>
-					{/* Report Parameters Card */}
-					<div className="bg-white rounded-lg shadow-sm border border-slate-200 p-5 space-y-4">
-						<h3 className="text-base font-medium text-slate-700 mb-2">
-							Report Parameters
-						</h3>
-						{/* Date Inputs */}
-						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-							<div>
-								<label
-									htmlFor="prod_start_date"
-									className={labelClass}
-								>
-									Start Date
-								</label>
-								<input
-									type="date"
-									id="prod_start_date"
-									name="start_date"
-									value={formData.start_date}
-									onChange={handleChange}
-									className={inputNormalClass}
-									required
-								/>
-							</div>
-							<div>
-								<label
-									htmlFor="prod_end_date"
-									className={labelClass}
-								>
-									End Date
-								</label>
-								<input
-									type="date"
-									id="prod_end_date"
-									name="end_date"
-									value={formData.end_date}
-									onChange={handleChange}
-									className={inputNormalClass}
-									required
-								/>
-							</div>
-						</div>
-						{/* Category Select */}
-						<div>
-							<label
-								htmlFor="prod_category"
-								className={labelClass}
-							>
-								Category{" "}
-								{loadingCategories && (
-									<LoadingSpinner
-										size="xs"
-										className="ml-1 inline-block"
-									/>
-								)}
-							</label>
-							<select
-								id="prod_category"
-								name="category"
-								value={formData.category}
-								onChange={handleChange}
-								className={selectClass}
-								disabled={loadingCategories}
-							>
-								<option value="">All Categories</option>
-								{/* Assuming categories are strings or objects with name/id */}
-								{categories.map((cat) => (
-									<option
-										key={cat.id || cat}
-										value={cat.id || cat}
+					<Card>
+						<CardHeader className="pb-3">
+							<CardTitle className="text-lg flex items-center gap-2">
+								<BarChart3 className="h-5 w-5 text-muted-foreground" />
+								Report Parameters
+							</CardTitle>
+						</CardHeader>
+						<CardContent className="space-y-5">
+							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+								<div className="space-y-2">
+									<Label
+										htmlFor="prod_start_date"
+										className="flex items-center gap-1"
 									>
-										{cat.name || cat}
-									</option>
-								))}
-							</select>
-						</div>
-						{/* Limit and Sort By */}
-						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-							<div>
-								<label
-									htmlFor="prod_limit"
-									className={labelClass}
+										<Calendar className="h-3.5 w-3.5" />
+										Start Date
+									</Label>
+									<Input
+										type="date"
+										id="prod_start_date"
+										name="start_date"
+										value={formData.start_date}
+										onChange={handleChange}
+										required
+									/>
+								</div>
+								<div className="space-y-2">
+									<Label
+										htmlFor="prod_end_date"
+										className="flex items-center gap-1"
+									>
+										<Calendar className="h-3.5 w-3.5" />
+										End Date
+									</Label>
+									<Input
+										type="date"
+										id="prod_end_date"
+										name="end_date"
+										value={formData.end_date}
+										onChange={handleChange}
+										required
+									/>
+								</div>
+							</div>
+
+							<div className="space-y-2">
+								<Label
+									htmlFor="prod_category"
+									className="flex items-center gap-1"
 								>
-									Number of Products
-								</label>
-								<input
-									type="number"
-									id="prod_limit"
-									name="limit"
-									value={formData.limit}
-									onChange={handleChange}
-									min="1"
-									max="100"
-									className={inputNormalClass}
+									Category
+									{loadingCategories && (
+										<Loader2 className="h-3.5 w-3.5 animate-spin" />
+									)}
+								</Label>
+								<Select
+									value={
+										formData.category === ""
+											? "__ALL_CATEGORIES__"
+											: formData.category
+									}
+									onValueChange={(value) =>
+										handleSelectChange("category", value)
+									}
+									disabled={loadingCategories}
+								>
+									<SelectTrigger id="prod_category">
+										<SelectValue placeholder="All Categories" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="__ALL_CATEGORIES__">
+											All Categories
+										</SelectItem>
+										{categories.map((cat, index) => {
+											const catValue =
+												typeof cat === "object" ? String(cat.id) : String(cat);
+											const catName = typeof cat === "object" ? cat.name : cat;
+											// Ensure value is a non-empty string. If ID is somehow number 0, convert to string "0".
+											// This was already filtered above, but an extra check here for safety.
+											const finalValue =
+												catValue == null || catValue === ""
+													? `_cat_val_${index}`
+													: catValue;
+
+											return (
+												<SelectItem
+													key={finalValue}
+													value={finalValue}
+												>
+													{catName || `Category ${index + 1}`}
+												</SelectItem>
+											);
+										})}
+									</SelectContent>
+								</Select>
+							</div>
+
+							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+								<div className="space-y-2">
+									<Label htmlFor="prod_limit">Number of Products</Label>
+									<Input
+										type="number"
+										id="prod_limit"
+										name="limit"
+										value={formData.limit}
+										onChange={handleChange}
+										min="1"
+										max="100"
+									/>
+								</div>
+								<div className="space-y-2">
+									<Label htmlFor="prod_sort_by">Sort By</Label>
+									<Select
+										value={formData.sort_by}
+										onValueChange={(value) =>
+											handleSelectChange("sort_by", value)
+										}
+									>
+										<SelectTrigger id="prod_sort_by">
+											<SelectValue placeholder="Select sorting" />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="revenue">
+												Revenue (highest first)
+											</SelectItem>
+											<SelectItem value="quantity">
+												Quantity Sold (highest first)
+											</SelectItem>
+										</SelectContent>
+									</Select>
+								</div>
+							</div>
+						</CardContent>
+					</Card>
+
+					<Card>
+						<CardContent className="pt-6 space-y-4">
+							<div className="flex items-center justify-between">
+								<div className="flex items-center gap-2">
+									<Bookmark className="h-4 w-4 text-primary" />
+									<h3 className="font-medium">Save Report</h3>
+								</div>
+								<Checkbox
+									id="prod_save_report"
+									checked={formData.save_report}
+									onCheckedChange={(checked) =>
+										handleCheckboxChange("save_report", checked)
+									}
 								/>
 							</div>
-							<div>
-								<label
-									htmlFor="prod_sort_by"
-									className={labelClass}
-								>
-									Sort By
-								</label>
-								<select
-									id="prod_sort_by"
-									name="sort_by"
-									value={formData.sort_by}
-									onChange={handleChange}
-									className={selectClass}
-								>
-									<option value="revenue">Revenue (highest first)</option>
-									<option value="quantity">
-										Quantity Sold (highest first)
-									</option>
-								</select>
-							</div>
-						</div>
-					</div>
 
-					{/* Save Report Card */}
-					<div className="bg-white rounded-lg shadow-sm border border-slate-200 p-5 space-y-3">
-						<div className="flex items-center justify-between">
-							<h3 className="text-base font-medium text-slate-700">
-								Save Report
-							</h3>
-							<input
-								type="checkbox"
-								id="prod_save_report"
-								name="save_report"
-								checked={formData.save_report}
-								onChange={handleChange}
-								className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
-							/>
-						</div>
-						{formData.save_report && (
-							<div>
-								<label
-									htmlFor="prod_report_name"
-									className={labelClass}
+							{formData.save_report && (
+								<motion.div
+									initial={{ opacity: 0, height: 0 }}
+									animate={{ opacity: 1, height: "auto" }}
+									exit={{ opacity: 0, height: 0 }}
+									transition={{ duration: 0.2 }}
+									className="space-y-2 pt-2"
 								>
-									Report Name <span className="text-red-500">*</span>
-								</label>
-								<input
-									type="text"
-									id="prod_report_name"
-									name="report_name"
-									value={formData.report_name}
-									onChange={handleChange}
-									placeholder="e.g., Top Products Q1"
-									className={inputNormalClass}
-									required={formData.save_report}
-								/>
-							</div>
-						)}
-						<label
-							htmlFor="prod_save_report"
-							className="flex items-start gap-2 text-xs text-slate-500 cursor-pointer"
-						>
-							<span className="mt-0.5">
-								<BookmarkIcon className="h-3 w-3 inline relative -top-0.5" />{" "}
-								Save this report configuration for quick access later.
-							</span>
-						</label>
-					</div>
+									<Label htmlFor="prod_report_name">
+										Report Name <span className="text-destructive">*</span>
+									</Label>
+									<Input
+										type="text"
+										id="prod_report_name"
+										name="report_name"
+										value={formData.report_name}
+										onChange={handleChange}
+										placeholder="e.g., Top Products Q1"
+										required={formData.save_report}
+									/>
+								</motion.div>
+							)}
+							<p className="text-xs text-muted-foreground flex items-start gap-1.5">
+								<Bookmark className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+								<span>
+									Save this report configuration for quick access later.
+								</span>
+							</p>
+						</CardContent>
+					</Card>
 
-					{/* Submit Button */}
 					<div className="flex justify-end pt-2">
-						<button
+						<Button
 							type="submit"
-							className={primaryButtonClass}
 							disabled={isLoading}
 						>
 							{isLoading ? (
-								<ArrowPathIcon className="h-4 w-4 animate-spin" />
+								<>
+									<Loader2 className="h-4 w-4 mr-2 animate-spin" />
+									Generating...
+								</>
 							) : (
-								<DocumentArrowDownIcon className="h-5 w-5" />
+								<>
+									<Download className="h-4 w-4 mr-2" />
+									Generate Report
+								</>
 							)}
-							{isLoading ? "Generating..." : "Generate Report"}
-						</button>
+						</Button>
 					</div>
 				</form>
 			</motion.div>
 		</div>
 	);
-	// --- END OF UPDATED UI ---
 };
 
-// --- ORIGINAL PROPTYPES (UNCHANGED) ---
 ProductReportForm.propTypes = {
 	onSubmit: PropTypes.func.isRequired,
 	isLoading: PropTypes.bool,

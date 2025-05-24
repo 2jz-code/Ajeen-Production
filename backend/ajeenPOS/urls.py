@@ -20,6 +20,31 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from . import views  # Import your views
+from users import admin_views as users_custom_admin_views
+
+# --- Start: Admin URL Patching ---
+# Ensure this runs only once
+if not hasattr(admin.site, "_custom_urls_added"):
+    print("Attempting to patch admin.site.get_urls for custom view...")
+    original_admin_get_urls_func = admin.site.get_urls
+
+    def get_custom_admin_urls():
+        print("--- CUSTOM get_custom_admin_urls being EXECUTED ---")
+        # These are the URLs you want to add to the admin
+        custom_urlpatterns = [
+            path(
+                "reset-database-schema/",  # Path relative to /admin/
+                admin.site.admin_view(users_custom_admin_views.reset_database_view),
+                name="admin_reset_database_schema",
+            ),
+        ]
+        return custom_urlpatterns + original_admin_get_urls_func()
+
+    admin.site.get_urls = get_custom_admin_urls
+    admin.site._custom_urls_added = True  # Mark as patched
+    print("admin.site.get_urls has been patched.")
+# --- End: Admin URL Patching ---
+
 
 urlpatterns = [
     path("admin/", admin.site.urls),
