@@ -8,22 +8,26 @@ export const PaymentStatus = ({ error, isProcessing }) => {
 
 	return (
 		<motion.div
-			className="mx-4 mb-4"
+			className="mx-3 mb-2.5" // Reduced mx from 4 to 3, mb from 4 to 2.5
 			initial={{ opacity: 0, y: -10 }}
 			animate={{ opacity: 1, y: 0 }}
 			transition={{ duration: 0.3 }}
 		>
 			<Alert
 				variant={error ? "destructive" : "default"}
-				className="shadow-sm"
+				className="shadow-sm py-2 px-3" // Added explicit padding control
 			>
-				<div className="flex items-center gap-2">
+				<div className="flex items-center gap-1.5">
+					{" "}
+					{/* Reduced gap from 2 to 1.5 */}
 					{error ? (
 						<AlertCircle className="h-4 w-4" />
 					) : (
 						<Loader2 className="h-4 w-4 animate-spin" />
 					)}
-					<AlertDescription className="font-medium">
+					<AlertDescription className="font-medium text-sm">
+						{" "}
+						{/* Ensured text-sm for consistency */}
 						{error || "Processing payment..."}
 					</AlertDescription>
 				</div>

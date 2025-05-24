@@ -475,10 +475,17 @@ export const CashPaymentView = ({
 			custom={state.direction}
 			{...commonMotionProps}
 		>
-			<ScrollableViewWrapper className="space-y-6 p-6">
+			<ScrollableViewWrapper className="space-y-3 p-3">
+				{" "}
+				{/* Further reduced space-y */}
 				{/* Printer Status */}
 				<div className="flex items-center justify-between">
-					<Badge variant={isPrinterConnected ? "default" : "destructive"}>
+					<Badge
+						variant={isPrinterConnected ? "default" : "destructive"}
+						className="text-xs px-1.5 py-0.5"
+					>
+						{" "}
+						{/* Adjusted Badge */}
 						Printer:{" "}
 						{isPrinterConnected
 							? isPrinterProcessing
@@ -487,56 +494,71 @@ export const CashPaymentView = ({
 							: "Disconnected"}
 					</Badge>
 				</div>
-
 				{/* Error Display */}
 				{displayError && (
 					<motion.div
 						initial={{ opacity: 0, y: -10 }}
 						animate={{ opacity: 1, y: 0 }}
+						className="my-1"
 					>
-						<Alert variant="destructive">
-							<XCircle className="h-4 w-4" />
+						<Alert
+							variant="destructive"
+							className="py-1.5 px-2.5 text-xs"
+						>
+							{" "}
+							{/* Smaller Alert */}
+							<XCircle className="h-3.5 w-3.5" /> {/* Smaller Icon */}
 							<AlertDescription>{displayError}</AlertDescription>
 						</Alert>
 					</motion.div>
 				)}
-
-				{/* Amount Due Card */}
-				<Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-blue-100">
-					<CardHeader className="pb-3">
-						<CardTitle className="text-blue-800 flex items-center gap-2">
-							<DollarSign className="h-5 w-5" />
-							Amount Due This Step
-						</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<div className="text-3xl font-bold text-blue-900 mb-2">
-							{formatPrice(currentPaymentAmount)}
+				{/* ----- EXTREMELY SMALL "Amount Due This Step" CARD ----- */}
+				<Card className="border-blue-100 bg-blue-50/50 shadow-none">
+					<CardContent className="p-1.5">
+						<div className="flex justify-between items-center">
+							<div className="flex items-center gap-1">
+								<DollarSign className="h-3.5 w-3.5 text-blue-700" />
+								<span className="text-xs font-medium text-blue-700">
+									Due this step:
+								</span>
+							</div>
+							<span className="text-sm font-bold text-blue-800">
+								{formatPrice(currentPaymentAmount)}
+							</span>
 						</div>
 						{state.splitMode &&
 							Math.abs(remainingAmountProp - currentPaymentAmount) >
 								epsilon && (
-								<div className="text-sm text-blue-600">
-									Total Order Remaining: {formatPrice(remainingAmountProp)}
+								<div className="text-xxs text-blue-600 text-right mt-0.5">
+									{" "}
+									{/* text-xxs is hypothetical, use text-xs and adjust if needed */}
+									(Total Order Remaining: {formatPrice(remainingAmountProp)})
 								</div>
 							)}
 					</CardContent>
 				</Card>
-
+				{/* ----- END OF EXTREMELY SMALL CARD ----- */}
 				{/* Quick Amounts */}
 				<Card>
-					<CardHeader className="pb-3">
-						<CardTitle className="text-sm font-medium text-slate-600">
+					<CardHeader className="pb-1.5 pt-2 px-2.5">
+						{" "}
+						{/* Reduced padding */}
+						<CardTitle className="text-xs font-medium text-slate-600">
 							Quick Amounts
 						</CardTitle>
 					</CardHeader>
-					<CardContent>
-						<div className="grid grid-cols-3 gap-3">
+					<CardContent className="px-2.5 pb-2">
+						{" "}
+						{/* Reduced padding */}
+						<div className="grid grid-cols-3 gap-1.5">
+							{" "}
+							{/* Reduced gap */}
 							<Button
 								onClick={() => handlePresetAmount(currentPaymentAmount)}
 								disabled={paymentInProgress || currentPaymentAmount < epsilon}
-								className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+								className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs py-1 px-1.5 h-auto" /* Adjusted */
 								variant="outline"
+								size="sm"
 							>
 								{formatPrice(currentPaymentAmount)}
 							</Button>
@@ -546,6 +568,8 @@ export const CashPaymentView = ({
 									onClick={() => handlePresetAmount(amount)}
 									disabled={paymentInProgress || currentPaymentAmount < epsilon}
 									variant="outline"
+									size="sm"
+									className="text-xs py-1 px-1.5 h-auto" /* Adjusted */
 								>
 									${amount}
 								</Button>
@@ -553,22 +577,30 @@ export const CashPaymentView = ({
 						</div>
 					</CardContent>
 				</Card>
-
 				{/* Custom Amount */}
 				<Card>
-					<CardHeader className="pb-3">
-						<CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
-							<Calculator className="h-4 w-4" />
+					<CardHeader className="pb-1.5 pt-2 px-2.5">
+						{" "}
+						{/* Reduced padding */}
+						<CardTitle className="text-xs font-medium text-slate-600 flex items-center gap-1">
+							{" "}
+							{/* Smaller font, gap */}
+							<Calculator className="h-3 w-3" /> {/* Smaller Icon */}
 							Custom Amount
 						</CardTitle>
 					</CardHeader>
-					<CardContent>
-						<div className="grid grid-cols-2 gap-3">
+					<CardContent className="px-2.5 pb-2">
+						{" "}
+						{/* Reduced padding */}
+						<div className="grid grid-cols-2 gap-1.5">
+							{" "}
+							{/* Reduced gap */}
 							<div className="relative">
-								<DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500" />
+								<DollarSign className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-slate-400" />{" "}
+								{/* Smaller Icon, adjusted position */}
 								<Input
 									type="number"
-									className="pl-10 text-right"
+									className="pl-6 text-right text-xs h-8" /* Adjusted */
 									placeholder="Enter amount"
 									min={
 										currentPaymentAmount > epsilon
@@ -603,6 +635,8 @@ export const CashPaymentView = ({
 									!isCustomAmountValid() ||
 									currentPaymentAmount < epsilon
 								}
+								size="sm"
+								className="h-8 text-xs" /* Adjusted */
 							>
 								{paymentInProgress ? "Processing..." : "Pay"}
 							</Button>
@@ -610,63 +644,75 @@ export const CashPaymentView = ({
 						{state.customAmount &&
 							!isCustomAmountValid() &&
 							Number.parseFloat(state.customAmount) >= 0 && (
-								<div className="text-sm text-red-500 mt-2">
+								<div className="text-xs text-red-500 mt-1">
+									{" "}
+									{/* Smaller font, margin */}
 									Amount must be at least {formatPrice(currentPaymentAmount)}
 								</div>
 							)}
 					</CardContent>
 				</Card>
-
 				{/* Change Calculation */}
 				{shouldShowChangeCalculation() && (
 					<motion.div
 						initial={{ opacity: 0 }}
 						animate={{ opacity: 1 }}
+						className="my-1" /* Reduced margin */
 					>
-						<Card className="border-emerald-200 bg-gradient-to-r from-emerald-50 to-emerald-100">
-							<CardContent className="pt-6">
-								<div className="space-y-3">
-									<div className="flex justify-between items-center text-sm">
-										<span className="font-medium text-emerald-800">
-											Cash Tendered (Last):
-										</span>
-										<span className="font-semibold text-emerald-900">
-											{formatPrice(latestCashDisplay.cashTendered)}
-										</span>
-									</div>
-									<Separator className="bg-emerald-200" />
-									<div className="flex justify-between items-center">
-										<span className="font-bold text-lg text-emerald-900">
-											Change Due (Last):
-										</span>
-										<span className="font-bold text-lg text-emerald-900">
-											{formatPrice(latestCashDisplay.change)}
-										</span>
-									</div>
-									{remainingAmountProp > epsilon && (
-										<>
-											<Separator className="bg-emerald-200" />
-											<div className="flex justify-between items-center text-sm text-emerald-700">
-												<span>Remaining Order Balance:</span>
-												<span>{formatPrice(remainingAmountProp)}</span>
-											</div>
-										</>
-									)}
+						<Card className="border-emerald-100 bg-emerald-50/60">
+							<CardContent className="p-2 space-y-1">
+								{" "}
+								{/* Reduced padding, space */}
+								<div className="flex justify-between items-center text-xs">
+									<span className="font-medium text-emerald-700">
+										Cash Tendered (Last):
+									</span>
+									<span className="font-semibold text-emerald-800">
+										{formatPrice(latestCashDisplay.cashTendered)}
+									</span>
 								</div>
+								<Separator className="bg-emerald-200/70 my-0.5" />{" "}
+								{/* Adjusted Separator */}
+								<div className="flex justify-between items-center">
+									<span className="font-semibold text-sm text-emerald-800">
+										{" "}
+										{/* Font from base to sm */}
+										Change Due (Last):
+									</span>
+									<span className="font-semibold text-sm text-emerald-800">
+										{" "}
+										{/* Font from base to sm */}
+										{formatPrice(latestCashDisplay.change)}
+									</span>
+								</div>
+								{remainingAmountProp > epsilon && (
+									<>
+										<Separator className="bg-emerald-200/70 my-0.5" />{" "}
+										{/* Adjusted Separator */}
+										<div className="flex justify-between items-center text-xxs text-emerald-600">
+											{" "}
+											{/* Hypothetical text-xxs */}
+											<span>Remaining Order Balance:</span>
+											<span>{formatPrice(remainingAmountProp)}</span>
+										</div>
+									</>
+								)}
 							</CardContent>
 						</Card>
 					</motion.div>
 				)}
-
 				{/* Complete Payment Button */}
-				<div className="pt-4">
+				<div className="pt-2">
+					{" "}
+					{/* Reduced padding-top */}
 					<Button
 						onClick={handlePaymentCompletionAndPrint}
 						disabled={!canCompleteCurrentStep()}
-						className="w-full py-6 text-lg"
+						className="w-full py-2.5 text-sm" /* Adjusted */
 						size="lg"
 					>
-						<CheckCircle className="mr-2 h-5 w-5" />
+						<CheckCircle className="mr-1 h-4 w-4" />{" "}
+						{/* Adjusted Icon, margin */}
 						{state.splitMode && !isPaymentComplete(state.amountPaid)
 							? "Continue Split"
 							: "Complete Payment"}

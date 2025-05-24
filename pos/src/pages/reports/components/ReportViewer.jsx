@@ -29,10 +29,10 @@ import {
 	Package,
 	CreditCard,
 	Clock,
-	Calendar,
+	// Calendar,
 	DollarSign,
-	Users, // For order source
-	ShoppingCart, // For avg items per order
+	// Users, // For order source
+	// ShoppingCart, // For avg items per order
 } from "lucide-react";
 
 /**
@@ -128,9 +128,9 @@ const ReportViewer = ({ data, type, onBack }) => {
 		// Common handling for potentially missing data arrays
 		const reportDataItems = data.data || [];
 		const productItems = data.products || [];
-		const categoryItems = data.categories || [];
+		// const categoryItems = data.categories || [];
 		const hourlyItems = data.hourly_data || [];
-		const dailyItems = data.daily_data || [];
+		// const dailyItems = data.daily_data || [];
 
 		if (
 			type === "sales" ||
@@ -633,6 +633,7 @@ const ReportViewer = ({ data, type, onBack }) => {
 								cx="50%"
 								cy="50%"
 								labelLine={false}
+								//eslint-disable-next-line
 								label={({ name, percent, revenue }) =>
 									`${name} (${(percent * 100).toFixed(0)}%)`
 								}

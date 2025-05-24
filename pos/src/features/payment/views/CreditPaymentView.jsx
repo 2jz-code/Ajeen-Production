@@ -15,7 +15,7 @@ import { Decimal } from "decimal.js";
 import customerDisplayManager from "../../customerDisplay/utils/windowManager";
 import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -350,30 +350,46 @@ export const CreditPaymentView = ({
 			custom={state.direction}
 			{...commonMotionProps}
 		>
-			<ScrollableViewWrapper className="space-y-6 p-6">
+			<ScrollableViewWrapper className="space-y-3 p-3">
+				{" "}
+				{/* Further reduced space-y */}
 				{/* Split payment indicator */}
 				{state.splitMode && (
 					<motion.div
 						initial={{ opacity: 0, y: -10 }}
 						animate={{ opacity: 1, y: 0 }}
+						className="mb-1.5" // Adjusted margin-bottom
 					>
-						<Card className="border-amber-200 bg-gradient-to-r from-amber-50 to-amber-100">
-							<CardContent className="pt-4">
+						<Card className="border-amber-100 bg-amber-50/60 shadow-none">
+							<CardContent className="p-1.5 px-2">
+								{" "}
+								{/* Reduced padding */}
 								<div className="flex items-center justify-between">
-									<div className="flex items-center gap-2">
-										<Badge variant="secondary">Split Payment</Badge>
-										<span className="text-amber-800">
+									<div className="flex items-center gap-1">
+										{" "}
+										{/* Reduced gap */}
+										<Badge
+											variant="secondary"
+											className="text-xxs px-1 py-0.5 bg-amber-100 text-amber-700"
+										>
+											Split
+										</Badge>{" "}
+										{/* Smaller Badge, text-xxs hypothetical */}
+										<span className="text-amber-700 text-xs">
+											{" "}
+											{/* Smaller font */}
 											Paying{" "}
 											<strong>{formatPrice(currentPaymentAmountNum)}</strong>
 										</span>
 									</div>
 									{!flowStarted && !viewProcessingState && (
 										<Button
-											variant="outline"
-											size="sm"
+											variant="ghost" // Changed to ghost for less emphasis
+											size="xs"
 											onClick={() => handleNavigation("Split", -1)}
+											className="h-6 px-1.5 py-0.5 text-xxs text-amber-700 hover:bg-amber-100" // Custom small button
 										>
-											Back
+											Edit Split
 										</Button>
 									)}
 								</div>
@@ -381,72 +397,98 @@ export const CreditPaymentView = ({
 						</Card>
 					</motion.div>
 				)}
-
 				{/* Error display */}
 				{error && (
 					<motion.div
 						initial={{ opacity: 0, y: -10 }}
 						animate={{ opacity: 1, y: 0 }}
+						className="my-1"
 					>
-						<Alert variant="destructive">
-							<XCircle className="h-4 w-4" />
+						<Alert
+							variant="destructive"
+							className="py-1.5 px-2.5 text-xs"
+						>
+							{" "}
+							{/* Smaller Alert */}
+							<XCircle className="h-3.5 w-3.5" /> {/* Smaller Icon */}
 							<AlertDescription>{error}</AlertDescription>
 						</Alert>
 					</motion.div>
 				)}
-
-				{/* Amount display */}
-				<Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-blue-100">
-					<CardHeader className="pb-3">
-						<CardTitle className="text-blue-800 flex items-center gap-2">
-							<CreditCard className="h-5 w-5" />
-							Amount Due This Payment
-						</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold text-blue-900 mb-2">
-							{formatPrice(currentPaymentAmountNum)}
+				{/* ----- EXTREMELY SMALL "Amount Due This Payment" CARD ----- */}
+				<Card className="border-blue-100 bg-blue-50/50 shadow-none">
+					<CardContent className="p-1.5">
+						<div className="flex justify-between items-center">
+							<div className="flex items-center gap-1">
+								<CreditCard className="h-3.5 w-3.5 text-blue-700" />
+								<span className="text-xs font-medium text-blue-700">
+									Due this payment:
+								</span>
+							</div>
+							<span className="text-sm font-bold text-blue-800">
+								{formatPrice(currentPaymentAmountNum)}
+							</span>
 						</div>
-						<div className="text-sm text-blue-700">(Inc. Tax & Surcharge)</div>
+						<div className="text-xxs text-blue-600 text-right mt-0.5">
+							{" "}
+							{/* text-xxs is hypothetical */}
+							(Inc. Tax & Surcharge)
+						</div>
 						{state.splitMode &&
 							Math.abs(remainingAmountProp - currentPaymentAmountNum) >
 								epsilon && (
-								<div className="text-sm text-blue-600 mt-2">
-									Total Order Remaining (Inc. Tax & Surcharge):{" "}
-									{formatPrice(remainingAmountProp)}
+								<div className="text-xxs text-blue-600 text-right mt-0.5">
+									(Total Order Remaining: {formatPrice(remainingAmountProp)})
 								</div>
 							)}
 					</CardContent>
 				</Card>
-
+				{/* ----- END OF EXTREMELY SMALL CARD ----- */}
 				{/* Terminal Status Indicator */}
-				<TerminalStatusIndicator />
-
+				<div className="my-1.5">
+					{" "}
+					{/* Added wrapper for margin control */}
+					<TerminalStatusIndicator />
+				</div>
 				{/* Control Buttons / Status Display */}
-				<div className="space-y-4">
+				<div className="space-y-2.5">
+					{" "}
+					{/* Reduced space */}
 					{!flowStarted ? (
 						<Button
 							onClick={startCreditPaymentFlow}
 							disabled={viewProcessingState || currentPaymentAmountNum <= 0}
-							className="w-full py-6 text-lg"
+							className="w-full py-2.5 text-sm" /* Adjusted */
 							size="lg"
 						>
-							<CreditCard className="mr-2 h-5 w-5" />
+							<CreditCard className="mr-1 h-4 w-4" />{" "}
+							{/* Adjusted Icon, margin */}
 							{viewProcessingState ? "Starting..." : "Start Card Payment"}
 						</Button>
 					) : (
-						<Card>
-							<CardContent className="pt-6 text-center">
-								<div className="space-y-4">
-									<div className="flex items-center justify-center gap-2">
-										<AlertCircle className="h-5 w-5 text-blue-600" />
-										<span className="font-medium text-slate-700">
+						<Card className="bg-slate-50/70">
+							<CardContent className="p-2.5 text-center">
+								{" "}
+								{/* Reduced padding */}
+								<div className="space-y-1.5">
+									{" "}
+									{/* Reduced space */}
+									<div className="flex items-center justify-center gap-1">
+										{" "}
+										{/* Reduced gap */}
+										<AlertCircle className="h-3.5 w-3.5 text-blue-600" />{" "}
+										{/* Smaller Icon */}
+										<span className="font-medium text-slate-700 text-xs">
+											{" "}
+											{/* Smaller font */}
 											Customer Interaction Required
 										</span>
 									</div>
-
-									<div className="flex items-center justify-center text-slate-800">
-										<div className="w-3 h-3 bg-blue-500 rounded-full mr-2 animate-pulse"></div>
+									<div className="flex items-center justify-center text-slate-700 text-xxs">
+										{" "}
+										{/* Smaller font, text-xxs hypothetical */}
+										<div className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-1 animate-pulse"></div>{" "}
+										{/* Smaller dot */}
 										<span>
 											{customerFlowStep
 												? `Waiting for: ${customerFlowStep
@@ -455,16 +497,17 @@ export const CreditPaymentView = ({
 												: "Initializing Flow..."}
 										</span>
 									</div>
-
-									<p className="text-sm text-slate-500">
+									<p className="text-xxs text-slate-500 leading-tight">
+										{" "}
+										{/* Smaller font, tighter leading - text-xxs hypothetical */}
 										Guide customer through steps on their display.
 									</p>
-
 									<Button
 										variant="destructive"
 										onClick={cancelCardPayment}
 										disabled={viewProcessingState}
 										size="sm"
+										className="h-7 px-2.5 py-1 text-xs" /* Adjusted */
 									>
 										{viewProcessingState
 											? "Processing..."
