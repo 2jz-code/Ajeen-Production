@@ -8,6 +8,7 @@ import {
 	Settings,
 	Scale,
 	Calculator,
+	Info, // Added for a generic info icon
 } from "lucide-react";
 import { paymentAnimations } from "../../../animations/paymentAnimations";
 import PropTypes from "prop-types";
@@ -154,108 +155,122 @@ export const SplitPaymentView = ({
 			exit="exit"
 			transition={pageTransition}
 		>
-			<ScrollableViewWrapper className="space-y-6 p-6">
-				{/* Header */}
-				<div className="text-center space-y-2">
-					<h3 className="text-2xl font-semibold text-slate-800">
-						Split Payment
-					</h3>
-					<p className="text-slate-600">Choose how to split the payment</p>
-				</div>
-
-				{/* Order Summary */}
-				<Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-blue-100">
-					<CardContent className="pt-6">
-						<div className="space-y-3">
+			<ScrollableViewWrapper className="space-y-3 p-3">
+				{/* ----- EXTREMELY SMALL "Order Summary" CARD ----- */}
+				<Card className="border-blue-100 bg-blue-50/50 shadow-none">
+					<CardContent className="p-1.5 space-y-0.5">
+						{" "}
+						{/* Minimal padding and space */}
+						<div className="flex justify-between items-center">
+							<span className="font-medium text-blue-700 text-xxs flex items-center gap-0.5">
+								{" "}
+								{/* text-xxs hypothetical */}
+								<Info
+									size={10}
+									className="opacity-80"
+								/>{" "}
+								Total Order:
+							</span>
+							<span className="font-semibold text-xs text-blue-800">
+								{formatPrice(totalAmount)}
+							</span>
+						</div>
+						{state.amountPaid > 0 && (
 							<div className="flex justify-between items-center">
-								<span className="font-medium text-blue-800">
-									Total Order (Inc. Tax):
-								</span>
-								<span className="font-bold text-lg text-blue-900">
-									{formatPrice(totalAmount)}
-								</span>
+								<span className="text-emerald-700 text-xxs">Base Paid:</span>
+								<Badge
+									variant="secondary"
+									className="bg-emerald-100/70 text-emerald-800 text-xxs px-1 py-0 leading-tight" /* Adjusted Badge */
+								>
+									{formatPrice(state.amountPaid)}
+								</Badge>
 							</div>
-							{state.amountPaid > 0 && (
-								<div className="flex justify-between items-center">
-									<span className="text-emerald-700">Base Amount Paid:</span>
-									<Badge
-										variant="secondary"
-										className="bg-emerald-100 text-emerald-800"
-									>
-										{formatPrice(state.amountPaid)}
-									</Badge>
-								</div>
-							)}
-							<Separator className="bg-blue-200" />
-							<div className="flex justify-between items-center">
-								<span className="font-semibold text-blue-900">
-									Remaining (Inc. Tax, Pre-Surcharge):
-								</span>
-								<span className="font-bold text-lg text-blue-900">
-									{formatPrice(displayTotalRemainingWithTax)}
-								</span>
-							</div>
-							<div className="text-sm text-blue-600 text-right">
-								(Remaining Base Pre-Tax:{" "}
-								{formatPrice(baseRemainingForSplitCalculations)})
-							</div>
+						)}
+						<div className="flex justify-between items-center">
+							<span className="font-medium text-blue-700 text-xxs">
+								Remaining (Inc. Tax):
+							</span>
+							<span className="font-semibold text-xs text-blue-800">
+								{formatPrice(displayTotalRemainingWithTax)}
+							</span>
+						</div>
+						<div className="text-xxs text-blue-600 text-right">
+							(Base Rem: {formatPrice(baseRemainingForSplitCalculations)})
 						</div>
 					</CardContent>
 				</Card>
-
+				{/* ----- END OF EXTREMELY SMALL CARD ----- */}
 				{/* Split Options */}
 				<Card>
-					<CardHeader>
-						<CardTitle className="text-lg">Split Options</CardTitle>
+					<CardHeader className="px-2.5 pt-2 pb-1.5">
+						{" "}
+						{/* Reduced padding */}
+						<CardTitle className="text-sm">Split Options</CardTitle>{" "}
+						{/* Reduced font */}
 					</CardHeader>
-					<CardContent className="space-y-4">
-						<div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+					<CardContent className="space-y-2.5 px-2.5 pb-2.5">
+						{" "}
+						{/* Reduced space and padding */}
+						<div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+							{" "}
+							{/* Reduced gap */}
 							{splitOptions.map((option) => (
 								<Button
 									key={option.mode}
 									onClick={() => setSplitModeState(option.mode)}
 									variant={splitMode === option.mode ? "default" : "outline"}
-									className="h-auto p-4 flex flex-col items-center gap-2"
+									className="h-auto p-2 flex flex-col items-center gap-0.5 text-xs" /* Adjusted */
+									size="sm"
 								>
-									<option.icon className="h-5 w-5" />
+									<option.icon className="h-3.5 w-3.5 mb-0.5" />{" "}
+									{/* Smaller icon */}
 									<div className="text-center">
-										<div className="font-medium">{option.label}</div>
-										<div className="text-xs opacity-80">
+										<div className="font-medium text-xs">{option.label}</div>
+										<div className="text-xxs opacity-80 leading-tight">
 											{option.description}
-										</div>
+										</div>{" "}
+										{/* text-xxs hypothetical */}
 									</div>
 								</Button>
 							))}
 						</div>
-
 						{/* Split Configuration */}
-						<Card className="bg-slate-50">
-							<CardContent className="pt-6">
+						<Card className="bg-slate-50/80">
+							<CardContent className="p-2.5">
+								{" "}
+								{/* Reduced padding */}
 								{splitMode === "remaining" && (
-									<div className="space-y-3">
-										<p className="text-slate-600">
+									<div className="space-y-1.5">
+										{" "}
+										{/* Reduced space */}
+										<p className="text-slate-600 text-xs">
 											Pay the full remaining amount.
 										</p>
-										<div className="flex justify-between items-center p-3 bg-white rounded-lg">
-											<span className="font-medium">
-												Amount to pay (pre-tax, pre-surcharge):
+										<div className="flex justify-between items-center p-1.5 bg-white rounded">
+											{" "}
+											{/* Reduced padding */}
+											<span className="font-medium text-xs">
+												Amount (pre-tax):
 											</span>
 											<Badge
 												variant="outline"
-												className="text-lg"
+												className="text-xs px-1 py-0.5" /* Adjusted badge */
 											>
 												{formatPrice(baseRemainingForSplitCalculations)}
 											</Badge>
 										</div>
 									</div>
 								)}
-
 								{splitMode === "equal" && (
-									<div className="space-y-4">
-										<Label className="text-sm font-medium">
+									<div className="space-y-2">
+										{" "}
+										{/* Reduced space */}
+										<Label className="text-xs font-medium">
 											Number of equal payments:
 										</Label>
-										<div className="grid grid-cols-4 gap-2">
+										<div className="grid grid-cols-4 gap-1">
+											{" "}
+											{/* Reduced gap */}
 											{[2, 3, 4, 5].map((num) => (
 												<Button
 													key={num}
@@ -263,20 +278,23 @@ export const SplitPaymentView = ({
 													variant={
 														numberOfSplits === num ? "default" : "outline"
 													}
-													size="sm"
+													size="xs"
+													className="h-6 px-1.5 text-xs" /* Adjusted button */
 												>
 													{num}
 												</Button>
 											))}
 										</div>
-										<div className="p-3 bg-white rounded-lg">
+										<div className="p-1.5 bg-white rounded">
+											{" "}
+											{/* Reduced padding */}
 											<div className="flex justify-between items-center">
-												<span className="text-slate-600">
-													Each payment (pre-tax, pre-surcharge):
+												<span className="text-slate-600 text-xs">
+													Each payment (pre-tax):
 												</span>
 												<Badge
 													variant="outline"
-													className="text-lg"
+													className="text-xs px-1 py-0.5" /* Adjusted badge */
 												>
 													{formatPrice(equalSplitAmountBase)}
 												</Badge>
@@ -284,11 +302,15 @@ export const SplitPaymentView = ({
 										</div>
 									</div>
 								)}
-
 								{splitMode === "custom" && (
-									<div className="space-y-4">
-										<Label htmlFor="customSplitAmount">
-											Amount for this payment (pre-tax, pre-surcharge):
+									<div className="space-y-2">
+										{" "}
+										{/* Reduced space */}
+										<Label
+											htmlFor="customSplitAmount"
+											className="text-xs"
+										>
+											Amount (pre-tax):
 										</Label>
 										<Input
 											id="customSplitAmount"
@@ -299,16 +321,23 @@ export const SplitPaymentView = ({
 											min="0.01"
 											max={baseRemainingForSplitCalculations.toFixed(2)}
 											step="0.01"
-											className="text-right"
+											className="text-right h-8 text-xs" /* Adjusted input */
 										/>
 										{splitAmountInput &&
 											Number.parseFloat(splitAmountInput) > 0 && (
-												<div className="p-3 bg-white rounded-lg">
+												<div className="p-1.5 bg-white rounded">
+													{" "}
+													{/* Reduced padding */}
 													<div className="flex justify-between items-center">
-														<span className="text-slate-600">
-															Remaining base after this split:
+														<span className="text-slate-600 text-xs">
+															Base rem. after this:
 														</span>
-														<Badge variant="outline">
+														<Badge
+															variant="outline"
+															className="text-xs px-1 py-0.5"
+														>
+															{" "}
+															{/* Adjusted badge */}
 															{formatPrice(
 																baseRemainingForSplitCalculations -
 																	Number.parseFloat(splitAmountInput || 0)
@@ -323,11 +352,14 @@ export const SplitPaymentView = ({
 						</Card>
 					</CardContent>
 				</Card>
-
 				{/* Payment Method Selection */}
 				<Card>
-					<CardHeader>
-						<CardTitle className="text-lg">
+					<CardHeader className="px-2.5 pt-2 pb-1.5">
+						{" "}
+						{/* Reduced padding */}
+						<CardTitle className="text-xs">
+							{" "}
+							{/* Reduced font */}
 							{splitMode === "remaining"
 								? "Choose Payment Method"
 								: `Pay ${formatPrice(
@@ -337,8 +369,12 @@ export const SplitPaymentView = ({
 								  )} (base) with:`}
 						</CardTitle>
 					</CardHeader>
-					<CardContent>
-						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+					<CardContent className="px-2.5 pb-2.5">
+						{" "}
+						{/* Reduced padding */}
+						<div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+							{" "}
+							{/* Reduced gap */}
 							<Button
 								onClick={() => handlePaymentMethodSelect("Cash")}
 								disabled={
@@ -349,9 +385,9 @@ export const SplitPaymentView = ({
 											baseRemainingForSplitCalculations + epsilon)
 								}
 								size="lg"
-								className="h-16 flex items-center gap-3"
+								className="h-10 flex items-center gap-1.5 text-xs py-2" /* Adjusted */
 							>
-								<Banknote className="h-6 w-6" />
+								<Banknote className="h-4 w-4" /> {/* Smaller Icon */}
 								Cash
 							</Button>
 							<Button
@@ -364,41 +400,51 @@ export const SplitPaymentView = ({
 											baseRemainingForSplitCalculations + epsilon)
 								}
 								size="lg"
-								className="h-16 flex items-center gap-3"
+								className="h-10 flex items-center gap-1.5 text-xs py-2" /* Adjusted */
 							>
-								<CreditCard className="h-6 w-6" />
+								<CreditCard className="h-4 w-4" /> {/* Smaller Icon */}
 								Credit Card
 							</Button>
 						</div>
 					</CardContent>
 				</Card>
-
 				{/* Transaction History */}
 				{state.transactions.length > 0 && (
 					<Card>
-						<CardHeader>
-							<CardTitle className="text-lg">Payment History</CardTitle>
+						<CardHeader className="px-2.5 pt-2 pb-1.5">
+							{" "}
+							{/* Reduced padding */}
+							<CardTitle className="text-sm">Payment History</CardTitle>{" "}
+							{/* Reduced font */}
 						</CardHeader>
-						<CardContent>
-							<div className="space-y-3">
+						<CardContent className="px-2.5 pb-2.5">
+							{" "}
+							{/* Reduced padding */}
+							<div className="space-y-1.5">
+								{" "}
+								{/* Reduced space */}
 								{state.transactions.map((transaction, index) => (
 									<div
 										key={index}
-										className="flex justify-between items-center p-3 bg-slate-50 rounded-lg"
+										className="flex justify-between items-center p-1.5 bg-slate-50/70 rounded" /* Adjusted */
 									>
-										<div className="flex items-center gap-3">
+										<div className="flex items-center gap-1">
+											{" "}
+											{/* Reduced gap */}
 											{transaction.method === "cash" ? (
-												<Banknote className="h-5 w-5 text-green-600" />
+												<Banknote className="h-3.5 w-3.5 text-green-600" /> /* Smaller icon */
 											) : (
-												<CreditCard className="h-5 w-5 text-blue-600" />
+												<CreditCard className="h-3.5 w-3.5 text-blue-600" /> /* Smaller icon */
 											)}
-											<span className="font-medium">
+											<span className="font-medium text-xxs">
+												{" "}
+												{/* text-xxs hypothetical */}
 												{transaction.method === "cash" ? "Cash" : "Card"}
 											</span>
 										</div>
 										<Badge
 											variant="outline"
-											className="text-lg"
+											className="text-xs px-1 py-0.5" /* Adjusted badge */
 										>
 											{formatPrice(transaction.amount)}
 										</Badge>
