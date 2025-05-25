@@ -11,7 +11,7 @@ import { useCartActions } from "../../cart/hooks/useCartActions";
 import { useCartStore } from "../../../store/cartStore";
 import { Decimal } from "decimal.js";
 
-const TAX_RATE = 0.1;
+const TAX_RATE = 0.0813;
 
 export const PaymentFlow = ({ totalAmount, onBack }) => {
 	const cartActions = useCartActions();

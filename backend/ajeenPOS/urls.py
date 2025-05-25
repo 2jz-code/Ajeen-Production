@@ -64,6 +64,7 @@ urlpatterns = [
     path("api/", include("users.urls_mobile")),
     path("api/", include("contact.urls")),
     path("health/", views.health_check, name="health-check"),
+    path("api/cogs/", include("cogs.urls")),
 ]
 
 if settings.DEBUG:

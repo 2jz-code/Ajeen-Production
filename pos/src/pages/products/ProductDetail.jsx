@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axiosInstance from "../../api/config/axiosConfig";
+import { authService } from "../../api/services/authService";
 import {
 	ArrowLeftIcon,
 	ExclamationTriangleIcon,
@@ -21,6 +22,8 @@ export default function ProductDetail() {
 	const [product, setProduct] = useState(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState(null);
+	const [isAdmin, setIsAdmin] = useState(false);
+
 	const navigate = useNavigate();
 
 	useEffect(() => {
@@ -39,6 +42,8 @@ export default function ProductDetail() {
 			.finally(() => {
 				if (isMounted) setLoading(false);
 			});
+		const authRes = authService.checkStatus();
+		setIsAdmin(authRes.is_admin);
 		return () => {
 			isMounted = false;
 		};
@@ -84,14 +89,16 @@ export default function ProductDetail() {
 						{product.name}
 					</h2>
 					<div className="flex items-center gap-2">
-						<button
-							onClick={() =>
-								navigate(`/products/edit/${encodeURIComponent(product.name)}`)
-							}
-							className="flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-blue-600"
-						>
-							<PencilSquareIcon className="h-4 w-4" /> Edit
-						</button>
+						{isAdmin && (
+							<button
+								onClick={() =>
+									navigate(`/products/edit/${encodeURIComponent(product.name)}`)
+								}
+								className="flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-blue-600"
+							>
+								<PencilSquareIcon className="h-4 w-4" /> Edit
+							</button>
+						)}
 						<button
 							onClick={() => navigate("/products")}
 							className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"

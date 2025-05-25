@@ -1,12 +1,9 @@
-// src/pages/Dashboard.jsx
-"use client"; // This directive is specific to Next.js App router, can be removed for Vite/React.
-// If you intend to use it, ensure your project setup supports it.
+"use client";
 
-import { useState, useEffect } from "react"; // Keep these if Dashboard has specific logic
-import { Link } from "react-router-dom"; // Keep Link for NavCard
+import { useState, useEffect, useCallback } from "react"; // Added useCallback
+import { Link } from "react-router-dom";
 import PropTypes from "prop-types";
 
-// Icons for NavCard
 import {
 	ShoppingCart,
 	Package,
@@ -16,16 +13,17 @@ import {
 	Users,
 	Gift,
 	Tag,
-	Settings as SettingsIconLucide, // Renamed to avoid conflict if Settings component is imported
+	Settings as SettingsIconLucide,
+	Calculator,
 } from "lucide-react";
 
-import { Card, CardContent } from "@/components/ui/card"; // Keep for NavCard
-import { Skeleton } from "@/components/ui/skeleton"; // Keep for NavCardSkeleton
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import MainLayout from "./layout/MainLayout";
-import { authService } from "@/api/services/authService";
-import { useCartStore } from "@/store/cartStore";
+import { authService } from "@/api/services/authService"; // Ensured this is the same service as in MainLayout
+// import { useCartStore } from "@/store/cartStore"; // Not strictly needed for authState here anymore
 
-// NavCard Component (can stay here or be moved to a common components folder)
+// NavCard Component
 const NavCard = ({
 	to,
 	title,
@@ -56,8 +54,6 @@ const NavCard = ({
 								>
 									<Icon className="h-5 w-5" />
 								</div>
-								{/* ChevronRight might be better sourced from MainLayout if used there, or keep if specific here */}
-								{/* <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" /> */}
 							</div>
 							<h3 className="text-base font-medium">{title}</h3>
 							<p className="mt-1 text-sm text-muted-foreground">
@@ -99,27 +95,38 @@ const NavCardSkeleton = () => (
 );
 
 export default function Dashboard() {
-	// Dashboard specific state can remain here if needed.
-	// For this example, userStatus is fetched in MainLayout, but if Dashboard
-	// needs its own loading/user state for its content, it can have it.
-	const [isLoadingContent, setIsLoadingContent] = useState(true); // Example
-	const [currentUserIsAdmin, setCurrentUserIsAdmin] = useState(false); // Example
+	const [isLoadingContent, setIsLoadingContent] = useState(true);
+	const [currentUserIsAdmin, setCurrentUserIsAdmin] = useState(false);
 
-	// Simulate fetching dashboard-specific data or user role for content display
+	const fetchDashboardData = useCallback(async () => {
+		setIsLoadingContent(true);
+		try {
+			// Always fetch fresh status from the reliable authService
+			const freshStatus = await authService.checkStatus();
+			if (freshStatus) {
+				setCurrentUserIsAdmin(freshStatus.is_admin);
+				// Optional: If you want to ensure the Zustand store (useCartStore) is also updated
+				// with this fresh status, you would call its setter method here.
+				// Example: useCartStore.getState().setUserStatus(freshStatus);
+				// This depends on how useCartStore is implemented and if it's intended
+				// to be the single source of truth after initial fetch.
+			} else {
+				// Handle case where checkStatus might return null or undefined
+				setCurrentUserIsAdmin(false);
+			}
+		} catch (error) {
+			console.error("Dashboard: Failed to fetch user status:", error);
+			setCurrentUserIsAdmin(false); // Default to non-admin on error
+		} finally {
+			setIsLoadingContent(false); // Set loading to false after async operation completes
+		}
+	}, []); // No dependencies needed if it only runs on mount
+
 	useEffect(() => {
-		const fetchDashboardData = async () => {
-			setIsLoadingContent(true);
-			// Simulating a delay and getting admin status (MainLayout handles actual auth)
-			const authState =
-				useCartStore.getState().userStatus || (await authService.checkStatus());
-			setCurrentUserIsAdmin(authState.is_admin);
-			setTimeout(() => setIsLoadingContent(false), 500); // Simulate content load
-		};
 		fetchDashboardData();
-	}, []);
+	}, [fetchDashboardData]);
 
 	const navItemsForDashboard = [
-		// Specific items for the dashboard content
 		{
 			to: "/pos",
 			title: "Point of Sale",
@@ -147,6 +154,7 @@ export default function Dashboard() {
 			description: "Track payments and process refunds",
 			icon: CreditCard,
 			color: "bg-green-500",
+			adminOnly: true,
 		},
 		{
 			to: "/reports",
@@ -154,6 +162,14 @@ export default function Dashboard() {
 			description: "Generate sales and performance reports",
 			icon: BarChart3,
 			color: "bg-emerald-500",
+			adminOnly: true,
+		},
+		{
+			to: "/cogs",
+			title: "COGS Management",
+			description: "Manage item costs and recipes",
+			icon: Calculator,
+			color: "bg-teal-500",
 			adminOnly: true,
 		},
 		{
@@ -203,7 +219,7 @@ export default function Dashboard() {
 				</div>
 				{isLoadingContent ? (
 					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-						{[...Array(6)].map((_, i) => (
+						{[...Array(navItemsForDashboard.length)].map((_, i) => (
 							<NavCardSkeleton key={i} />
 						))}
 					</div>
@@ -218,7 +234,7 @@ export default function Dashboard() {
 								icon={item.icon}
 								color={item.color}
 								isAdminOnly={item.adminOnly}
-								currentUserIsAdmin={currentUserIsAdmin}
+								currentUserIsAdmin={currentUserIsAdmin} // This will now use the freshly fetched status
 							/>
 						))}
 					</div>

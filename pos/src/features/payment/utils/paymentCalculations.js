@@ -1,5 +1,5 @@
 // src/features/payment/utils/paymentCalculations.js
-export const TAX_RATE = 0.1;
+export const TAX_RATE = 0.0813;
 
 export const calculatePaymentTotals = (totalAmount, amountPaid = 0) => {
 	// totalAmount coming in is already including tax from the cart

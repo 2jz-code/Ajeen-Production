@@ -1,4 +1,4 @@
-// src/components/layout/MainLayout.jsx
+// pos_and_backend/pos/components/layout/MainLayout.jsx
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import PropTypes from "prop-types";
@@ -20,6 +20,7 @@ import {
 	PanelLeftClose,
 	PanelLeftOpen,
 	Home,
+	Calculator, // <-- Import Calculator icon
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -44,19 +45,17 @@ import { authService as realAuthService } from "../../api/services/authService";
 import { useCartStore } from "../../store/cartStore";
 import { cn } from "@/lib/utils";
 
-// SidebarItem Component
+// SidebarItem Component ( 그대로 )
 const SidebarItem = ({
 	icon: Icon,
 	label,
 	href,
-	// active = false,
 	adminOnly = false,
 	isAdmin = false,
 	isCollapsed = false,
 }) => {
 	const location = useLocation();
 	if (adminOnly && !isAdmin) return null;
-	// Call useLocation at the top level
 	const isActive = location.pathname.startsWith(href);
 
 	return (
@@ -80,7 +79,6 @@ SidebarItem.propTypes = {
 	icon: PropTypes.elementType.isRequired,
 	label: PropTypes.string.isRequired,
 	href: PropTypes.string.isRequired,
-	// active: PropTypes.bool, // Prop definition can be removed if not used
 	adminOnly: PropTypes.bool,
 	isAdmin: PropTypes.bool,
 	isCollapsed: PropTypes.bool,
@@ -162,8 +160,9 @@ const MainLayout = ({ children, pageTitle = "Page" }) => {
 		{ to: "/pos", title: "Point of Sale", icon: ShoppingCart },
 		{ to: "/products", title: "Products", icon: Package },
 		{ to: "/orders", title: "Orders", icon: Clock },
-		{ to: "/payments", title: "Payments", icon: CreditCard },
+		{ to: "/payments", title: "Payments", icon: CreditCard, adminOnly: true },
 		{ to: "/reports", title: "Reports", icon: BarChart3, adminOnly: true },
+		{ to: "/cogs", title: "COGS", icon: Calculator, adminOnly: true }, // <-- Added COGS Link
 		{ to: "/users", title: "Users", icon: Users, adminOnly: true },
 		{ to: "/rewards", title: "Rewards", icon: Gift, adminOnly: true },
 		{ to: "/discounts", title: "Discounts", icon: Tag, adminOnly: true },
@@ -205,13 +204,12 @@ const MainLayout = ({ children, pageTitle = "Page" }) => {
 						{navItems.map((item) => (
 							<SidebarItem
 								key={item.to}
-								href={item.to}
+								href={item.to} // Make sure this path matches your App.jsx routes (e.g., "/cogs")
 								icon={item.icon}
 								label={item.title}
 								adminOnly={item.adminOnly}
 								isAdmin={userStatus.is_admin}
 								isCollapsed={isDesktopSidebarCollapsed}
-								// active prop removed as it's calculated internally by SidebarItem
 							/>
 						))}
 					</nav>
@@ -287,7 +285,7 @@ const MainLayout = ({ children, pageTitle = "Page" }) => {
 									{navItems.map((item) => (
 										<SidebarItem
 											key={item.to}
-											href={item.to}
+											href={item.to} // Ensure this path matches App.jsx routes
 											icon={item.icon}
 											label={item.title}
 											adminOnly={item.adminOnly}

@@ -7,7 +7,7 @@ import { toast } from "react-toastify";
 import { calculateCartTotals as getBaseCartTotals } from "../../cart/utils/cartCalculations";
 
 const CARD_SURCHARGE_PERCENTAGE = 0.03;
-const TAX_RATE = 0.1;
+const TAX_RATE = 0.0813;
 
 const calculateDisplayTotalsForUI = (
 	initialOrderTotalNoTaxNoSurcharge, // (Cart Subtotal - Cart Discount)
