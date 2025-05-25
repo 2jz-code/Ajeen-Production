@@ -159,7 +159,7 @@ const MainLayout = ({ children, pageTitle = "Page" }) => {
 	const navItems = [
 		{ to: "/pos", title: "Point of Sale", icon: ShoppingCart },
 		{ to: "/products", title: "Products", icon: Package },
-		{ to: "/cogs", title: "COGS", icon: Calculator }, // <-- Added COGS Link
+		{ to: "/cogs", title: "COGS", icon: Calculator, adminOnly: true }, // <-- Added COGS Link
 		{ to: "/orders", title: "Orders", icon: Clock },
 		{ to: "/payments", title: "Payments", icon: CreditCard },
 		{ to: "/reports", title: "Reports", icon: BarChart3, adminOnly: true },

@@ -8,7 +8,7 @@ export const ensureNumber = (value, fallback = 0) => {
 	return fallback;
 };
 
-export const formatPrice = (value) => {
+export const formatPrice = (value, decimals = 2) => {
 	const number = ensureNumber(value);
-	return number.toFixed(2);
+	return number.toFixed(decimals);
 };
