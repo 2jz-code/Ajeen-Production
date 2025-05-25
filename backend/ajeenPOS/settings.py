@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     "channels",
     "rewards",
     "discounts",
+    "cogs",
     # "hardware.apps.HardwareConfig",  # Note: Parts of this will be refactored later
     "settings.apps.SettingsConfig",
 ]

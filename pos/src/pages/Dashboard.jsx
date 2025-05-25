@@ -1,12 +1,10 @@
 // src/pages/Dashboard.jsx
-"use client"; // This directive is specific to Next.js App router, can be removed for Vite/React.
-// If you intend to use it, ensure your project setup supports it.
+"use client";
 
-import { useState, useEffect } from "react"; // Keep these if Dashboard has specific logic
-import { Link } from "react-router-dom"; // Keep Link for NavCard
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import PropTypes from "prop-types";
 
-// Icons for NavCard
 import {
 	ShoppingCart,
 	Package,
@@ -16,16 +14,17 @@ import {
 	Users,
 	Gift,
 	Tag,
-	Settings as SettingsIconLucide, // Renamed to avoid conflict if Settings component is imported
+	Settings as SettingsIconLucide,
+	Calculator, // <-- Import Calculator icon
 } from "lucide-react";
 
-import { Card, CardContent } from "@/components/ui/card"; // Keep for NavCard
-import { Skeleton } from "@/components/ui/skeleton"; // Keep for NavCardSkeleton
-import MainLayout from "./layout/MainLayout";
-import { authService } from "@/api/services/authService";
-import { useCartStore } from "@/store/cartStore";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import MainLayout from "./layout/MainLayout"; //
+import { authService } from "@/api/services/authService"; //
+import { useCartStore } from "@/store/cartStore"; //
 
-// NavCard Component (can stay here or be moved to a common components folder)
+// NavCard Component ( 그대로 )
 const NavCard = ({
 	to,
 	title,
@@ -56,8 +55,6 @@ const NavCard = ({
 								>
 									<Icon className="h-5 w-5" />
 								</div>
-								{/* ChevronRight might be better sourced from MainLayout if used there, or keep if specific here */}
-								{/* <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" /> */}
 							</div>
 							<h3 className="text-base font-medium">{title}</h3>
 							<p className="mt-1 text-sm text-muted-foreground">
@@ -81,6 +78,7 @@ NavCard.propTypes = {
 };
 
 const NavCardSkeleton = () => (
+	// ( 그대로 )
 	<Card className="h-full overflow-hidden">
 		<CardContent className="p-0">
 			<div className="flex h-full flex-col">
@@ -99,57 +97,59 @@ const NavCardSkeleton = () => (
 );
 
 export default function Dashboard() {
-	// Dashboard specific state can remain here if needed.
-	// For this example, userStatus is fetched in MainLayout, but if Dashboard
-	// needs its own loading/user state for its content, it can have it.
-	const [isLoadingContent, setIsLoadingContent] = useState(true); // Example
-	const [currentUserIsAdmin, setCurrentUserIsAdmin] = useState(false); // Example
+	const [isLoadingContent, setIsLoadingContent] = useState(true);
+	const [currentUserIsAdmin, setCurrentUserIsAdmin] = useState(false);
 
-	// Simulate fetching dashboard-specific data or user role for content display
 	useEffect(() => {
 		const fetchDashboardData = async () => {
 			setIsLoadingContent(true);
-			// Simulating a delay and getting admin status (MainLayout handles actual auth)
 			const authState =
 				useCartStore.getState().userStatus || (await authService.checkStatus());
 			setCurrentUserIsAdmin(authState.is_admin);
-			setTimeout(() => setIsLoadingContent(false), 500); // Simulate content load
+			setTimeout(() => setIsLoadingContent(false), 500);
 		};
 		fetchDashboardData();
 	}, []);
 
 	const navItemsForDashboard = [
-		// Specific items for the dashboard content
 		{
-			to: "/pos",
+			to: "/pos", // Ensure this matches your route in App.jsx
 			title: "Point of Sale",
 			description: "Process sales and manage transactions",
 			icon: ShoppingCart,
 			color: "bg-blue-500",
 		},
 		{
-			to: "/products",
+			to: "/products", // Ensure this matches your route in App.jsx
 			title: "Product Management",
 			description: "Manage products, categories, and stock",
 			icon: Package,
 			color: "bg-indigo-500",
 		},
 		{
-			to: "/orders",
+			to: "/cogs", // <-- Added COGS Card
+			title: "COGS Management",
+			description: "Manage item costs and recipes",
+			icon: Calculator,
+			color: "bg-teal-500", // Example color
+			adminOnly: true, // Example: if COGS is admin only
+		},
+		{
+			to: "/orders", // Ensure this matches your route in App.jsx
 			title: "Order History",
 			description: "View past orders and details",
 			icon: Clock,
 			color: "bg-amber-500",
 		},
 		{
-			to: "/payments",
+			to: "/payments", // Ensure this matches your route in App.jsx
 			title: "Payment Management",
 			description: "Track payments and process refunds",
 			icon: CreditCard,
 			color: "bg-green-500",
 		},
 		{
-			to: "/reports",
+			to: "/reports", // Ensure this matches your route in App.jsx
 			title: "Reports",
 			description: "Generate sales and performance reports",
 			icon: BarChart3,
@@ -157,7 +157,7 @@ export default function Dashboard() {
 			adminOnly: true,
 		},
 		{
-			to: "/users",
+			to: "/users", // Ensure this matches your route in App.jsx
 			title: "User Management",
 			description: "Manage staff accounts and permissions",
 			icon: Users,
@@ -165,7 +165,7 @@ export default function Dashboard() {
 			adminOnly: true,
 		},
 		{
-			to: "/rewards",
+			to: "/rewards", // Ensure this matches your route in App.jsx
 			title: "Rewards Program",
 			description: "Configure and manage customer rewards",
 			icon: Gift,
@@ -173,7 +173,7 @@ export default function Dashboard() {
 			adminOnly: true,
 		},
 		{
-			to: "/discounts",
+			to: "/discounts", // Ensure this matches your route in App.jsx
 			title: "Discounts",
 			description: "Create and manage discounts",
 			icon: Tag,
@@ -181,7 +181,7 @@ export default function Dashboard() {
 			adminOnly: true,
 		},
 		{
-			to: "/settings",
+			to: "/settings", // Ensure this matches your route in App.jsx
 			title: "Settings",
 			description: "Configure system and admin settings",
 			icon: SettingsIconLucide,
@@ -203,9 +203,14 @@ export default function Dashboard() {
 				</div>
 				{isLoadingContent ? (
 					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-						{[...Array(6)].map((_, i) => (
-							<NavCardSkeleton key={i} />
-						))}
+						{[...Array(navItemsForDashboard.length)].map(
+							(
+								_,
+								i // Use length of actual items
+							) => (
+								<NavCardSkeleton key={i} />
+							)
+						)}
 					</div>
 				) : (
 					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -217,7 +222,7 @@ export default function Dashboard() {
 								description={item.description}
 								icon={item.icon}
 								color={item.color}
-								isAdminOnly={item.adminOnly}
+								isAdminOnly={item.isAdminOnly} // Corrected prop name
 								currentUserIsAdmin={currentUserIsAdmin}
 							/>
 						))}

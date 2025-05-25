@@ -4,6 +4,7 @@ import {
 	Routes,
 	Navigate,
 } from "react-router-dom"; // Added Navigate
+import { Suspense, lazy } from "react";
 import { useEffect, useRef } from "react";
 import customerDisplayManager from "./features/customerDisplay/utils/windowManager";
 import POS from "./pages/POS";
@@ -42,6 +43,27 @@ import TerminalProvider from "./features/payment/contexts/TerminalProvider";
 import DiscountList from "./pages/discounts/DiscountList";
 import DiscountForm from "./pages/discounts/DiscountForm";
 import { useDocumentTitle } from "./hooks/useDocumentTitle";
+
+// Lazy load COGS pages
+const CogsDashboardPage = lazy(() => import("./pages/cogs/CogsDashboardPage"));
+const UnitsOfMeasurePage = lazy(() =>
+	import("./pages/cogs/UnitsOfMeasurePage")
+);
+const InventoryItemsPage = lazy(() =>
+	import("./pages/cogs/InventoryItemsPage")
+);
+const InventoryItemFormPage = lazy(() =>
+	import("./pages/cogs/InventoryItemFormPage")
+);
+const RecipesPage = lazy(() => import("./pages/cogs/RecipesPage"));
+const RecipeFormPage = lazy(() => import("./pages/cogs/RecipeFormPage"));
+const ProductCogsDefinitionsPage = lazy(() =>
+	import("./pages/cogs/ProductCogsDefinitionsPage")
+);
+const ProductCogsDefinitionFormPage = lazy(() =>
+	import("./pages/cogs/ProductCogsDefinitionFormPage")
+);
+
 window.customerDisplayManager = customerDisplayManager;
 
 function App() {
@@ -101,9 +123,11 @@ function App() {
 			<WebSocketProvider>
 				<CustomerDisplayProvider>
 					<TerminalSimulationProvider>
-						<Router>
-							<AppContent />
-						</Router>
+						<Suspense fallback={<div>Loading Page...</div>}>
+							<Router>
+								<AppContent />
+							</Router>
+						</Suspense>
 					</TerminalSimulationProvider>
 				</CustomerDisplayProvider>
 			</WebSocketProvider>
@@ -186,6 +210,56 @@ function AppContent() {
 							element={<Reports />}
 						/>
 					</Route>
+
+					{/* New COGS Routes - Top Level with MainLayout */}
+					<Route
+						path="/cogs"
+						element={<CogsDashboardPage />}
+					/>
+					<Route
+						path="/cogs/units-of-measure"
+						element={<UnitsOfMeasurePage />}
+					/>
+					<Route
+						path="/cogs/inventory-items"
+						element={<InventoryItemsPage />}
+					/>
+					<Route
+						path="/cogs/inventory-items/new"
+						element={<InventoryItemFormPage />}
+					/>
+					<Route
+						path="/cogs/inventory-items/edit/:itemId"
+						element={<InventoryItemFormPage />}
+					/>
+					<Route
+						path="/cogs/recipes"
+						element={<RecipesPage />}
+					/>
+					<Route
+						path="/cogs/recipes/new"
+						element={<RecipeFormPage />}
+					/>
+					<Route
+						path="/cogs/recipes/edit/:recipeId"
+						element={<RecipeFormPage />}
+					/>
+					<Route
+						path="/cogs/product-definitions"
+						element={<ProductCogsDefinitionsPage />}
+					/>
+					<Route
+						path="/cogs/product-definitions/new"
+						element={<ProductCogsDefinitionFormPage />}
+					/>
+					<Route
+						path="/cogs/product-definitions/edit/:definitionId"
+						element={<ProductCogsDefinitionFormPage />}
+					/>
+					<Route
+						path="/cogs/product-definitions/product/:productId"
+						element={<ProductCogsDefinitionFormPage mode="product" />}
+					/>
 
 					{/* New User Management Routes */}
 					<Route
