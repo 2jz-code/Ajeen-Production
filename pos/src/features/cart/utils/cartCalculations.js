@@ -1,7 +1,7 @@
 // src/features/cart/utils/cartCalculations.js
 
 // Tax rate as a decimal
-export const TAX_RATE = 0.1;
+export const TAX_RATE = 0.0813;
 
 // Helper to safely convert currency string/number to cents (integer)
 const toCents = (amount) => {

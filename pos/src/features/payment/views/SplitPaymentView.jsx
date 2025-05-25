@@ -20,10 +20,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 
 const { pageVariants, pageTransition } = paymentAnimations;
-const TAX_RATE = 0.1;
+const TAX_RATE = 0.0813;
 
 export const SplitPaymentView = ({
 	state,

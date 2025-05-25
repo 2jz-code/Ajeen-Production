@@ -102,8 +102,10 @@ export const ENDPOINTS = {
 };
 
 export const COGS_API_ENDPOINTS = {
-	UNITS_OF_MEASURE: "/cogs/units-of-measure/",
-	INVENTORY_ITEMS: "/cogs/inventory-items/",
-	RECIPES: "/cogs/recipes/",
-	PRODUCT_COGS: "/cogs/product-cogs/",
+	UNITS_OF_MEASURE: "cogs/units-of-measure/",
+	INVENTORY_ITEMS: "cogs/inventory-items/",
+	RECIPES: "cogs/recipes/",
+	PRODUCT_COGS: "cogs/product-cogs/",
+	EXPORT_ALL_COGS: "cogs/export-all-cogs/",
+	IMPORT_ALL_COGS: "cogs/import-all-cogs/",
 };

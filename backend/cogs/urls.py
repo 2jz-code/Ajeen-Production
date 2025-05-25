@@ -6,6 +6,8 @@ from .views import (
     InventoryItemViewSet,
     RecipeViewSet,
     ProductCOGSViewSet,
+    ExportAllCogsDataView,
+    ImportAllCogsDataView,
 )
 
 router = DefaultRouter()
@@ -16,4 +18,11 @@ router.register(r"product-cogs", ProductCOGSViewSet)
 
 urlpatterns = [
     path("", include(router.urls)),
+    # Add the path for ExportAllCogsDataView directly here:
+    path(
+        "export-all-cogs/", ExportAllCogsDataView.as_view(), name="export_all_cogs_data"
+    ),
+    path(
+        "import-all-cogs/", ImportAllCogsDataView.as_view(), name="import_all_cogs_data"
+    ),  # Added
 ]

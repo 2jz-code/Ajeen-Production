@@ -62,7 +62,7 @@ export const CartSummary = ({
 				)}
 
 				<div className="flex justify-between text-sm">
-					<span className="text-muted-foreground">Tax (10%)</span>
+					<span className="text-muted-foreground">Tax (8.13%)</span>
 					<span className="font-medium">${taxAmount.toFixed(2)}</span>
 				</div>
 
