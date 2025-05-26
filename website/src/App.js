@@ -1,3 +1,4 @@
+// src/App.js
 import React, { useEffect } from "react";
 import Navbar from "./components/Navbar";
 import Hero from "./components/Hero";
@@ -28,54 +29,48 @@ import { useDocumentTitle } from "./hooks/useDocumentTitle";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
+// Import the ComingSoonPage
+import ComingSoonPage from "./components/ComingSoonPage"; // Adjust path if needed
+
 // Create a component to handle scrolling after navigation
 function ScrollHandler() {
 	const location = useLocation();
-	useDocumentTitle();
+	useDocumentTitle(); //
 	useEffect(() => {
-		// Check if there's a hash in the URL
-		check_and_refresh_token();
+		check_and_refresh_token(); //
 		if (location.hash) {
 			const id = location.hash.substring(1);
 			const element = document.getElementById(id);
-
 			if (element) {
 				setTimeout(() => {
-					const offsetTop = element.offsetTop - 70; // Adjust based on your fixed header height
+					const offsetTop = element.offsetTop - 70;
 					window.scrollTo({
 						top: offsetTop,
 						behavior: "smooth",
 					});
-				}, 100); // Small delay to ensure DOM is ready
+				}, 100);
 			}
 		} else {
-			// Scroll to top for new page navigations without hash
 			window.scrollTo(0, 0);
 		}
 	}, [location]);
-
 	return null;
 }
 
 function App() {
-	const { cartItemCount, updateCartItemCount } = useCart();
+	const { cartItemCount, updateCartItemCount } = useCart(); //
 
 	useEffect(() => {
 		const handleLinkClick = (event) => {
-			// Check if it's a link element or has a parent that is a link
 			const target = event.target.closest('a[href^="#"]');
-
 			if (target) {
 				const href = target.getAttribute("href");
-
-				// Only handle internal anchor links (starting with #)
 				if (href.startsWith("#")) {
 					event.preventDefault();
 					const id = href.slice(1);
 					const element = document.getElementById(id);
-
 					if (element) {
-						const offsetTop = element.offsetTop - 70; // Adjust based on your fixed header height
+						const offsetTop = element.offsetTop - 70;
 						window.scrollTo({
 							top: offsetTop,
 							behavior: "smooth",
@@ -84,32 +79,41 @@ function App() {
 				}
 			}
 		};
-
 		document.addEventListener("click", handleLinkClick);
 		return () => {
 			document.removeEventListener("click", handleLinkClick);
 		};
 	}, []);
 
+	// Check the environment variable
+	// In development, you can set this in your .env file
+	// For AWS, you'll set this in your environment configuration (e.g., Elastic Beanstalk, Amplify, S3/CloudFront with Lambda@Edge)
+	const showComingSoon = process.env.REACT_APP_SHOW_COMING_SOON === "true";
+
+	if (showComingSoon) {
+		return <ComingSoonPage />;
+	}
+
 	return (
 		<AuthProvider>
+			{" "}
+			{/* */}
 			<Router>
 				<ScrollHandler />
 				<div className="App min-h-screen flex flex-col">
-					{/* Navbar and main content should be inside the flex-grow container */}
 					<div className="flex-grow">
 						<Routes>
 							<Route
 								path="/"
 								element={
 									<>
-										<Navbar />
-										<Hero />
+										<Navbar /> {/* */}
+										<Hero /> {/* */}
 										<div className="common-bg">
-											<Cards />
-											<Faq />
-											<Location />
-											<Order />
+											<Cards /> {/* */}
+											<Faq /> {/* */}
+											<Location /> {/* */}
+											<Order /> {/* */}
 										</div>
 									</>
 								}
@@ -118,7 +122,7 @@ function App() {
 								path="/menu"
 								element={
 									<>
-										<ProductPage />
+										<ProductPage /> {/* */}
 									</>
 								}
 							/>
@@ -127,8 +131,8 @@ function App() {
 								element={
 									<>
 										<ProductDetails
-											cartItemCount={cartItemCount}
-											updateCartItemCount={updateCartItemCount}
+											cartItemCount={cartItemCount} //
+											updateCartItemCount={updateCartItemCount} //
 										/>
 									</>
 								}
@@ -137,7 +141,7 @@ function App() {
 								path="/login"
 								element={
 									<>
-										<Login />
+										<Login /> {/* */}
 									</>
 								}
 							/>
@@ -145,7 +149,7 @@ function App() {
 								path="/dashboard"
 								element={
 									<>
-										<Dashboard />
+										<Dashboard /> {/* */}
 									</>
 								}
 							/>
@@ -153,7 +157,7 @@ function App() {
 								path="/register"
 								element={
 									<>
-										<Register />
+										<Register /> {/* */}
 									</>
 								}
 							/>
@@ -161,7 +165,7 @@ function App() {
 								path="/checkout"
 								element={
 									<>
-										<CheckoutPage />
+										<CheckoutPage /> {/* */}
 									</>
 								}
 							/>
@@ -169,7 +173,7 @@ function App() {
 								path="/confirmation"
 								element={
 									<>
-										<ConfirmationPage />
+										<ConfirmationPage /> {/* */}
 									</>
 								}
 							/>
@@ -184,11 +188,10 @@ function App() {
 						rtl={false}
 						draggable
 						pauseOnHover
-						theme="light" // or "dark" or "colored"
+						theme="light"
 					/>
-					{/* Footer stays outside flex-grow */}
-					<Footer />
-					<ScrollToTop />
+					<Footer /> {/* */}
+					<ScrollToTop /> {/* */}
 				</div>
 			</Router>
 		</AuthProvider>

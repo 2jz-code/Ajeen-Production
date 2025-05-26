@@ -230,7 +230,7 @@ const ReceiptView = ({ orderData, paymentData, onComplete, paymentMethod }) => {
 						variants={itemVariants(showDetails ? 0.8 : 1.0)}
 						className="text-base text-slate-500 text-center"
 					>
-						Your receipt is printing. Have a great day!
+						Have a great day!
 					</motion.p>
 				</div>
 			</div>

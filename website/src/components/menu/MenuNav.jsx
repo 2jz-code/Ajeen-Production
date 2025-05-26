@@ -5,7 +5,6 @@ const MenuNav = ({ categories, selectedCategory, setSelectedCategory }) => {
 	const [showScrollButtons, setShowScrollButtons] = useState(false);
 	const navRef = useRef(null);
 
-	// Check if we need scroll buttons based on container width
 	useEffect(() => {
 		const checkScroll = () => {
 			if (navRef.current) {
@@ -14,15 +13,14 @@ const MenuNav = ({ categories, selectedCategory, setSelectedCategory }) => {
 			}
 		};
 
-		checkScroll();
+		checkScroll(); // Check on initial render and when categories change
 		window.addEventListener("resize", checkScroll);
 		return () => window.removeEventListener("resize", checkScroll);
-	}, [categories]);
+	}, [categories]); // Re-check if categories array changes
 
-	// Scroll the category container left or right
 	const scroll = (direction) => {
 		if (navRef.current) {
-			const scrollAmount = 200;
+			const scrollAmount = 200; // Adjust as needed
 			navRef.current.scrollBy({
 				left: direction === "left" ? -scrollAmount : scrollAmount,
 				behavior: "smooth",
@@ -31,18 +29,21 @@ const MenuNav = ({ categories, selectedCategory, setSelectedCategory }) => {
 	};
 
 	return (
-		<div className="bg-white shadow-sm sticky top-16 z-20">
-			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 relative">
+		// Main sticky bar: Light beige background, subtle shadow, border top for separation
+		<div className="bg-accent-light-beige shadow-sm sticky top-16 z-20 border-t border-accent-subtle-gray/30">
+			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 relative">
+				{" "}
+				{/* Reduced py */}
 				<div className="flex items-center">
-					{/* Left scroll button */}
 					{showScrollButtons && (
 						<button
 							onClick={() => scroll("left")}
-							className="absolute left-2 z-10 bg-white rounded-full shadow-md p-1 hover:bg-gray-100 transition-colors"
+							// Scroll button: Light beige bg, dark green icon, hover primary beige bg
+							className="absolute left-1 sm:left-2 z-10 bg-accent-light-beige rounded-full shadow-md p-1.5 hover:bg-primary-beige/70 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-green"
 							aria-label="Scroll categories left"
 						>
 							<svg
-								className="h-6 w-6 text-gray-600"
+								className="h-5 w-5 text-accent-dark-green"
 								fill="none"
 								viewBox="0 0 24 24"
 								stroke="currentColor"
@@ -57,20 +58,19 @@ const MenuNav = ({ categories, selectedCategory, setSelectedCategory }) => {
 						</button>
 					)}
 
-					{/* Categories container with horizontal scroll */}
 					<div
 						ref={navRef}
-						className="flex space-x-2 overflow-x-auto py-2 scrollbar-hide mx-auto"
+						// Increased horizontal padding for scroll buttons if they are shown
+						className={`flex space-x-2 overflow-x-auto py-1 scrollbar-hide mx-auto ${
+							showScrollButtons ? "px-8 sm:px-10" : ""
+						}`}
 						style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
 					>
-						{/* "All" button */}
 						<CategoryButton
 							isSelected={selectedCategory === null}
 							onClick={() => setSelectedCategory(null)}
 							name="All"
 						/>
-
-						{/* Category buttons */}
 						{categories.map((category) => (
 							<CategoryButton
 								key={category.id}
@@ -81,15 +81,14 @@ const MenuNav = ({ categories, selectedCategory, setSelectedCategory }) => {
 						))}
 					</div>
 
-					{/* Right scroll button */}
 					{showScrollButtons && (
 						<button
 							onClick={() => scroll("right")}
-							className="absolute right-2 z-10 bg-white rounded-full shadow-md p-1 hover:bg-gray-100 transition-colors"
+							className="absolute right-1 sm:right-2 z-10 bg-accent-light-beige rounded-full shadow-md p-1.5 hover:bg-primary-beige/70 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-green"
 							aria-label="Scroll categories right"
 						>
 							<svg
-								className="h-6 w-6 text-gray-600"
+								className="h-5 w-5 text-accent-dark-green"
 								fill="none"
 								viewBox="0 0 24 24"
 								stroke="currentColor"
@@ -109,15 +108,16 @@ const MenuNav = ({ categories, selectedCategory, setSelectedCategory }) => {
 	);
 };
 
-// Helper component for category buttons
 const CategoryButton = ({ isSelected, onClick, name }) => {
 	return (
 		<motion.button
 			onClick={onClick}
-			className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 whitespace-nowrap ${
+			// Selected: Primary Green bg, Light Beige text.
+			// Inactive: Primary Beige bg, Dark Green text. Hover: Lighter Primary Green bg.
+			className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 whitespace-nowrap shadow-sm hover:shadow-md ${
 				isSelected
-					? "bg-green-500 text-white shadow-md"
-					: "bg-gray-100 text-gray-700 hover:bg-gray-200"
+					? "bg-primary-green text-accent-light-beige"
+					: "bg-primary-beige text-accent-dark-green hover:bg-primary-green/30 hover:text-accent-dark-green"
 			}`}
 			whileTap={{ scale: 0.95 }}
 		>

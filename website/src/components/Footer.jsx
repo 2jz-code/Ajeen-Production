@@ -8,35 +8,43 @@ import {
 	FaHeart,
 	FaTiktok,
 } from "react-icons/fa";
+import Logo from "../assests/logo.png"; // Import the logo
 
 const Footer = () => {
 	const currentYear = new Date().getFullYear();
 
 	return (
-		<footer className="bg-gray-900 text-gray-300">
-			{/* Main Footer Content */}
+		<footer className="bg-accent-dark-green text-primary-beige">
 			<div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
 				<div className="grid grid-cols-1 md:grid-cols-4 gap-10">
-					{/* Logo and About */}
 					<div className="col-span-1 md:col-span-1">
 						<Link
 							to="/"
-							className="text-3xl font-serif italic font-bold text-white"
+							className="inline-block"
 						>
-							Ajeen
+							{/* Circular div wrapping the logo */}
+							<div className="bg-primary-beige rounded-full p-2 inline-flex items-center justify-center">
+								<img
+									src={Logo}
+									alt="Ajeen Logo"
+									// Adjust size as needed for the footer.
+									// h-10 or h-12 is usually a good size for footer logos.
+									// The circular div will be slightly larger due to padding.
+									className="h-12 w-auto"
+								/>
+							</div>
 						</Link>
-						<p className="mt-4 text-gray-400 text-sm">
+						<p className="mt-4 text-primary-beige text-sm">
 							Authentic Middle Eastern cuisine made with love and tradition.
 							Serving the community with fresh, delicious food since{" "}
 							{currentYear}.
 						</p>
-						{/* Social Media */}
 						<div className="mt-6 flex space-x-4">
 							<a
 								href="https://www.facebook.com/share/1AdkSavHnT/"
 								target="_blank"
 								rel="noopener noreferrer"
-								className="text-gray-400 hover:text-white transition-colors duration-300 transform hover:scale-110"
+								className="text-primary-beige hover:text-accent-light-beige transition-colors duration-300 transform hover:scale-110"
 								aria-label="Facebook"
 							>
 								<FaFacebook size={24} />
@@ -45,7 +53,7 @@ const Footer = () => {
 								href="https://www.instagram.com/bake_ajeen/"
 								target="_blank"
 								rel="noopener noreferrer"
-								className="text-gray-400 hover:text-white transition-colors duration-300 transform hover:scale-110"
+								className="text-primary-beige hover:text-accent-light-beige transition-colors duration-300 transform hover:scale-110"
 								aria-label="Instagram"
 							>
 								<FaInstagram size={24} />
@@ -54,8 +62,8 @@ const Footer = () => {
 								href="https://www.tiktok.com/@bake_ajeen?_t=ZT-8wNu8CL8oaU&_r=1"
 								target="_blank"
 								rel="noopener noreferrer"
-								className="text-gray-400 hover:text-white transition-colors duration-300 transform hover:scale-110"
-								aria-label="Twitter"
+								className="text-primary-beige hover:text-accent-light-beige transition-colors duration-300 transform hover:scale-110"
+								aria-label="TikTok"
 							>
 								<FaTiktok size={22} />
 							</a>
@@ -63,7 +71,7 @@ const Footer = () => {
 								href="https://www.yelp.com/biz/ajeen-bakery-eagan?osq=ajeen"
 								target="_blank"
 								rel="noopener noreferrer"
-								className="text-gray-400 hover:text-white transition-colors duration-300 transform hover:scale-110"
+								className="text-primary-beige hover:text-accent-light-beige transition-colors duration-300 transform hover:scale-110"
 								aria-label="Yelp"
 							>
 								<FaYelp size={22} />
@@ -73,7 +81,7 @@ const Footer = () => {
 
 					{/* Quick Links */}
 					<div>
-						<h3 className="text-white text-lg font-semibold mb-4 border-b border-gray-700 pb-2">
+						<h3 className="text-accent-light-beige text-lg font-semibold mb-4 border-b border-primary-green pb-2">
 							Quick Links
 						</h3>
 						<ul className="space-y-2">
@@ -88,17 +96,17 @@ const Footer = () => {
 									{item.isLink ? (
 										<Link
 											to={item.path}
-											className="text-gray-400 hover:text-green-400 transition-colors duration-300 flex items-center group"
+											className="text-primary-beige hover:text-accent-light-beige transition-colors duration-300 flex items-center group"
 										>
-											<span className="w-0 group-hover:w-2 h-1 bg-green-400 mr-0 group-hover:mr-2 transition-all duration-300"></span>
+											<span className="w-0 group-hover:w-2 h-1 bg-primary-green mr-0 group-hover:mr-2 transition-all duration-300"></span>
 											{item.name}
 										</Link>
 									) : (
 										<a
 											href={item.path}
-											className="text-gray-400 hover:text-green-400 transition-colors duration-300 flex items-center group"
+											className="text-primary-beige hover:text-accent-light-beige transition-colors duration-300 flex items-center group"
 										>
-											<span className="w-0 group-hover:w-2 h-1 bg-green-400 mr-0 group-hover:mr-2 transition-all duration-300"></span>
+											<span className="w-0 group-hover:w-2 h-1 bg-primary-green mr-0 group-hover:mr-2 transition-all duration-300"></span>
 											{item.name}
 										</a>
 									)}
@@ -109,13 +117,13 @@ const Footer = () => {
 
 					{/* Contact Info */}
 					<div>
-						<h3 className="text-white text-lg font-semibold mb-4 border-b border-gray-700 pb-2">
+						<h3 className="text-accent-light-beige text-lg font-semibold mb-4 border-b border-primary-green pb-2">
 							Contact Us
 						</h3>
-						<ul className="space-y-3 text-sm text-gray-400">
+						<ul className="space-y-3 text-sm text-primary-beige">
 							<li className="flex items-start group">
 								<svg
-									className="h-5 w-5 text-gray-500 group-hover:text-green-400 mr-3 mt-0.5 transition-colors duration-300"
+									className="h-5 w-5 text-accent-subtle-gray group-hover:text-primary-green mr-3 mt-0.5 transition-colors duration-300"
 									fill="none"
 									viewBox="0 0 24 24"
 									stroke="currentColor"
@@ -133,13 +141,13 @@ const Footer = () => {
 										d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
 									/>
 								</svg>
-								<span className="group-hover:text-gray-300 transition-colors duration-300">
+								<span className="group-hover:text-accent-light-beige transition-colors duration-300">
 									2105 Cliff Rd Suite 300, Eagan, MN, 55124
 								</span>
 							</li>
 							<li className="flex items-start group">
 								<svg
-									className="h-5 w-5 text-gray-500 group-hover:text-green-400 mr-3 mt-0.5 transition-colors duration-300"
+									className="h-5 w-5 text-accent-subtle-gray group-hover:text-primary-green mr-3 mt-0.5 transition-colors duration-300"
 									fill="none"
 									viewBox="0 0 24 24"
 									stroke="currentColor"
@@ -153,14 +161,14 @@ const Footer = () => {
 								</svg>
 								<a
 									href="tel:+16514125336"
-									className="group-hover:text-gray-300 transition-colors duration-300"
+									className="group-hover:text-accent-light-beige transition-colors duration-300"
 								>
 									(651) 412-5336
 								</a>
 							</li>
 							<li className="flex items-start group">
 								<svg
-									className="h-5 w-5 text-gray-500 group-hover:text-green-400 mr-3 mt-0.5 transition-colors duration-300"
+									className="h-5 w-5 text-accent-subtle-gray group-hover:text-primary-green mr-3 mt-0.5 transition-colors duration-300"
 									fill="none"
 									viewBox="0 0 24 24"
 									stroke="currentColor"
@@ -174,7 +182,7 @@ const Footer = () => {
 								</svg>
 								<a
 									href="mailto:contact@ajeen.com"
-									className="group-hover:text-gray-300 transition-colors duration-300"
+									className="group-hover:text-accent-light-beige transition-colors duration-300"
 								>
 									contact@bakeajeen.com
 								</a>
@@ -184,34 +192,34 @@ const Footer = () => {
 
 					{/* Opening Hours */}
 					<div>
-						<h3 className="text-white text-lg font-semibold mb-4 border-b border-gray-700 pb-2">
+						<h3 className="text-accent-light-beige text-lg font-semibold mb-4 border-b border-primary-green pb-2">
 							Opening Hours
 						</h3>
-						<div className="bg-gray-800 rounded-lg p-4">
+						<div className="bg-accent-dark-brown rounded-lg p-4">
 							<ul className="space-y-2 text-sm">
 								<li className="flex justify-between items-center">
-									<span className="text-gray-400">Monday - Friday</span>
-									<span className="text-green-400 font-medium">
+									<span className="text-primary-beige">Monday - Friday</span>
+									<span className="text-primary-green font-medium">
 										6:00 AM - 8:00 PM
 									</span>
 								</li>
 								<li className="flex justify-between items-center">
-									<span className="text-gray-400">Saturday</span>
-									<span className="text-green-400 font-medium">
+									<span className="text-primary-beige">Saturday</span>
+									<span className="text-primary-green font-medium">
 										6:00 AM - 8:00 PM
 									</span>
 								</li>
 								<li className="flex justify-between items-center">
-									<span className="text-gray-400">Sunday</span>
-									<span className="text-green-400 font-medium">
+									<span className="text-primary-beige">Sunday</span>
+									<span className="text-primary-green font-medium">
 										6:00 AM - 8:00 PM
 									</span>
 								</li>
 							</ul>
-							<div className="mt-4 pt-3 border-t border-gray-700">
+							<div className="mt-4 pt-3 border-t border-accent-subtle-gray/50">
 								<Link
 									to="/menu"
-									className="text-white bg-green-600 hover:bg-green-700 transition-colors duration-300 text-sm font-medium rounded-md py-2 px-4 inline-block w-full text-center"
+									className="text-accent-light-beige bg-accent-warm-brown hover:bg-opacity-80 transition-colors duration-300 text-sm font-medium rounded-md py-2 px-4 inline-block w-full text-center"
 								>
 									Order Online
 								</Link>
@@ -219,65 +227,14 @@ const Footer = () => {
 						</div>
 					</div>
 				</div>
-
-				{/* Newsletter Subscription */}
-				{/* <div className="mt-12 pt-8 border-t border-gray-800">
-					<div className="flex flex-col md:flex-row justify-between items-center">
-						<div className="mb-6 md:mb-0">
-							<h4 className="text-white text-lg font-medium mb-2">
-								Subscribe to our newsletter
-							</h4>
-							<p className="text-gray-400 text-sm">
-								Stay updated with our latest offers and events.
-							</p>
-						</div>
-						<div className="w-full md:w-auto">
-							<form className="flex">
-								<input
-									type="email"
-									placeholder="Your email address"
-									className="bg-gray-800 text-gray-300 px-4 py-2 rounded-l-md focus:outline-none focus:ring-2 focus:ring-green-500 w-full md:w-64"
-								/>
-								<button
-									type="submit"
-									className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-r-md transition-colors duration-300"
-								>
-									Subscribe
-								</button>
-							</form>
-						</div>
-					</div>
-				</div> */}
 			</div>
 
-			{/* Copyright Bar */}
-			<div className="border-t border-gray-800">
+			<div className="border-t border-primary-green/50">
 				<div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center">
-					<p className="text-sm text-gray-400">
+					<p className="text-sm text-primary-beige">
 						&copy; {currentYear} Ajeen. All rights reserved.
 					</p>
-					<div className="mt-4 md:mt-0 flex flex-wrap justify-center gap-4 text-sm text-gray-400">
-						{/* eslint-disable-next-line jsx-a11y/anchor-is-valid */}
-						{/* <a
-							href="#"
-							className="hover:text-green-400 transition-colors duration-300"
-						>
-							Privacy Policy
-						</a> */}
-						{/* eslint-disable-next-line jsx-a11y/anchor-is-valid */}
-						{/* <a
-							href="#"
-							className="hover:text-green-400 transition-colors duration-300"
-						>
-							Terms of Service
-						</a> */}
-						{/* eslint-disable-next-line jsx-a11y/anchor-is-valid */}
-						{/* <a
-							href="#"
-							className="hover:text-green-400 transition-colors duration-300"
-						>
-							Accessibility
-						</a> */}
+					<div className="mt-4 md:mt-0 flex flex-wrap justify-center gap-4 text-sm text-primary-beige">
 						<span className="flex items-center">
 							Made with{" "}
 							<FaHeart

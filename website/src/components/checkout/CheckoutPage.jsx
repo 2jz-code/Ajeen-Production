@@ -5,7 +5,8 @@ import { FaArrowLeft } from "react-icons/fa";
 import useCheckout from "./hooks/useCheckout";
 import ProgressIndicator from "./components/ProgressIndicator";
 import CartReview from "./components/CartReview";
-import PaymentMethod from "./components/PaymentMethod"; // This likely renders OrderSummary too or needs totals
+import PaymentMethod from "./components/PaymentMethod";
+// Navbar import removed
 
 const CheckoutPage = () => {
 	const navigate = useNavigate();
@@ -14,60 +15,52 @@ const CheckoutPage = () => {
 		formData,
 		step,
 		isLoading,
-		// isSubmitting, // in useCheckout.jsx it is isCreatingOrder
-		isCreatingOrder, // Corrected name
+		isProcessingOrder,
 		error,
 		pendingOrderId,
-		// isCreatingOrder, // already listed
 		subtotal,
-		surchargeAmount, // Added
-		surchargePercentageDisplay, // Added
+		surchargeAmount,
+		surchargePercentageDisplay,
 		taxDisplay,
 		tax,
 		total,
 		formatPrice,
 		handleChange,
-		// handleRadioChange, // Not used in useCheckout currently for payment_method fixed to 'card'
 		nextStep,
 		prevStep,
-		// handleSubmit, // This is likely part of PaymentMethod or createOrderBeforePayment
-		createOrderBeforePayment, // if PaymentMethod needs to call it directly.
+		// prepareOrderForPayment removed from destructuring as it's handled by useCheckout internally
 		handlePaymentSuccess,
 		setError,
 	} = useCheckout();
 
-	// Render current step based on state
 	const renderStep = () => {
 		switch (step) {
-			case 1: // Review Cart
+			case 1:
 				return (
 					<CartReview
 						cartItems={cartItems}
 						subtotal={subtotal}
-						surchargeAmount={surchargeAmount} // Pass down
-						surchargePercentageDisplay={surchargePercentageDisplay} // Pass down
+						surchargeAmount={surchargeAmount}
+						surchargePercentageDisplay={surchargePercentageDisplay}
 						tax={tax}
 						taxDisplay={taxDisplay}
-						deliveryFee={0}
 						total={total}
 						formatPrice={formatPrice}
 						nextStep={nextStep}
 					/>
 				);
-			case 2: // Payment & Pickup
+			case 2:
 				return (
 					<PaymentMethod
 						formData={formData}
 						handleChange={handleChange}
-						// handleRadioChange={handleRadioChange} // if re-enabled or used for something else
-						// handleSubmit={handleSubmit} // if PaymentMethod has its own internal submit distinct from createOrderBeforePayment
-						isSubmitting={isCreatingOrder} // Pass isCreatingOrder as isSubmitting
-						isCreatingOrder={isCreatingOrder}
+						isSubmitting={isProcessingOrder}
+						isCreatingOrder={isProcessingOrder}
 						pendingOrderId={pendingOrderId}
 						prevStep={prevStep}
 						subtotal={subtotal}
-						surchargeAmount={surchargeAmount} // Pass down
-						surchargePercentageDisplay={surchargePercentageDisplay} // Pass down
+						surchargeAmount={surchargeAmount}
+						surchargePercentageDisplay={surchargePercentageDisplay}
 						tax={tax}
 						taxDisplay={taxDisplay}
 						deliveryFee={0}
@@ -75,7 +68,7 @@ const CheckoutPage = () => {
 						formatPrice={formatPrice}
 						handlePaymentSuccess={handlePaymentSuccess}
 						setError={setError}
-						createOrderBeforePayment={createOrderBeforePayment} // Pass if PaymentMethod needs it
+						// createOrderBeforePayment prop removed as it's not used by PaymentMethod directly
 					/>
 				);
 			default:
@@ -84,32 +77,40 @@ const CheckoutPage = () => {
 	};
 
 	return (
-		<div className="bg-gray-50 min-h-screen">
-			<div className="bg-white shadow-sm">
-				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-					<div className="flex items-center">
-						<button
-							onClick={() => navigate(-1)}
-							className="mr-4 p-2 rounded-md hover:bg-gray-100 transition-colors"
-						>
-							<FaArrowLeft className="text-gray-600" />
-						</button>
-						<h1 className="text-2xl font-bold text-gray-900">Checkout</h1>
-					</div>
-				</div>
-			</div>
+		// Main page background: global --background (accent-light-beige)
+		<div className="bg-background min-h-screen">
+			{/* Navbar removed */}
 
-			<div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+			{/* Adjusted top padding as Navbar is removed. py-8 should be sufficient. */}
+			<div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+				{/* Checkout Header (simple back button and title) */}
+				<div className="mb-8 flex items-center">
+					<button
+						onClick={() => navigate(-1)}
+						// Back button: Dark green icon, hover primary beige background
+						className="mr-3 p-2 rounded-md text-accent-dark-green hover:bg-primary-beige/70 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-green focus:ring-offset-2 focus:ring-offset-background"
+						aria-label="Go back"
+					>
+						<FaArrowLeft size={18} />
+					</button>
+					{/* Title: Dark Green */}
+					<h1 className="text-2xl sm:text-3xl font-bold text-accent-dark-green">
+						Checkout
+					</h1>
+				</div>
+
 				{isLoading ? (
+					// Loading spinner: Primary Green
 					<div className="flex justify-center items-center h-64">
-						<div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
+						<div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-green"></div>
 					</div>
 				) : (
 					<>
 						<ProgressIndicator step={step} />
 
 						{error && (
-							<div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+							// Error message: Standard red theme
+							<div className="mb-6 bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded-md text-sm shadow-sm">
 								{error}
 							</div>
 						)}

@@ -30,18 +30,24 @@ export const formatDate = (dateString) => {
 	return new Date(dateString).toLocaleDateString(undefined, options);
 };
 
-// Get order status badge color
+// Get order status badge color using the new palette
 export const getStatusColor = (status) => {
 	switch (status?.toLowerCase()) {
 		case "completed":
-			return "bg-green-100 text-green-800";
+		case "ready": // Grouping 'ready' with 'completed' for a positive green
+			// Using primary-green for text and a very light tint of it for background
+			return "bg-primary-green/10 text-primary-green";
 		case "preparing":
-			return "bg-blue-100 text-blue-800";
-		case "ready":
-			return "bg-green-100 text-green-800";
+			// Using a warm brown accent for processing/preparing
+			return "bg-accent-warm-brown/10 text-accent-warm-brown";
+		case "pending": // Added a pending status style
+			// Using a subtle gray for pending
+			return "bg-accent-subtle-gray/20 text-accent-dark-brown";
 		case "cancelled":
-			return "bg-red-100 text-red-800";
+			// Standard red for cancelled
+			return "bg-red-500/10 text-red-600"; // text-red-600 for better contrast on light red bg
 		default:
-			return "bg-gray-100 text-gray-800";
+			// Default fallback: subtle gray
+			return "bg-accent-subtle-gray/20 text-accent-dark-brown";
 	}
 };

@@ -1,7 +1,7 @@
 // src/components/confirmation/ConfirmationPage.jsx
 import React from "react";
 import { motion } from "framer-motion";
-import { FaHome, FaEnvelope, FaPhone, FaUserCircle } from "react-icons/fa"; // Added icons
+import { FaHome, FaEnvelope, FaPhone } from "react-icons/fa";
 import useOrderDetails from "./hooks/useOrderDetails";
 import OrderStatusIndicator from "./components/OrderStatusIndicator";
 import OrderTimeline from "./components/OrderTimeline";
@@ -9,13 +9,15 @@ import OrderDetails from "./components/OrderDetails";
 import OrderItems from "./components/OrderItems";
 import ActionButtons from "./components/ActionButtons";
 import HelpSection from "./components/HelpSection";
-import { useAuth } from "../../contexts/AuthContext"; // Import useAuth
+import { useAuth } from "../../contexts/AuthContext";
+// Navbar import removed
+// import Navbar from "../Navbar";
 
 const ConfirmationPage = () => {
-	const { isAuthenticated, isLoading: authIsLoading, authChecked } = useAuth();
+	const { isAuthenticated, authChecked } = useAuth();
 	const {
-		orderDetails, // From API (auth) or constructed (guest)
-		customerDetailsFromState, // Data passed from checkout
+		orderDetails,
+		customerDetailsFromState,
 		liveStatus,
 		isLoading: orderIsLoading,
 		error,
@@ -23,112 +25,145 @@ const ConfirmationPage = () => {
 		formatPrice,
 		formatDate,
 		renderEstimatedTime,
-		orderId, // Extracted from hook
-		isGuest, // Extracted from hook
+		orderId,
+		isGuest,
 	} = useOrderDetails(isAuthenticated);
 
 	const isLoading = !authChecked || orderIsLoading;
 
-	// Wait until authentication status is checked
-	if (!authChecked) {
-		return (
-			<div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-				<div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500 mb-4"></div>
-				<p className="text-gray-600">Checking status...</p>
-			</div>
-		);
-	}
-	// --- MODIFICATION END ---
+	const displayEstimatedTime = () => {
+		if (liveStatus === "completed" || liveStatus === "ready") {
+			return "Your order is ready!";
+		} else if (liveStatus === "cancelled") {
+			return "Order cancelled";
+		} else if (
+			renderEstimatedTime &&
+			typeof renderEstimatedTime === "function"
+		) {
+			const time = renderEstimatedTime();
+			return time || "Calculating...";
+		}
+		return "15 - 25 Minutes";
+	};
 
-	// Loading state
+	// Common page header
+	const PageHeader = ({ title }) => (
+		// Header: Light Beige background, subtle bottom border
+		<div className="bg-accent-light-beige shadow-sm border-b border-accent-subtle-gray/40 sticky top-0 z-20">
+			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+				<div className="flex items-center justify-between">
+					{/* Title: Dark Green */}
+					<h1 className="text-xl sm:text-2xl font-bold text-accent-dark-green">
+						{title}
+					</h1>
+					{/* Home button: Dark Green icon & text, hover Primary Green */}
+					<button
+						onClick={() => navigate("/")}
+						className="flex items-center text-accent-dark-green hover:text-primary-green transition-colors text-sm font-medium"
+						aria-label="Go to homepage"
+					>
+						<FaHome className="mr-1.5" /> Home
+					</button>
+				</div>
+			</div>
+		</div>
+	);
+
 	if (isLoading) {
 		return (
-			<div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-				<div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500 mb-4"></div>
-				<p className="text-gray-600">Loading order details...</p>
-			</div>
-		);
-	}
-
-	// Error state (applies to both guests and logged-in users if order fetch fails)
-	if (error) {
-		return (
-			<div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-				<div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full text-center">
-					{/* Error Icon */}
-					<svg
-						className="w-16 h-16 text-red-500 mx-auto mb-4"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							strokeWidth={2}
-							d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-						/>
-					</svg>
-					<h2 className="text-2xl font-bold text-gray-800 mb-2">Error</h2>
-					<p className="text-gray-600 mb-6">{error}</p>
-					<div className="flex justify-center space-x-4">
-						<button
-							onClick={() => navigate("/menu")}
-							className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
-						>
-							View Menu
-						</button>
-						<button
-							onClick={() => navigate("/")}
-							className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
-						>
-							Go Home
-						</button>
-					</div>
+			<div className="bg-background min-h-screen flex flex-col">
+				{/* Page-specific header instead of Navbar */}
+				<PageHeader title="Loading Order..." />
+				<div className="flex-grow flex flex-col items-center justify-center p-4">
+					<div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-green mb-4"></div>
+					<p className="text-accent-dark-brown">Loading order details...</p>
 				</div>
 			</div>
 		);
 	}
-	// Determine display details (prioritize API, fallback to navigated state)
-	const displayOrderId = orderDetails?.id || orderId;
-	const displayFirstName =
-		orderDetails?.guest_first_name || customerDetailsFromState?.firstName;
-	const displayLastName =
-		orderDetails?.guest_last_name || customerDetailsFromState?.lastName;
-	const displayEmail =
-		orderDetails?.guest_email || customerDetailsFromState?.email;
-	const displayPhone =
-		orderDetails?.guest_phone || customerDetailsFromState?.phone; // Key: use phone
 
-	// Simplified Guest View (enhanced to show details)
-	if (isGuest || (!isAuthenticated && customerDetailsFromState)) {
+	if (error) {
 		return (
-			<div className="min-h-screen bg-gray-50">
-				<div className="bg-white shadow-sm">
-					<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-						<div className="flex items-center justify-between">
-							<h1 className="text-2xl font-bold text-gray-900">
-								Order Submitted!
-							</h1>
+			<div className="bg-background min-h-screen flex flex-col">
+				<PageHeader title="Order Error" />
+				<div className="flex-grow flex flex-col items-center justify-center p-4">
+					<div className="bg-accent-light-beige rounded-lg shadow-xl p-8 max-w-md w-full text-center border border-accent-subtle-gray/50">
+						<svg
+							className="w-16 h-16 text-red-500 mx-auto mb-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								strokeWidth={2}
+								d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
+						</svg>
+						<h2 className="text-2xl font-bold text-accent-dark-green mb-2">
+							Error
+						</h2>
+						<p className="text-red-600 mb-6">{error}</p>
+						<div className="flex justify-center space-x-4">
+							<button
+								onClick={() => navigate("/menu")}
+								className="px-5 py-2.5 bg-primary-green text-accent-light-beige rounded-md hover:bg-accent-dark-green transition-colors font-medium text-sm shadow-sm"
+							>
+								View Menu
+							</button>
 							<button
 								onClick={() => navigate("/")}
-								className="flex items-center text-gray-600 hover:text-gray-900"
+								className="px-5 py-2.5 bg-primary-beige text-accent-dark-green rounded-md hover:bg-primary-beige/70 border border-accent-subtle-gray/70 transition-colors font-medium text-sm shadow-sm"
 							>
-								<FaHome className="mr-2" /> Home
+								Go Home
 							</button>
 						</div>
 					</div>
 				</div>
-				<div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+			</div>
+		);
+	}
+
+	const displayFirstName =
+		isAuthenticated && orderDetails?.user?.first_name
+			? orderDetails.user.first_name
+			: customerDetailsFromState?.first_name;
+
+	const displayOrderId = orderDetails?.id || orderId;
+	const displayEmail =
+		isAuthenticated && orderDetails?.user?.email
+			? orderDetails.user.email
+			: customerDetailsFromState?.email;
+	const displayPhone =
+		isAuthenticated && orderDetails?.user?.phone_number
+			? orderDetails.user.phone_number
+			: customerDetailsFromState?.phone;
+
+	const pageTitle =
+		isGuest ||
+		(!isAuthenticated && customerDetailsFromState && !orderDetails?.items)
+			? "Order Submitted!"
+			: "Order Confirmation";
+
+	if (
+		isGuest ||
+		(!isAuthenticated && customerDetailsFromState && !orderDetails?.items)
+	) {
+		return (
+			<div className="bg-background min-h-screen flex flex-col">
+				<PageHeader title={pageTitle} />
+				{/* Adjusted top padding for content area */}
+				<div className="flex-grow max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
 					<motion.div
 						initial={{ opacity: 0, y: 20 }}
 						animate={{ opacity: 1, y: 0 }}
 						transition={{ duration: 0.5 }}
-						className="bg-white rounded-lg shadow-md overflow-hidden p-6 md:p-8"
+						className="bg-primary-beige rounded-xl shadow-xl overflow-hidden p-6 md:p-8 border border-accent-subtle-gray/30"
 					>
 						<div className="text-center">
 							<svg
-								className="w-16 h-16 text-green-500 mx-auto mb-4"
+								className="w-16 h-16 text-primary-green mx-auto mb-4"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
@@ -137,41 +172,44 @@ const ConfirmationPage = () => {
 								<path
 									strokeLinecap="round"
 									strokeLinejoin="round"
-									strokeWidth={2}
+									strokeWidth={2.5}
 									d="M5 13l4 4L19 7"
 								/>
 							</svg>
-							<h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">
-								Thank You, {displayFirstName || "Customer"}!
+							<h2 className="text-2xl md:text-3xl font-bold text-accent-dark-green mb-2">
+								Thank You, {displayFirstName || "Valued Customer"}!
 							</h2>
-							<p className="text-gray-600 mb-3">
+							<p className="text-accent-dark-brown mb-3">
 								Your Order{" "}
-								<span className="font-semibold">#{displayOrderId}</span> has
-								been received.
+								<span className="font-semibold text-primary-green">
+									#{displayOrderId}
+								</span>{" "}
+								has been received.
 							</p>
 							{displayEmail && (
-								<div className="flex items-center justify-center text-sm text-gray-500 mb-1">
-									<FaEnvelope className="mr-2" /> Confirmation sent to:{" "}
-									{displayEmail}
+								<div className="flex items-center justify-center text-sm text-accent-dark-brown/80 mb-1">
+									<FaEnvelope className="mr-2 text-accent-subtle-gray" />{" "}
+									Confirmation sent to: {displayEmail}
 								</div>
 							)}
 							{displayPhone && (
-								<div className="flex items-center justify-center text-sm text-gray-500 mb-4">
-									<FaPhone className="mr-2" /> Contact: {displayPhone}
+								<div className="flex items-center justify-center text-sm text-accent-dark-brown/80 mb-4">
+									<FaPhone className="mr-2 text-accent-subtle-gray" /> Contact:{" "}
+									{displayPhone}
 								</div>
 							)}
-							<p className="text-gray-700 mb-2 text-lg">
+							<p className="text-accent-dark-brown mb-2 text-lg">
 								We'll start preparing it shortly.
 							</p>
-							<p className="text-gray-600 mb-6 text-xl font-bold">
-								Est. Prep. Time: 15 - 25 Minutes
+							<p className="text-primary-green mb-6 text-xl font-bold">
+								Est. Prep. Time: {displayEstimatedTime()}
 							</p>
 						</div>
 						{orderDetails &&
 							orderDetails.items &&
 							orderDetails.items.length > 0 && (
-								<div className="my-6 border-t border-b border-gray-200 py-4">
-									<h3 className="text-lg font-semibold text-gray-700 mb-3 text-center">
+								<div className="my-6 border-t border-b border-accent-subtle-gray/30 py-4">
+									<h3 className="text-lg font-semibold text-accent-dark-green mb-3 text-center">
 										Your Order Summary
 									</h3>
 									<OrderItems
@@ -187,174 +225,75 @@ const ConfirmationPage = () => {
 			</div>
 		);
 	}
-	// --- MODIFICATION START: Conditional Rendering ---
-	if (!isAuthenticated) {
-		// Guest User View
-		return (
-			<div className="min-h-screen bg-gray-50">
-				{/* Simple Header for Guest */}
-				<div className="bg-white shadow-sm">
-					<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-						<div className="flex items-center justify-between">
-							<h1 className="text-2xl font-bold text-gray-900">
-								Order Submitted
-							</h1>
-							<button
-								onClick={() => navigate("/")}
-								className="flex items-center text-gray-600 hover:text-gray-900"
-							>
-								<FaHome className="mr-2" /> Home
-							</button>
-						</div>
-					</div>
-				</div>
-				<div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-					<motion.div
-						initial={{ opacity: 0, y: 20 }}
-						animate={{ opacity: 1, y: 0 }}
-						transition={{ duration: 0.5 }}
-						className="bg-white rounded-lg shadow-md overflow-hidden p-8 text-center"
-					>
-						{/* Success Icon */}
-						<svg
-							className="w-16 h-16 text-green-500 mx-auto mb-4"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-							xmlns="http://www.w3.org/2000/svg"
-						>
-							<path
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								strokeWidth={2}
-								d="M5 13l4 4L19 7"
-							/>
-						</svg>
-						<h2 className="text-2xl font-bold text-gray-800 mb-2">
-							Thank You For Your Order!
-						</h2>
-						<p className="text-gray-600 mb-6">
-							Your order has been received. We'll start preparing it shortly.
-						</p>
-						<p className="text-gray-600 mb-6 text-lg font-bold">
-							Est. Prep. Time: 10 - 20 minutes
-						</p>
-						{/* <p className="text-sm text-gray-500 mb-8">
-							You can check your email for order details.
-						</p> */}
-						{/* Use ActionButtons component */}
-						<ActionButtons navigate={navigate} />
-					</motion.div>
-					{/* Use HelpSection component */}
-					<HelpSection />
-				</div>
-			</div>
-		);
-	}
 
-	// Logged-in User View (Existing detailed view)
-	// Ensure orderDetails is available before rendering the detailed view
 	if (!orderDetails) {
 		return (
-			<div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-				<div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full text-center">
-					{/* Icon */}
-					<svg
-						className="w-16 h-16 text-blue-500 mx-auto mb-4"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							strokeWidth={2}
-							d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-						/>
-					</svg>
-					<h2 className="text-2xl font-bold text-gray-800 mb-2">
-						Order Placed
-					</h2>
-					<p className="text-gray-600 mb-6">
-						We received your order, but details are still loading.
+			<div className="bg-background min-h-screen flex flex-col">
+				<PageHeader title="Order Not Found" />
+				<div className="flex-grow flex flex-col items-center justify-center p-4">
+					<p className="text-accent-dark-brown">
+						Order details are currently unavailable. Please try again later.
 					</p>
-					<div className="flex justify-center space-x-4">
-						<button
-							onClick={() => navigate("/menu")}
-							className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
-						>
-							View Menu
-						</button>
-						<button
-							onClick={() => navigate("/")}
-							className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
-						>
-							Go Home
-						</button>
-					</div>
 				</div>
 			</div>
 		);
 	}
 
-	// Existing detailed view for logged-in users
 	return (
-		<div className="min-h-screen bg-gray-50">
-			{/* Header for Logged-in User */}
-			<div className="bg-white shadow-sm">
-				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-					<div className="flex items-center justify-between">
-						<h1 className="text-2xl font-bold text-gray-900">
-							Order Confirmation
-						</h1>
-						<button
-							onClick={() => navigate("/")}
-							className="flex items-center text-gray-600 hover:text-gray-900"
-						>
-							<FaHome className="mr-2" /> Home
-						</button>
-					</div>
-				</div>
-			</div>
-
-			<div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+		<div className="bg-background min-h-screen flex flex-col">
+			<PageHeader title={pageTitle} />
+			{/* Adjusted top padding for content area */}
+			<div className="flex-grow max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
 				<motion.div
-					/* ... */ className="bg-white rounded-lg shadow-md overflow-hidden"
+					initial={{ opacity: 0, y: 20 }}
+					animate={{ opacity: 1, y: 0 }}
+					transition={{ duration: 0.5 }}
+					className="bg-primary-beige rounded-xl shadow-xl overflow-hidden border border-accent-subtle-gray/30"
 				>
-					<div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-6 text-center">
-						<h2 className="text-xl font-bold mb-2">
-							Thank you for your order,{" "}
-							{orderDetails.user?.first_name || displayFirstName || "Customer"}!
+					<div className="bg-gradient-to-r from-primary-green to-accent-dark-green text-accent-light-beige p-6 text-center rounded-t-xl">
+						<h2 className="text-xl sm:text-2xl font-bold mb-1">
+							Thank you, {displayFirstName || "Valued Customer"}!
 						</h2>
-						<p className="text-green-100">
-							Order #{orderDetails.id || displayOrderId}
+						<p className="text-sm opacity-90">
+							Order{" "}
+							<span className="font-semibold">
+								#{orderDetails.id || displayOrderId}
+							</span>{" "}
+							Confirmed
 						</p>
 					</div>
-					<div className="p-6 text-center border-b border-gray-200">
-						<OrderStatusIndicator status={liveStatus} />
-						<div className="mt-6">
-							<span className="text-sm text-gray-500">Estimated Time:</span>
-							<p className="text-2xl font-bold text-green-500">
-								{renderEstimatedTime()}
-							</p>
+					<div className="p-6 bg-accent-light-beige">
+						<div className="text-center border-b border-accent-subtle-gray/50 pb-6 mb-6">
+							<OrderStatusIndicator status={liveStatus} />
+							<div className="mt-6">
+								<span className="text-sm text-accent-dark-brown">
+									Estimated Time:
+								</span>
+								<p className="text-2xl font-bold text-primary-green">
+									{displayEstimatedTime()}
+								</p>
+							</div>
 						</div>
-					</div>
-					<div className="px-6 py-4 border-b border-gray-200">
-						<h3 className="font-medium text-gray-700 mb-4">Order Progress</h3>
-						<OrderTimeline status={liveStatus} />
-					</div>
-					<div className="p-6">
-						{/* OrderDetailsDisplay should now get orderDetails which includes guest_phone */}
-						<OrderDetails
-							orderDetails={orderDetails} // This contains all info from API
-							formatDate={formatDate}
-							customerPhoneFromCheckout={customerDetailsFromState?.phone} // Can be a fallback or for comparison
-						/>
-						<OrderItems
-							orderDetails={orderDetails}
-							formatPrice={formatPrice}
-						/>
-						<ActionButtons navigate={navigate} />
+						<div className="px-0 sm:px-2 py-4 border-b border-accent-subtle-gray/50 mb-6">
+							<h3 className="font-semibold text-accent-dark-green mb-4 text-md">
+								Order Progress
+							</h3>
+							<OrderTimeline status={liveStatus} />
+						</div>
+						<div className="space-y-6">
+							<OrderDetails
+								orderDetails={orderDetails}
+								formatDate={formatDate}
+								customerPhoneFromCheckout={customerDetailsFromState?.phone}
+							/>
+							<OrderItems
+								orderDetails={orderDetails}
+								formatPrice={formatPrice}
+							/>
+						</div>
+						<div className="mt-8">
+							<ActionButtons navigate={navigate} />
+						</div>
 					</div>
 				</motion.div>
 				<HelpSection />
