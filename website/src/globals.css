@@ -4,67 +4,97 @@
 
 @layer base {
 	:root {
-		--background: 0 0% 100%;
-		--foreground: 222.2 47.4% 11.2%;
+		/* New Primary Palette */
+		--color-primary-green: #909373; /* User-provided green */
+		--color-primary-beige: #f3e1ca; /* User-provided beige */
 
-		--muted: 210 40% 96.1%;
-		--muted-foreground: 215.4 16.3% 46.9%;
+		/* Accent Colors for Engagement */
+		--color-accent-dark-green: #5e6650; /* Darker, richer green for text, primary actions */
+		--color-accent-light-beige: #faf5ef; /* Lighter beige/cream for backgrounds */
+		--color-accent-warm-brown: #a0522d; /* Muted terracotta/brown for contrast and CTAs */
+		--color-accent-dark-brown: #654321; /* Deeper brown for text or secondary elements */
+		--color-accent-subtle-gray: #d1c7bc; /* A subtle gray that complements the beige */
 
-		--popover: 0 0% 100%;
-		--popover-foreground: 222.2 47.4% 11.2%;
+		/* Standard Tailwind-like names mapped to new palette */
+		--background: var(
+			--color-accent-light-beige
+		); /* Light beige for main background */
+		--foreground: var(
+			--color-accent-dark-green
+		); /* Dark green for primary text */
 
-		--border: 214.3 31.8% 91.4%;
-		--input: 214.3 31.8% 91.4%;
+		--muted: var(--color-primary-beige); /* Primary beige as muted background */
+		--muted-foreground: var(
+			--color-accent-dark-brown
+		); /* Dark brown for muted text */
 
-		--card: 0 0% 100%;
-		--card-foreground: 222.2 47.4% 11.2%;
+		--popover: var(--color-accent-light-beige);
+		--popover-foreground: var(--color-accent-dark-green);
 
-		--primary: 222.2 47.4% 11.2%;
-		--primary-foreground: 210 40% 98%;
+		--border: var(--color-accent-subtle-gray); /* Subtle gray for borders */
+		--input: var(--color-accent-subtle-gray);
 
-		--secondary: 210 40% 96.1%;
-		--secondary-foreground: 222.2 47.4% 11.2%;
+		--card: var(--color-primary-beige); /* Primary beige for cards */
+		--card-foreground: var(--color-accent-dark-green);
 
-		--accent: 210 40% 96.1%;
-		--accent-foreground: 222.2 47.4% 11.2%;
+		--primary: var(
+			--color-primary-green
+		); /* Primary green for main interactive elements */
+		--primary-foreground: var(
+			--color-accent-light-beige
+		); /* Light beige for text on primary green */
 
-		--destructive: 0 100% 50%;
-		--destructive-foreground: 210 40% 98%;
+		--secondary: var(
+			--color-accent-warm-brown
+		); /* Warm brown as secondary accent */
+		--secondary-foreground: var(
+			--color-accent-light-beige
+		); /* Light beige for text on warm brown */
 
-		--ring: 215 20.2% 65.1%;
+		--accent: var(--color-accent-warm-brown);
+		--accent-foreground: var(--color-accent-light-beige);
+
+		--destructive: 15 80% 50%; /* A warm red for destructive actions, e.g., #D9534F */
+		--destructive-foreground: var(--color-accent-light-beige);
+
+		--ring: var(--color-primary-green); /* Primary green for focus rings */
 
 		--radius: 0.5rem;
 	}
 
 	.dark {
-		--background: 224 71% 4%;
-		--foreground: 213 31% 91%;
+		/* TODO: Define a dark theme palette if needed later.
+		   For now, we'll focus on the light theme with the new colors.
+		   A dark theme could use darker browns, muted greens, and warm off-whites.
+		*/
+		--background: 20 14% 4%; /* Example: Dark brown */
+		--foreground: 40 50% 90%; /* Example: Light beige/cream */
 
-		--muted: 223 47% 11%;
-		--muted-foreground: 215.4 16.3% 56.9%;
+		--muted: 20 14% 10%;
+		--muted-foreground: 40 30% 70%;
 
-		--accent: 216 34% 17%;
-		--accent-foreground: 210 40% 98%;
+		--popover: 20 14% 4%;
+		--popover-foreground: 40 50% 90%;
 
-		--popover: 224 71% 4%;
-		--popover-foreground: 215 20.2% 65.1%;
+		--border: 20 14% 15%;
+		--input: 20 14% 15%;
 
-		--border: 216 34% 17%;
-		--input: 216 34% 17%;
+		--card: 20 14% 6%;
+		--card-foreground: 40 50% 90%;
 
-		--card: 224 71% 4%;
-		--card-foreground: 213 31% 91%;
+		--primary: var(--color-primary-green); /* Keep primary green */
+		--primary-foreground: 20 14% 4%; /* Dark text on primary green */
 
-		--primary: 210 40% 98%;
-		--primary-foreground: 222.2 47.4% 1.2%;
+		--secondary: var(--color-accent-warm-brown); /* Keep warm brown */
+		--secondary-foreground: 20 14% 4%;
 
-		--secondary: 222.2 47.4% 11.2%;
-		--secondary-foreground: 210 40% 98%;
+		--accent: var(--color-accent-warm-brown);
+		--accent-foreground: 20 14% 4%;
 
-		--destructive: 0 63% 31%;
-		--destructive-foreground: 210 40% 98%;
+		--destructive: 0 70% 50%;
+		--destructive-foreground: 40 50% 90%;
 
-		--ring: 216 34% 17%;
+		--ring: var(--color-primary-green);
 
 		--radius: 0.5rem;
 	}
@@ -75,7 +105,7 @@
 		@apply border-border;
 	}
 	body {
-		@apply bg-background text-foreground bg-slate-200;
+		@apply bg-background text-foreground; /* Uses new --background and --foreground */
 		font-feature-settings: "rlig" 1, "calt" 1;
 	}
 	html {
@@ -83,6 +113,7 @@
 	}
 }
 
+/* Keeping existing animation */
 @keyframes progressPulse {
 	0% {
 		opacity: 0.7;

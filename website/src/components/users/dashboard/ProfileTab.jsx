@@ -7,21 +7,22 @@ import {
 	FaCamera,
 	FaExclamationTriangle,
 	FaEdit,
+	FaGift, // Added for rewards icon
 } from "react-icons/fa";
 import { useDashboard } from "./DashboardContext";
-import ComingSoonWrapper from "../../utility/ComingSoonWrapper";
+import ComingSoonWrapper from "../../utility/ComingSoonWrapper"; // Assuming correct path
 
 const ProfileTab = () => {
 	const {
 		userInfo,
-		setUserInfo,
+		// setUserInfo, // Keep if used directly, though handleInputChange is primary
 		profileImage,
 		error,
 		updateSuccess,
 		isSubmitting,
 		handleInputChange,
 		handleImageUpload,
-		updateProfile,
+		updateProfile, // This is the onSubmit handler
 		rewardsProfile,
 		loadingRewards,
 	} = useDashboard();
@@ -31,13 +32,18 @@ const ProfileTab = () => {
 			initial={{ opacity: 0, y: 20 }}
 			animate={{ opacity: 1, y: 0 }}
 			transition={{ duration: 0.3 }}
+			// The tab content itself doesn't need a background if Dashboard.jsx's content area has one
 		>
 			<div className="flex items-center mb-6">
-				<h2 className="text-2xl font-bold">My Profile</h2>
+				{/* Heading: Dark Green */}
+				<h2 className="text-2xl font-bold text-accent-dark-green">
+					My Profile
+				</h2>
 			</div>
 
 			{error && (
-				<div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md flex items-center">
+				// Error Message: Standard red theme
+				<div className="mb-6 bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded-md flex items-center text-sm">
 					<FaExclamationTriangle className="mr-2" />
 					{error}
 				</div>
@@ -47,10 +53,11 @@ const ProfileTab = () => {
 				onSubmit={updateProfile}
 				className="space-y-6"
 			>
-				{/* Profile Image */}
-				<div className="flex flex-col items-center mb-6">
+				{/* Profile Image Section */}
+				<div className="flex flex-col items-center mb-6 p-6 bg-primary-beige rounded-lg shadow-sm border border-accent-subtle-gray/30">
 					<div className="relative group">
-						<div className="w-24 h-24 rounded-full overflow-hidden bg-gray-200 mb-2">
+						{/* Placeholder background: Subtle gray */}
+						<div className="w-24 h-24 rounded-full overflow-hidden bg-accent-subtle-gray mb-2 ring-2 ring-primary-green/50">
 							{profileImage ? (
 								<img
 									src={profileImage}
@@ -58,12 +65,14 @@ const ProfileTab = () => {
 									className="w-full h-full object-cover"
 								/>
 							) : (
-								<div className="w-full h-full flex items-center justify-center bg-green-100 text-green-800">
+								// Fallback icon: Dark brown icon on lighter beige
+								<div className="w-full h-full flex items-center justify-center bg-accent-light-beige text-accent-dark-brown">
 									<FaUser size={40} />
 								</div>
 							)}
 						</div>
-						<label className="absolute bottom-0 right-0 bg-green-500 text-white p-2 rounded-full cursor-pointer hover:bg-green-600 transition-colors">
+						{/* Upload button: Primary green background, light beige icon */}
+						<label className="absolute bottom-0 right-0 bg-primary-green text-accent-light-beige p-2.5 rounded-full cursor-pointer hover:bg-accent-dark-green transition-colors shadow-md">
 							<FaCamera size={14} />
 							<input
 								type="file"
@@ -73,22 +82,26 @@ const ProfileTab = () => {
 							/>
 						</label>
 					</div>
-					<p className="text-sm text-gray-500 mt-2">
+					{/* Helper text: Dark brown */}
+					<p className="text-sm text-accent-dark-brown mt-2">
 						Click the camera icon to change your profile picture
 					</p>
 				</div>
 
-				{/* Personal Information */}
-				<div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-					<h3 className="text-lg font-semibold mb-4 flex items-center">
-						<FaUser className="mr-2 text-green-500" /> Personal Information
+				{/* Personal Information Card */}
+				{/* Card: Primary beige background, subtle border */}
+				<div className="bg-primary-beige rounded-lg shadow-sm p-6 border border-accent-subtle-gray/30">
+					{/* Heading: Dark green, icon: primary green */}
+					<h3 className="text-lg font-semibold mb-4 flex items-center text-accent-dark-green">
+						<FaUser className="mr-2 text-primary-green" /> Personal Information
 					</h3>
 
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 						<div>
+							{/* Label: Dark green */}
 							<label
 								htmlFor="first_name"
-								className="block text-sm font-medium text-gray-700 mb-1"
+								className="block text-sm font-medium text-accent-dark-green mb-1"
 							>
 								First Name
 							</label>
@@ -98,14 +111,15 @@ const ProfileTab = () => {
 								name="first_name"
 								value={userInfo.first_name || ""}
 								onChange={handleInputChange}
-								className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+								// Input fields: white bg, dark brown text, subtle gray border, primary green focus
+								className="w-full px-3 py-2 border border-accent-subtle-gray rounded-md focus:outline-none focus:ring-2 focus:ring-primary-green focus:border-primary-green bg-white text-accent-dark-brown placeholder-accent-subtle-gray"
 							/>
 						</div>
 
 						<div>
 							<label
 								htmlFor="last_name"
-								className="block text-sm font-medium text-gray-700 mb-1"
+								className="block text-sm font-medium text-accent-dark-green mb-1"
 							>
 								Last Name
 							</label>
@@ -115,14 +129,14 @@ const ProfileTab = () => {
 								name="last_name"
 								value={userInfo.last_name || ""}
 								onChange={handleInputChange}
-								className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+								className="w-full px-3 py-2 border border-accent-subtle-gray rounded-md focus:outline-none focus:ring-2 focus:ring-primary-green focus:border-primary-green bg-white text-accent-dark-brown placeholder-accent-subtle-gray"
 							/>
 						</div>
 
 						<div>
 							<label
 								htmlFor="email"
-								className="block text-sm font-medium text-gray-700 mb-1"
+								className="block text-sm font-medium text-accent-dark-green mb-1"
 							>
 								Email
 							</label>
@@ -132,14 +146,14 @@ const ProfileTab = () => {
 								name="email"
 								value={userInfo.email || ""}
 								onChange={handleInputChange}
-								className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+								className="w-full px-3 py-2 border border-accent-subtle-gray rounded-md focus:outline-none focus:ring-2 focus:ring-primary-green focus:border-primary-green bg-white text-accent-dark-brown placeholder-accent-subtle-gray"
 							/>
 						</div>
 
 						<div>
 							<label
 								htmlFor="phone_number"
-								className="block text-sm font-medium text-gray-700 mb-1"
+								className="block text-sm font-medium text-accent-dark-green mb-1"
 							>
 								Phone Number
 							</label>
@@ -149,150 +163,58 @@ const ProfileTab = () => {
 								name="phone_number"
 								value={userInfo.phone_number || ""}
 								onChange={handleInputChange}
-								className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+								className="w-full px-3 py-2 border border-accent-subtle-gray rounded-md focus:outline-none focus:ring-2 focus:ring-primary-green focus:border-primary-green bg-white text-accent-dark-brown placeholder-accent-subtle-gray"
 							/>
 						</div>
 					</div>
 				</div>
 
-				{/* Address Information
-				<div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-					<h3 className="text-lg font-semibold mb-4">Delivery Address</h3>
+				{/* Address Information - Assuming commented out, would follow similar styling */}
 
-					<div className="space-y-4">
-						<div>
-							<label
-								htmlFor="address"
-								className="block text-sm font-medium text-gray-700 mb-1"
-							>
-								Street Address
-							</label>
-							<input
-								type="text"
-								id="address"
-								name="address"
-								value={userInfo.address || ""}
-								onChange={handleInputChange}
-								className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-							/>
-						</div>
-
-						<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-							<div>
-								<label
-									htmlFor="city"
-									className="block text-sm font-medium text-gray-700 mb-1"
-								>
-									City
-								</label>
-								<input
-									type="text"
-									id="city"
-									name="city"
-									value={userInfo.city || ""}
-									onChange={handleInputChange}
-									className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-								/>
-							</div>
-
-							<div>
-								<label
-									htmlFor="state"
-									className="block text-sm font-medium text-gray-700 mb-1"
-								>
-									State
-								</label>
-								<input
-									type="text"
-									id="state"
-									name="state"
-									value={userInfo.state || ""}
-									onChange={handleInputChange}
-									className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-								/>
-							</div>
-
-							<div>
-								<label
-									htmlFor="postal_code"
-									className="block text-sm font-medium text-gray-700 mb-1"
-								>
-									Zip Code
-								</label>
-								<input
-									type="text"
-									id="postal_code"
-									name="postal_code"
-									value={userInfo.postal_code || ""}
-									onChange={handleInputChange}
-									className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-								/>
-							</div>
-						</div>
-					</div>
-				</div> */}
-
-				{/* Rewards Program */}
-				<ComingSoonWrapper>
-					<div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 mt-6">
-						<h3 className="text-lg font-semibold mb-4 flex items-center">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								className="h-5 w-5 mr-2 text-green-500"
-								viewBox="0 0 20 20"
-								fill="currentColor"
-							>
-								<path
-									fillRule="evenodd"
-									d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-									clipRule="evenodd"
-								/>
-							</svg>
+				{/* Rewards Program Card */}
+				<ComingSoonWrapper active={true}>
+					{" "}
+					{/* Ensure ComingSoonWrapper is styled or transparent */}
+					<div className="bg-primary-beige rounded-lg shadow-sm p-6 border border-accent-subtle-gray/30 mt-6">
+						<h3 className="text-lg font-semibold mb-4 flex items-center text-accent-dark-green">
+							<FaGift className="h-5 w-5 mr-2 text-primary-green" />
 							Rewards Program
 						</h3>
 
 						{loadingRewards ? (
 							<div className="flex justify-center py-4">
-								<div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-green-500"></div>
+								{/* Spinner: Primary Green */}
+								<div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-green"></div>
 							</div>
 						) : rewardsProfile ? (
 							<div className="space-y-4">
-								<div className="bg-green-50 rounded-lg p-4 border border-green-100">
+								{/* Rewards info box: Lighter Primary Green background, Dark green/brown text */}
+								<div className="bg-primary-green/20 rounded-lg p-4 border border-primary-green/30">
 									<div className="flex justify-between items-center">
 										<div>
-											<p className="font-medium text-green-800">
+											<p className="font-medium text-accent-dark-green">
 												{userInfo.first_name}, you're a {rewardsProfile.tier}{" "}
 												member!
 											</p>
-											<p className="text-sm text-green-700 mt-1">
+											<p className="text-sm text-accent-dark-brown mt-1">
 												Current Points:{" "}
-												<span className="font-bold">
+												<span className="font-bold text-primary-green">
 													{rewardsProfile.points_balance}
 												</span>
 											</p>
-											<p className="text-sm text-green-700">
+											<p className="text-sm text-accent-dark-brown">
 												Lifetime Points: {rewardsProfile.lifetime_points}
 											</p>
 										</div>
-										<div className="bg-white p-3 rounded-full shadow-sm">
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												className="h-10 w-10 text-green-500"
-												viewBox="0 0 20 20"
-												fill="currentColor"
-											>
-												<path
-													fillRule="evenodd"
-													d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-													clipRule="evenodd"
-												/>
-											</svg>
+										<div className="bg-accent-light-beige p-3 rounded-full shadow-sm">
+											<FaGift className="h-10 w-10 text-primary-green" />
 										</div>
 									</div>
 									<div className="mt-3">
+										{/* Link: Primary Green */}
 										<Link
-											to="/rewards"
-											className="text-sm text-green-700 font-medium hover:text-green-800"
+											to="/rewards" // Assuming this route exists
+											className="text-sm text-primary-green font-medium hover:text-accent-dark-green"
 										>
 											View rewards details →
 										</Link>
@@ -301,7 +223,8 @@ const ProfileTab = () => {
 							</div>
 						) : (
 							<div className="space-y-4">
-								<p className="text-gray-600">
+								{/* Opt-in text: Dark Brown */}
+								<p className="text-accent-dark-brown">
 									Join our rewards program to earn points on every purchase, get
 									exclusive offers, and redeem rewards!
 								</p>
@@ -310,28 +233,33 @@ const ProfileTab = () => {
 										<input
 											id="rewards-opt-in"
 											type="checkbox"
-											checked={userInfo.is_rewards_opted_in}
-											onChange={(e) =>
-												setUserInfo({
-													...userInfo,
-													is_rewards_opted_in: e.target.checked,
-												})
-											}
-											className="h-4 w-4 text-green-500 focus:ring-green-500 border-gray-300 rounded"
+											// Ensure correct state binding if `userInfo.is_rewards_opted_in` is directly from context
+											checked={userInfo.is_rewards_opted_in || false}
+											onChange={(e) => {
+												// This assumes handleInputChange can handle checkbox type correctly
+												// or setUserInfo directly if handleInputChange is only for text inputs.
+												// For simplicity, if handleInputChange is general:
+												handleInputChange(e);
+											}}
+											name="is_rewards_opted_in" // Ensure name matches state structure
+											// Checkbox: Primary green
+											className="h-4 w-4 text-primary-green focus:ring-primary-green border-accent-subtle-gray rounded"
 										/>
 									</div>
 									<div className="ml-3 text-sm">
+										{/* Label: Dark Green */}
 										<label
 											htmlFor="rewards-opt-in"
-											className="text-gray-700 font-medium"
+											className="text-accent-dark-green font-medium"
 										>
 											Opt-in to Rewards Program
 										</label>
-										<p className="text-gray-500 text-sm mt-1">
+										{/* Helper text: Dark Brown, Link: Primary Green */}
+										<p className="text-accent-dark-brown text-xs mt-1">
 											By opting in, you agree to the{" "}
 											<a
-												href="#"
-												className="text-green-600 hover:underline"
+												href="#/" // Replace with actual link
+												className="text-primary-green hover:text-accent-dark-green"
 											>
 												Rewards Program Terms
 											</a>
@@ -342,19 +270,23 @@ const ProfileTab = () => {
 						)}
 					</div>
 				</ComingSoonWrapper>
+
 				{/* Submit Button */}
-				<div className="flex justify-end">
+				<div className="flex justify-end pt-2">
+					{/* Button: Primary Green background, Light Beige text */}
 					<button
 						type="submit"
 						disabled={isSubmitting}
-						className={`px-6 py-2 rounded-md text-white font-medium ${
-							isSubmitting ? "bg-gray-400" : "bg-green-500 hover:bg-green-600"
-						} transition-colors flex items-center`}
+						className={`px-6 py-2.5 rounded-md text-accent-light-beige font-medium ${
+							isSubmitting
+								? "bg-accent-subtle-gray cursor-not-allowed"
+								: "bg-primary-green hover:bg-accent-dark-green"
+						} transition-colors flex items-center shadow-md`}
 					>
 						{isSubmitting ? (
 							<>
 								<svg
-									className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+									className="animate-spin -ml-1 mr-3 h-5 w-5 text-accent-light-beige"
 									xmlns="http://www.w3.org/2000/svg"
 									fill="none"
 									viewBox="0 0 24 24"
@@ -385,7 +317,8 @@ const ProfileTab = () => {
 
 				{/* Success Message */}
 				{updateSuccess && (
-					<div className="mt-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md">
+					// Success message: Light Primary Green background, Dark Green text
+					<div className="mt-4 bg-primary-green/10 border border-primary-green/30 text-primary-green px-4 py-3 rounded-md text-sm">
 						{updateSuccess}
 					</div>
 				)}

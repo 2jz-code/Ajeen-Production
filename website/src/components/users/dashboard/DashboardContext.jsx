@@ -18,7 +18,9 @@ export const DashboardProvider = ({ children }) => {
 	const [orderHistory, setOrderHistory] = useState([]);
 	const [loadingOrders, setLoadingOrders] = useState(false);
 	const [orderError, setOrderError] = useState(null);
+	//eslint-disable-next-line
 	const [rewardsProfile, setRewardsProfile] = useState(null);
+	//eslint-disable-next-line
 	const [loadingRewards, setLoadingRewards] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -203,6 +205,7 @@ export const DashboardProvider = ({ children }) => {
 
 		// fetchRewardsProfile();
 		fetchOrderHistory();
+		//eslint-disable-next-line
 	}, [user]);
 
 	const reorderPastOrder = async (orderId) => {

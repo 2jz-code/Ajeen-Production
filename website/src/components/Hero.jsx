@@ -1,9 +1,10 @@
 import React, { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import ManakeeshVideo from "../assests/Hero-Vid.mp4";
+import Logo from "../assests/logo.png"; // Import the logo
 
 const Hero = () => {
-	const titleRef = useRef(null);
+	const titleRef = useRef(null); // This ref might now apply to the logo container or be less relevant
 	const subtitleRef = useRef(null);
 	const taglineRef = useRef(null);
 	const buttonRef = useRef(null);
@@ -12,7 +13,7 @@ const Hero = () => {
 	useEffect(() => {
 		// Staggered animation for hero elements
 		const elements = [
-			{ ref: titleRef, delay: 300 },
+			{ ref: titleRef, delay: 300 }, // Keep for the logo's container if needed
 			{ ref: subtitleRef, delay: 600 },
 			{ ref: taglineRef, delay: 900 },
 			{ ref: buttonRef, delay: 1200 },
@@ -50,24 +51,31 @@ const Hero = () => {
 				</video>
 
 				{/* Gradient Overlay for better text readability */}
-				<div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/30"></div>
+				<div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/60 to-black/30"></div>
 			</div>
 
 			{/* Hero Content */}
 			<div className="relative z-10 h-full flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8">
 				<div className="max-w-4xl mx-auto text-center">
-					{/* Title with custom animation */}
-					<h1
-						ref={titleRef}
-						className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-white mb-4 opacity-0 translate-y-10 transition-all duration-1000 ease-out"
+					{/* Logo instead of Text Title */}
+					<div
+						ref={titleRef} // Apply animation ref to the logo container
+						className="mb-4 opacity-0 translate-y-10 transition-all duration-1000 ease-out"
 					>
-						<span className="font-serif italic">Ajeen</span>
-					</h1>
+						<img
+							src={Logo}
+							alt="Ajeen Logo"
+							// Adjust size as needed for the hero section.
+							// Using h-20 to h-32 or similar, with w-auto to maintain aspect ratio.
+							// Responsive sizing can be added e.g. h-20 sm:h-24 md:h-28 lg:h-32
+							className="h-24 md:h-28 lg:h-32 w-auto mx-auto"
+						/>
+					</div>
 
 					{/* Subtitle */}
 					<p
 						ref={subtitleRef}
-						className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-medium text-white mb-6 opacity-0 translate-y-10 transition-all duration-1000 ease-out"
+						className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-medium text-accent-light-beige mb-6 opacity-0 translate-y-10 transition-all duration-1000 ease-out"
 					>
 						Fresh, Authentic, and Tasty Food for{" "}
 						<br className="hidden sm:block" />
@@ -77,7 +85,7 @@ const Hero = () => {
 					{/* Tagline */}
 					<p
 						ref={taglineRef}
-						className="text-lg md:text-xl text-gray-200 mb-8 opacity-0 translate-y-10 transition-all duration-1000 ease-out"
+						className="text-lg md:text-xl text-primary-beige mb-8 opacity-0 translate-y-10 transition-all duration-1000 ease-out"
 					>
 						The local shop to satisfy all your cravings!
 					</p>
@@ -89,7 +97,7 @@ const Hero = () => {
 					>
 						<Link
 							to="/menu"
-							className="inline-flex items-center px-8 py-3 rounded-full bg-green-500 text-white font-medium text-lg shadow-lg hover:bg-green-600 transform hover:scale-105 transition-all duration-300"
+							className="inline-flex items-center px-8 py-3 rounded-full bg-accent-warm-brown text-accent-light-beige font-medium text-lg shadow-lg hover:bg-opacity-80 transform hover:scale-105 transition-all duration-300"
 						>
 							Order Now
 							<svg
@@ -123,9 +131,11 @@ const Hero = () => {
 					}}
 				>
 					<div className="flex flex-col items-center animate-bounce">
-						<span className="text-white text-sm mb-2">Scroll Down</span>
+						<span className="text-accent-light-beige text-sm mb-2">
+							Scroll Down
+						</span>
 						<svg
-							className="w-6 h-6 text-white"
+							className="w-6 h-6 text-accent-light-beige"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"

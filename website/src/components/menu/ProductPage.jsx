@@ -3,53 +3,50 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import MenuNav from "./MenuNav";
 import ProductList from "./ProductList";
-import Layout from "./Layout";
-import useCart from "../utility/CartUtils";
+import Layout from "./Layout"; // This is the styled Layout we just did
+import useCart from "../utility/CartUtils"; // Assuming path is correct
 
 const ProductPage = () => {
 	const location = useLocation();
 	const navigate = useNavigate();
 	const isMenuPage = location.pathname === "/menu";
 	const [selectedCategory, setSelectedCategory] = useState(null);
-	const [activeView, setActiveView] = useState("grid"); // grid or list view
+	const [activeView, setActiveView] = useState("grid");
 
 	const {
-		categories,
+		categories, // This is the categories array we need to pass
 		cartItemCount,
 		isLoadingCategories,
 		updateCartItemCount,
 	} = useCart(isMenuPage);
 
-	// Get category from URL if present
 	useEffect(() => {
 		const params = new URLSearchParams(location.search);
 		const categoryId = params.get("category");
 		if (categoryId) {
 			setSelectedCategory(Number(categoryId));
+		} else {
+			setSelectedCategory(null);
 		}
 	}, [location.search]);
 
-	// Update URL when category changes
 	useEffect(() => {
 		if (selectedCategory) {
 			navigate(`/menu?category=${selectedCategory}`, { replace: true });
 		} else if (location.pathname === "/menu" && location.search) {
-			navigate("/menu", { replace: true });
+			if (new URLSearchParams(location.search).get("category")) {
+				navigate("/menu", { replace: true });
+			}
 		}
 	}, [selectedCategory, navigate, location.pathname, location.search]);
-
-	const handleProductClick = (productId) => {
-		navigate(`/product/${productId}`);
-	};
 
 	return (
 		<Layout
 			cartItemCount={cartItemCount}
 			updateCartItemCount={updateCartItemCount}
 		>
-			<div className="bg-gray-50 min-h-screen">
-				{/* Hero Banner */}
-				<div className="bg-gradient-to-r from-green-600 to-green-800 text-white py-12">
+			<div className="min-h-screen">
+				<div className="bg-gradient-to-r from-primary-green to-accent-dark-green text-accent-light-beige py-12">
 					<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 						<div className="text-center">
 							<motion.h1
@@ -73,13 +70,12 @@ const ProductPage = () => {
 					</div>
 				</div>
 
-				{/* Category Navigation */}
 				{isLoadingCategories ? (
 					<div className="py-4 flex justify-center">
 						<div className="animate-pulse flex space-x-4">
-							<div className="h-8 w-20 bg-gray-300 rounded"></div>
-							<div className="h-8 w-20 bg-gray-300 rounded"></div>
-							<div className="h-8 w-20 bg-gray-300 rounded"></div>
+							<div className="h-8 w-20 bg-accent-subtle-gray/50 rounded-full"></div>
+							<div className="h-8 w-24 bg-accent-subtle-gray/50 rounded-full"></div>
+							<div className="h-8 w-20 bg-accent-subtle-gray/50 rounded-full"></div>
 						</div>
 					</div>
 				) : (
@@ -90,16 +86,15 @@ const ProductPage = () => {
 					/>
 				)}
 
-				{/* View Toggle */}
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-end">
-					<div className="flex space-x-2 bg-white p-1 rounded-lg shadow-sm">
+					<div className="flex space-x-1 bg-accent-light-beige p-1 rounded-lg shadow-sm border border-accent-subtle-gray/30">
 						<button
 							onClick={() => setActiveView("grid")}
-							className={`p-2 rounded ${
+							className={`p-2 rounded-md ${
 								activeView === "grid"
-									? "bg-green-100 text-green-800"
-									: "text-gray-500 hover:text-gray-700"
-							}`}
+									? "bg-primary-green/20 text-primary-green"
+									: "text-accent-dark-brown hover:bg-primary-beige/70"
+							} transition-colors`}
 							aria-label="Grid view"
 						>
 							<svg
@@ -118,11 +113,11 @@ const ProductPage = () => {
 						</button>
 						<button
 							onClick={() => setActiveView("list")}
-							className={`p-2 rounded ${
+							className={`p-2 rounded-md ${
 								activeView === "list"
-									? "bg-green-100 text-green-800"
-									: "text-gray-500 hover:text-gray-700"
-							}`}
+									? "bg-primary-green/20 text-primary-green"
+									: "text-accent-dark-brown hover:bg-primary-beige/70"
+							} transition-colors`}
 							aria-label="List view"
 						>
 							<svg
@@ -142,13 +137,12 @@ const ProductPage = () => {
 					</div>
 				</div>
 
-				{/* Product List - Pass the activeView state */}
 				<ProductList
+					categories={categories} // --- Pass categories prop here ---
 					selectedCategory={selectedCategory}
 					setSelectedCategory={setSelectedCategory}
 					updateCartItemCount={updateCartItemCount}
-					onProductClick={handleProductClick}
-					activeView={activeView} // Pass the active view state
+					activeView={activeView}
 				/>
 			</div>
 		</Layout>

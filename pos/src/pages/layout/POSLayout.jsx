@@ -19,6 +19,7 @@ import {
 	X,
 	PanelLeftClose,
 	PanelLeftOpen,
+	Calculator,
 	Home,
 	Search as SearchIcon, // Renamed to avoid conflict
 	User as UserIcon, // Renamed
@@ -188,8 +189,9 @@ const POSLayout = ({
 		{ to: "/pos", title: "Point of Sale", icon: ShoppingCart },
 		{ to: "/products", title: "Products", icon: Package },
 		{ to: "/orders", title: "Orders", icon: Clock },
-		{ to: "/payments", title: "Payments", icon: CreditCard },
+		{ to: "/payments", title: "Payments", icon: CreditCard, adminOnly: true },
 		{ to: "/reports", title: "Reports", icon: BarChart3, adminOnly: true },
+		{ to: "/cogs", title: "COGS", icon: Calculator, adminOnly: true }, // <-- Added COGS Link
 		{ to: "/users", title: "Users", icon: Users, adminOnly: true },
 		{ to: "/rewards", title: "Rewards", icon: Gift, adminOnly: true },
 		{ to: "/discounts", title: "Discounts", icon: Tag, adminOnly: true },

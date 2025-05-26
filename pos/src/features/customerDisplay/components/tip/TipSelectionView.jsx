@@ -5,9 +5,9 @@ import { formatPrice } from "../../../../utils/numberUtils";
 import { ThumbsUp } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+// import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
+// import { Label } from "@/components/ui/label";
 
 /**
  * TipSelectionView Component
@@ -39,16 +39,16 @@ const TipSelectionView = ({ orderTotal = 0, onComplete }) => {
 		setCustomTipInput("");
 	};
 
-	const handleCustomTipChange = (e) => {
-		const inputVal = e.target.value;
-		setCustomTipInput(inputVal);
+	// const handleCustomTipChange = (e) => {
+	// 	const inputVal = e.target.value;
+	// 	setCustomTipInput(inputVal);
 
-		const value = Number.parseFloat(inputVal);
-		const newTipAmount = !isNaN(value) && value >= 0 ? value : 0;
+	// 	const value = Number.parseFloat(inputVal);
+	// 	const newTipAmount = !isNaN(value) && value >= 0 ? value : 0;
 
-		setTipAmount(newTipAmount);
-		setSelectedPercentage(null);
-	};
+	// 	setTipAmount(newTipAmount);
+	// 	setSelectedPercentage(null);
+	// };
 
 	const handleComplete = () => {
 		if (onComplete) {
@@ -191,7 +191,7 @@ const TipSelectionView = ({ orderTotal = 0, onComplete }) => {
 							))}
 						</div>
 
-						<div className="space-y-2">
+						{/* <div className="space-y-2">
 							<Label
 								htmlFor="customTip"
 								className="text-sm font-medium text-slate-800"
@@ -213,7 +213,7 @@ const TipSelectionView = ({ orderTotal = 0, onComplete }) => {
 									className="pl-8 text-center border-2 border-slate-300 focus:border-blue-500 bg-white/70 backdrop-blur-sm"
 								/>
 							</div>
-						</div>
+						</div> */}
 
 						<div className="grid grid-cols-2 gap-4 pt-2">
 							<Button

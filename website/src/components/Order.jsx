@@ -1,38 +1,36 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-
-// Import icons from react-icons
 import { SiUbereats, SiDoordash, SiGrubhub } from "react-icons/si";
 
 // Define your delivery service links (IMPORTANT: Replace these placeholders)
 const UBER_EATS_RESTAURANT_LINK =
-	process.env.REACT_APP_UBEREATS_LINK || "https://www.ubereats.com"; // Or your restaurant's actual page if available as default
+	process.env.REACT_APP_UBEREATS_LINK || "https://www.ubereats.com";
 const DOORDASH_RESTAURANT_LINK =
-	process.env.REACT_APP_DOORDASH_LINK || "https://www.doordash.com"; // Valid fallback
+	process.env.REACT_APP_DOORDASH_LINK || "https://www.doordash.com";
 const GRUBHUB_RESTAURANT_LINK =
-	process.env.REACT_APP_GRUBHUB_LINK || "https://www.grubhub.com"; // Valid fallback
+	process.env.REACT_APP_GRUBHUB_LINK || "https://www.grubhub.com";
 
 const deliveryServices = [
 	{
 		name: "Uber Eats",
 		IconComponent: SiUbereats,
 		href: UBER_EATS_RESTAURANT_LINK,
-		iconColorClassName: "text-[#06C167]", // Official Uber Eats Green
+		iconColorClassName: "text-[#06C167]",
 		ariaLabel: "Order Ajeen on Uber Eats",
 	},
 	{
 		name: "DoorDash",
 		IconComponent: SiDoordash,
 		href: DOORDASH_RESTAURANT_LINK,
-		iconColorClassName: "text-[#FF3008]", // Official DoorDash Red
+		iconColorClassName: "text-[#FF3008]",
 		ariaLabel: "Order Ajeen on DoorDash",
 	},
 	{
 		name: "Grubhub",
 		IconComponent: SiGrubhub,
 		href: GRUBHUB_RESTAURANT_LINK,
-		iconColorClassName: "text-[#F68B1F]", // Official Grubhub Orange
+		iconColorClassName: "text-[#F68B1F]",
 		ariaLabel: "Order Ajeen on Grubhub",
 	},
 ];
@@ -40,12 +38,17 @@ const deliveryServices = [
 const Order = () => {
 	return (
 		<div className="relative py-20 overflow-hidden">
-			<div className="absolute inset-0 bg-gradient-to-r from-green-400 via-green-500 to-green-600"></div>
+			{/* Updated background gradient: from primary-beige, via a more prominent warm-brown, to a darker warm-brown */}
+			<div className="absolute inset-0 bg-gradient-to-br from-primary-beige via-accent-warm-brown/40 to-accent-warm-brown/70"></div>
 
+			{/* Updated decorative shapes using primary-green for subtle contrast on beige background */}
 			<div className="absolute inset-0 overflow-hidden">
-				<div className="absolute -top-24 -right-24 w-72 h-72 md:w-96 md:h-96 bg-white opacity-5 rounded-full"></div>
-				<div className="absolute top-1/2 left-1/4 w-56 h-56 md:w-64 md:h-64 bg-white opacity-5 rounded-full"></div>
-				<div className="absolute -bottom-32 -left-32 w-72 h-72 md:w-96 md:h-96 bg-white opacity-5 rounded-full"></div>
+				<div className="absolute -top-24 -right-24 w-72 h-72 md:w-96 md:h-96 bg-primary-green opacity-10 rounded-full"></div>{" "}
+				{/* Increased opacity slightly */}
+				<div className="absolute top-1/2 left-1/4 w-56 h-56 md:w-64 md:h-64 bg-primary-green opacity-10 rounded-full"></div>{" "}
+				{/* Increased opacity slightly */}
+				<div className="absolute -bottom-32 -left-32 w-72 h-72 md:w-96 md:h-96 bg-primary-green opacity-10 rounded-full"></div>{" "}
+				{/* Increased opacity slightly */}
 			</div>
 
 			<div className="relative max-w-5xl mx-auto px-4 text-center z-10">
@@ -55,20 +58,23 @@ const Order = () => {
 					transition={{ duration: 0.7, ease: "easeOut" }}
 					viewport={{ once: true, amount: 0.2 }}
 				>
-					<h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-6 tracking-tight">
+					{/* Heading text color: Dark Green. Consider Light Beige if background gets too dark for Dark Green. */}
+					<h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-accent-dark-green mb-6 tracking-tight">
 						Ready to Satisfy Your Cravings?
 					</h2>
 
-					<p className="text-lg sm:text-xl text-green-50 mb-10 max-w-3xl mx-auto leading-relaxed">
+					{/* Paragraph text color: Dark Brown. Consider Light Beige if background gets too dark for Dark Brown. */}
+					<p className="text-lg sm:text-xl text-accent-dark-brown mb-10 max-w-3xl mx-auto leading-relaxed">
 						Experience authentic Middle Eastern flavors with our freshly
 						prepared dishes. Order now for pickup or delivery and enjoy a taste
 						of tradition!
 					</p>
 
 					<div className="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-6 mb-16">
+						{/* "Order Online" button: Primary Green background, Light Beige text */}
 						<Link
 							to="/menu"
-							className="inline-flex items-center justify-center px-8 py-3.5 rounded-lg bg-white text-green-700 font-semibold text-base sm:text-lg shadow-xl hover:bg-green-50 transform hover:scale-105 transition-all duration-300 ease-out focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50"
+							className="inline-flex items-center justify-center px-8 py-3.5 rounded-lg bg-primary-green text-accent-light-beige font-semibold text-base sm:text-lg shadow-xl hover:bg-accent-dark-green transform hover:scale-105 transition-all duration-300 ease-out focus:outline-none focus:ring-2 focus:ring-primary-green focus:ring-opacity-50"
 						>
 							Order Online
 							<svg
@@ -90,7 +96,6 @@ const Order = () => {
 					{/* Delivery Service Icons */}
 					<div className="mt-12 flex flex-wrap justify-center items-center gap-x-6 gap-y-6 sm:gap-x-8">
 						{deliveryServices.map((service) => (
-							// eslint-disable-next-line jsx-a11y/anchor-is-valid
 							<a
 								key={service.name}
 								href={
@@ -106,10 +111,10 @@ const Order = () => {
 								rel="noopener noreferrer"
 								aria-label={service.ariaLabel}
 								title={`Order on ${service.name}`}
-								className={`rounded-full transition-all duration-300 ease-out group focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-green-500 focus:ring-white ${
+								className={`rounded-full transition-all duration-300 ease-out group focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-primary-beige focus:ring-primary-green ${
 									service.href === "#" || service.href.includes("YOUR_")
-										? "cursor-default" // Keep cursor default if link is placeholder
-										: "hover:scale-105" // Scale effect on the whole <a>
+										? "cursor-default"
+										: "hover:scale-105"
 								}`}
 								onClick={(e) => {
 									if (service.href === "#" || service.href.includes("YOUR_")) {
@@ -118,11 +123,12 @@ const Order = () => {
 									}
 								}}
 							>
-								<div // This div acts as the opaque background "plaquette"
-									className={`flex items-center justify-center p-3 sm:p-3.5 bg-white rounded-full shadow-lg group-hover:shadow-xl transition-all duration-300 ease-out ${
+								{/* Plaquette background remains light beige, good for colorful icons */}
+								<div
+									className={`flex items-center justify-center p-3 sm:p-3.5 bg-accent-light-beige rounded-full shadow-lg group-hover:shadow-xl transition-all duration-300 ease-out ${
 										service.href === "#" || service.href.includes("YOUR_")
 											? "opacity-60"
-											: "" // Dim if placeholder
+											: ""
 									}`}
 								>
 									<service.IconComponent
@@ -135,7 +141,8 @@ const Order = () => {
 					{deliveryServices.some(
 						(s) => s.href.includes("YOUR_") || s.href === "#"
 					) && (
-						<p className="mt-4 text-xs text-green-100">
+						// Text color for placeholder message
+						<p className="mt-4 text-xs text-accent-dark-brown opacity-80">
 							(Delivery partner links will be active soon)
 						</p>
 					)}

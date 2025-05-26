@@ -1,7 +1,7 @@
 // src/components/checkout/components/payment/PaymentForm.jsx
 import React, { useState, useEffect } from "react";
 import { useStripe, useElements, CardElement } from "@stripe/react-stripe-js";
-import axiosInstance from "../../../../api/api";
+import axiosInstance from "../../../../api/api"; // Assuming path
 import CardDetails from "./CardDetails";
 import PaymentError from "./PaymentError";
 import { FaCheckCircle, FaInfoCircle } from "react-icons/fa";
@@ -21,10 +21,8 @@ const PaymentForm = ({ orderId, amount, onPaymentSuccess, onPaymentError }) => {
 		timestamp: Date.now(),
 	});
 
-	// Debug effect: Log state changes and update debug info
 	useEffect(() => {
 		const isButtonDisabled = !stripe || processing || !orderId || !cardComplete;
-
 		const newDebugInfo = {
 			stripeLoaded: !!stripe,
 			orderIdPresent: !!orderId,
@@ -33,34 +31,18 @@ const PaymentForm = ({ orderId, amount, onPaymentSuccess, onPaymentError }) => {
 			buttonDisabled: isButtonDisabled,
 			timestamp: Date.now(),
 		};
-
 		setDebugInfo(newDebugInfo);
-
-		// console.log("PaymentForm Debug Info:", {
-		// 	stripe: !!stripe,
-		// 	elements: !!elements,
-		// 	orderId: orderId,
-		// 	cardComplete: cardComplete,
-		// 	processing: processing,
-		// 	buttonDisabled: isButtonDisabled,
-		// 	timestamp: new Date().toISOString(),
-		// });
 	}, [stripe, elements, orderId, processing, cardComplete]);
 
-	// Function to handle payment submission
 	const handlePayment = async () => {
-		// console.log("Payment button clicked!");
-
 		if (!stripe || !elements) {
 			setError("Stripe hasn't loaded yet. Please try again.");
 			return;
 		}
-
 		if (!orderId) {
 			setError("No order ID provided. Please try again.");
 			return;
 		}
-
 		if (!cardComplete) {
 			setError("Please complete your card details before proceeding.");
 			return;
@@ -71,12 +53,7 @@ const PaymentForm = ({ orderId, amount, onPaymentSuccess, onPaymentError }) => {
 		setError(null);
 
 		try {
-			// Get card element
 			const cardElement = elements.getElement(CardElement);
-			// console.log("Card element retrieved:", !!cardElement);
-
-			// Create payment method
-			// console.log("Creating payment method...");
 			const { error: pmError, paymentMethod } =
 				await stripe.createPaymentMethod({
 					type: "card",
@@ -88,19 +65,12 @@ const PaymentForm = ({ orderId, amount, onPaymentSuccess, onPaymentError }) => {
 				throw new Error(pmError.message);
 			}
 
-			// console.log("Payment method created successfully:", paymentMethod.id);
-
-			// Process payment with backend
-			// console.log("Sending payment to backend...");
 			const response = await axiosInstance.post("payments/process-payment/", {
 				order_id: orderId,
 				payment_method_id: paymentMethod.id,
 			});
 
-			// console.log("Backend payment response:", response.data);
-
 			if (response.data.status === "succeeded") {
-				// console.log("Payment succeeded!");
 				setPaymentStatus("success");
 				onPaymentSuccess && onPaymentSuccess(response.data);
 			} else {
@@ -130,18 +100,21 @@ const PaymentForm = ({ orderId, amount, onPaymentSuccess, onPaymentError }) => {
 	};
 
 	return (
-		<div className="stripe-payment-container">
+		// Container for the payment form elements
+		<div className="stripe-payment-container space-y-4">
+			{/* CardDetails will be styled in its own file */}
 			<CardDetails onChange={handleCardChange} />
 
+			{/* PaymentError will be styled in its own file */}
 			<PaymentError message={error} />
 
-			{/* Success message */}
+			{/* Success message: Light Primary Green bg, Primary Green text & icon */}
 			{paymentStatus === "success" && (
-				<div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md flex items-start">
-					<FaCheckCircle className="text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+				<div className="mb-4 bg-primary-green/10 border border-primary-green/30 text-primary-green px-4 py-3 rounded-md flex items-start text-sm shadow-sm">
+					<FaCheckCircle className="text-primary-green mr-2 mt-0.5 flex-shrink-0" />
 					<div>
-						<p className="font-medium">Payment Successful</p>
-						<p className="text-sm">
+						<p className="font-semibold">Payment Successful</p>
+						<p>
 							Your payment has been processed successfully. You will be
 							redirected shortly.
 						</p>
@@ -149,19 +122,18 @@ const PaymentForm = ({ orderId, amount, onPaymentSuccess, onPaymentError }) => {
 				</div>
 			)}
 
-			{/* Information for pending orders */}
+			{/* Information for pending orders: Primary Beige bg, Dark Brown text, Subtle Gray icon */}
 			{!orderId && (
-				<div className="mb-4 bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-md flex items-start">
-					<FaInfoCircle className="text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
-					<p className="text-sm">
-						Creating your order... Please wait a moment.
-					</p>
+				<div className="mb-4 bg-primary-beige/70 border border-accent-subtle-gray/50 text-accent-dark-brown px-4 py-3 rounded-md flex items-start text-sm shadow-sm">
+					<FaInfoCircle className="text-accent-subtle-gray mr-2 mt-0.5 flex-shrink-0" />
+					<p>Creating your order... Please wait a moment.</p>
 				</div>
 			)}
 
-			{/* Debug information display in development mode */}
+			{/* Debug information display */}
 			{process.env.NODE_ENV === "development" && (
-				<div className="mb-4 p-2 bg-gray-100 text-xs text-gray-800 rounded">
+				// Debug box: Subtle Gray bg, Dark Brown text
+				<div className="mb-4 p-3 bg-accent-subtle-gray/20 text-xs text-accent-dark-brown rounded-md border border-accent-subtle-gray/30">
 					<div>
 						<strong>Debug Info:</strong>
 					</div>
@@ -177,20 +149,23 @@ const PaymentForm = ({ orderId, amount, onPaymentSuccess, onPaymentError }) => {
 				</div>
 			)}
 
+			{/* Pay Button: Primary Green bg, Light Beige text. Disabled: Subtle Gray bg, Dark Brown text */}
 			<button
 				type="button"
 				onClick={handlePayment}
 				disabled={!stripe || processing || !orderId || !cardComplete}
-				className={`w-full py-2 px-4 rounded-md text-white font-medium ${
-					!stripe || processing || !orderId || !cardComplete
-						? "bg-gray-400 cursor-not-allowed"
-						: "bg-green-500 hover:bg-green-600"
-				}`}
+				className={`w-full py-3 px-4 rounded-lg font-semibold text-base transition-colors shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-accent-light-beige
+					${
+						!stripe || processing || !orderId || !cardComplete
+							? "bg-accent-subtle-gray text-accent-dark-brown/70 cursor-not-allowed"
+							: "bg-primary-green text-accent-light-beige hover:bg-accent-dark-green focus:ring-primary-green"
+					}`}
 			>
 				{processing ? (
 					<span className="flex items-center justify-center">
 						<svg
-							className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+							// Spinner color: Light Beige (same as button text)
+							className="animate-spin -ml-1 mr-3 h-5 w-5 text-accent-light-beige"
 							xmlns="http://www.w3.org/2000/svg"
 							fill="none"
 							viewBox="0 0 24 24"
@@ -216,10 +191,10 @@ const PaymentForm = ({ orderId, amount, onPaymentSuccess, onPaymentError }) => {
 				)}
 			</button>
 
-			{/* Security notice */}
-			<div className="mt-4 text-xs text-gray-500 flex items-center justify-center">
+			{/* Security notice: Dark Brown text (slightly transparent), Subtle Gray icon */}
+			<div className="mt-4 text-xs text-accent-dark-brown/80 flex items-center justify-center">
 				<svg
-					className="w-4 h-4 mr-1"
+					className="w-4 h-4 mr-1.5 text-accent-subtle-gray" // Icon color
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"

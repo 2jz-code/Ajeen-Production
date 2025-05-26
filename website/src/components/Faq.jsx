@@ -11,14 +11,16 @@ const FAQItem = ({ question, answer }) => {
 		>
 			{({ open }) => (
 				<>
-					<Disclosure.Button className="flex w-full justify-between rounded-lg bg-white px-6 py-4 text-left text-gray-900 shadow-md hover:shadow-lg transition-all duration-300">
+					<Disclosure.Button className="flex w-full justify-between rounded-lg bg-primary-beige px-6 py-4 text-left text-accent-dark-green shadow-md hover:shadow-lg transition-all duration-300 focus:outline-none focus-visible:ring focus-visible:ring-primary-green focus-visible:ring-opacity-75">
+						{/* Question Text: Dark Green on Beige */}
 						<span className="text-lg font-medium">{question}</span>
 						<motion.span
 							animate={{ rotate: open ? 180 : 0 }}
 							transition={{ duration: 0.3 }}
 							className="flex items-center"
 						>
-							<ChevronDownIcon className="h-5 w-5 text-green-500" />
+							{/* Chevron Icon: Primary Green */}
+							<ChevronDownIcon className="h-5 w-5 text-primary-green" />
 						</motion.span>
 					</Disclosure.Button>
 					<AnimatePresence>
@@ -32,7 +34,8 @@ const FAQItem = ({ question, answer }) => {
 								transition={{ duration: 0.3 }}
 								className="overflow-hidden"
 							>
-								<div className="bg-white px-6 py-4 text-gray-600 rounded-b-lg shadow-md mt-px">
+								{/* Answer Panel: Dark Brown text on Primary Beige (slightly darker than main bg for depth) */}
+								<div className="bg-primary-beige px-6 py-4 text-accent-dark-brown rounded-b-lg shadow-md mt-px">
 									{answer}
 								</div>
 							</Disclosure.Panel>
@@ -76,17 +79,20 @@ const Faq = () => {
 	return (
 		<div
 			id="faq"
-			className="w-full py-20 px-4 bg-green-50"
+			className="w-full py-20 px-4 bg-background" // Main section background: --color-accent-light-beige
 		>
 			<div className="max-w-3xl mx-auto">
 				<div className="text-center mb-12">
-					<span className="text-green-500 font-semibold tracking-wider uppercase">
+					{/* "Have Questions?" span: Primary Green */}
+					<span className="text-primary-green font-semibold tracking-wider uppercase">
 						Have Questions?
 					</span>
-					<h2 className="text-4xl font-bold mt-2 text-gray-900">
+					{/* Main heading "Frequently Asked Questions": Dark Green */}
+					<h2 className="text-4xl font-bold mt-2 text-accent-dark-green">
 						Frequently Asked Questions
 					</h2>
-					<div className="h-1 w-24 bg-green-500 mx-auto mt-4 rounded-full"></div>
+					{/* Decorative line: Primary Green */}
+					<div className="h-1 w-24 bg-primary-green mx-auto mt-4 rounded-full"></div>
 				</div>
 
 				<div className="space-y-4">
@@ -100,9 +106,13 @@ const Faq = () => {
 				</div>
 
 				<div className="mt-12 text-center">
-					<p className="text-gray-600 mb-6">Don't see your question here?</p>
+					{/* "Don't see your question here?" text: Dark Brown */}
+					<p className="text-accent-dark-brown mb-6">
+						Don't see your question here?
+					</p>
 					<a href="#contact">
-						<button className="inline-flex items-center px-6 py-3 rounded-full bg-green-500 text-white font-medium hover:bg-green-600 transition-colors duration-300">
+						{/* Contact Us button: Warm Brown background, Light Beige text */}
+						<button className="inline-flex items-center px-6 py-3 rounded-full bg-accent-warm-brown text-accent-light-beige font-medium hover:bg-opacity-80 transition-colors duration-300">
 							Contact Us
 							<svg
 								className="ml-2 w-5 h-5"

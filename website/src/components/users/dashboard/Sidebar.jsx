@@ -1,33 +1,32 @@
 // src/components/dashboard/Sidebar.jsx
 import React from "react";
-import { useNavigate } from "react-router-dom";
-import { FaUser, FaHistory, FaEdit, FaSignOutAlt } from "react-icons/fa";
+import { FaUser, FaHistory, FaSignOutAlt } from "react-icons/fa";
 import { useDashboard } from "./DashboardContext";
-import { clearTokensAndLogout } from "../../../api/api";
-import axiosInstance from "../../../api/api";
+import { clearTokensAndLogout } from "../../../api/api"; // Assuming path is correct
+import axiosInstance from "../../../api/api"; // Assuming path is correct
 
 const Sidebar = () => {
-	const navigate = useNavigate();
 	const { activeTab, setActiveTab, userInfo, profileImage } = useDashboard();
 
-	// Handle logout
 	const handleLogout = async () => {
 		try {
 			await axiosInstance.post("website/logout/");
 		} catch (error) {
 			console.error("Logout API call failed:", error);
 		} finally {
-			clearTokensAndLogout();
-			navigate("/login");
+			clearTokensAndLogout(); // This function likely handles token clearing and redirect
+			// navigate("/login"); // clearTokensAndLogout might already redirect
 		}
 	};
 
 	return (
 		<div className="md:w-64 flex-shrink-0 mb-6 md:mb-0">
-			<div className="bg-white rounded-lg shadow-sm overflow-hidden sticky top-24">
+			{/* Sidebar background: Primary Beige, with subtle border */}
+			<div className="bg-primary-beige rounded-lg shadow-sm overflow-hidden sticky top-24 border border-accent-subtle-gray/30">
 				{/* User Info */}
-				<div className="p-6 border-b border-gray-200 flex items-center">
-					<div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200 mr-3">
+				{/* User info section border: Subtle Gray */}
+				<div className="p-6 border-b border-accent-subtle-gray/50 flex items-center">
+					<div className="w-12 h-12 rounded-full overflow-hidden bg-accent-subtle-gray mr-3">
 						{profileImage ? (
 							<img
 								src={profileImage}
@@ -35,16 +34,19 @@ const Sidebar = () => {
 								className="w-full h-full object-cover"
 							/>
 						) : (
-							<div className="w-full h-full flex items-center justify-center bg-green-100 text-green-800">
+							// Fallback icon: Dark Brown icon on Light Beige background
+							<div className="w-full h-full flex items-center justify-center bg-accent-light-beige text-accent-dark-brown">
 								<FaUser size={20} />
 							</div>
 						)}
 					</div>
 					<div>
-						<p className="font-medium">
+						{/* User name: Dark Green */}
+						<p className="font-medium text-accent-dark-green">
 							{userInfo.first_name} {userInfo.last_name}
 						</p>
-						<p className="text-sm text-gray-500">{userInfo.email}</p>
+						{/* User email: Dark Brown */}
+						<p className="text-sm text-accent-dark-brown">{userInfo.email}</p>
 					</div>
 				</div>
 
@@ -52,10 +54,11 @@ const Sidebar = () => {
 				<nav className="p-2">
 					<button
 						onClick={() => setActiveTab("profile")}
-						className={`w-full flex items-center px-4 py-2 rounded-md transition-colors ${
+						// Active: Lighter Primary Green bg, Dark Green text. Inactive: Dark Green text, hover Primary Beige bg
+						className={`w-full flex items-center px-4 py-2.5 rounded-md transition-colors text-sm font-medium ${
 							activeTab === "profile"
-								? "bg-green-50 text-green-700"
-								: "text-gray-700 hover:bg-gray-100"
+								? "bg-primary-green/20 text-primary-green" // A lighter shade of primary green for active
+								: "text-accent-dark-green hover:bg-accent-light-beige/70"
 						}`}
 					>
 						<FaUser className="mr-3" /> Profile
@@ -63,29 +66,32 @@ const Sidebar = () => {
 
 					<button
 						onClick={() => setActiveTab("orders")}
-						className={`w-full flex items-center px-4 py-2 rounded-md transition-colors ${
+						className={`w-full flex items-center px-4 py-2.5 rounded-md transition-colors text-sm font-medium ${
 							activeTab === "orders"
-								? "bg-green-50 text-green-700"
-								: "text-gray-700 hover:bg-gray-100"
+								? "bg-primary-green/20 text-primary-green"
+								: "text-accent-dark-green hover:bg-accent-light-beige/70"
 						}`}
 					>
 						<FaHistory className="mr-3" /> Order History
 					</button>
-					{/* 
+
+					{/* Account Settings - Assuming still commented out or to be styled similarly if re-enabled
 					<button
 						onClick={() => setActiveTab("account")}
-						className={`w-full flex items-center px-4 py-2 rounded-md transition-colors ${
+						className={`w-full flex items-center px-4 py-2.5 rounded-md transition-colors text-sm font-medium ${
 							activeTab === "account"
-								? "bg-green-50 text-green-700"
-								: "text-gray-700 hover:bg-gray-100"
+								? "bg-primary-green/20 text-primary-green"
+								: "text-accent-dark-green hover:bg-accent-light-beige/70"
 						}`}
 					>
 						<FaEdit className="mr-3" /> Account Settings
-					</button> */}
+					</button> 
+					*/}
 
+					{/* Logout button: Destructive action styling (red text, light red hover bg) */}
 					<button
 						onClick={handleLogout}
-						className="w-full flex items-center px-4 py-2 rounded-md text-red-600 hover:bg-red-50 transition-colors mt-4"
+						className="w-full flex items-center px-4 py-2.5 rounded-md text-red-600 hover:bg-red-500/10 transition-colors mt-4 text-sm font-medium"
 					>
 						<FaSignOutAlt className="mr-3" /> Logout
 					</button>

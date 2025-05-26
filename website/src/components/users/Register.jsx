@@ -14,6 +14,7 @@ import {
 } from "react-icons/fa";
 import axiosInstance from "../../api/api";
 import ComingSoonWrapper from "../utility/ComingSoonWrapper";
+import Logo from "../../assests/logo.png"; // Adjusted path if necessary
 
 const Register = () => {
 	const [formData, setFormData] = useState({
@@ -23,7 +24,7 @@ const Register = () => {
 		email: "",
 		password: "",
 		confirm_password: "",
-		is_rewards_opted_in: false, // Added rewards opt-in
+		is_rewards_opted_in: false,
 	});
 
 	const [showPassword, setShowPassword] = useState(false);
@@ -35,7 +36,6 @@ const Register = () => {
 
 	const navigate = useNavigate();
 
-	// Password strength requirements
 	const passwordRequirements = [
 		{
 			id: "length",
@@ -64,23 +64,21 @@ const Register = () => {
 		},
 	];
 
-	// Handle form input changes
 	const handleChange = (e) => {
-		const { name, value } = e.target;
-		setFormData((prev) => ({ ...prev, [name]: value }));
+		const { name, value, type, checked } = e.target;
+		setFormData((prev) => ({
+			...prev,
+			[name]: type === "checkbox" ? checked : value,
+		}));
 
-		// Clear specific field error when typing
 		if (errors[name]) {
 			setErrors((prev) => ({ ...prev, [name]: "" }));
 		}
-
-		// Clear form error when any field changes
 		if (formError) {
 			setFormError("");
 		}
 	};
 
-	// Calculate password strength when password changes
 	useEffect(() => {
 		if (formData.password) {
 			const passedTests = passwordRequirements.filter((req) =>
@@ -90,18 +88,14 @@ const Register = () => {
 		} else {
 			setPasswordStrength(0);
 		}
-	}, [formData.password]);
+	}, [formData.password, passwordRequirements]); // Added passwordRequirements to dependency array
 
-	// Toggle password visibility
 	const togglePasswordVisibility = () => {
 		setShowPassword(!showPassword);
 	};
 
-	// Validate form before submission
 	const validateForm = () => {
 		const newErrors = {};
-
-		// Check required fields
 		for (const field of [
 			"first_name",
 			"last_name",
@@ -113,86 +107,59 @@ const Register = () => {
 				newErrors[field] = `${field.replace("_", " ")} is required`;
 			}
 		}
-
-		// Validate email format
 		if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
 			newErrors.email = "Please enter a valid email address";
 		}
-
-		// Validate username (alphanumeric and underscore only)
 		if (formData.username && !/^[a-zA-Z0-9_]+$/.test(formData.username)) {
 			newErrors.username =
 				"Username can only contain letters, numbers, and underscores";
 		}
-
-		// Check password strength
 		if (formData.password && passwordStrength < 60) {
-			newErrors.password = "Password is too weak";
+			// Consider adjusting strength threshold
+			newErrors.password =
+				"Password is too weak. Please meet all requirements.";
 		}
-
-		// Check if passwords match
 		if (formData.password !== formData.confirm_password) {
 			newErrors.confirm_password = "Passwords do not match";
 		}
-
-		// Check terms agreement
 		if (!agreeToTerms) {
 			newErrors.terms = "You must agree to the terms and conditions";
 		}
-
 		setErrors(newErrors);
 		return Object.keys(newErrors).length === 0;
 	};
 
-	// Handle form submission
 	const handleSubmit = async (e) => {
 		e.preventDefault();
-
-		// Validate form
 		if (!validateForm()) {
 			return;
 		}
-
 		setIsLoading(true);
 		setFormError("");
-
 		try {
-			// Prepare data for API call (exclude confirm_password)
 			const { confirm_password, ...apiData } = formData;
-
+			// eslint-disable-next-line no-unused-vars
 			const response = await axiosInstance.post("website/register/", apiData);
-			// console.log("Registration successful:", response.data);
-
-			// Show success message and redirect to login
 			alert("Account created successfully! Please log in.");
 			navigate("/login");
 		} catch (err) {
 			console.error("Registration error:", err);
-
 			if (err.response?.data) {
-				// Handle validation errors from the API
 				const apiErrors = err.response.data;
-
-				// Map API errors to form fields
 				const newErrors = {};
 				for (const [key, value] of Object.entries(apiErrors)) {
-					// If the error is an array, join the messages
 					newErrors[key] = Array.isArray(value) ? value.join(" ") : value;
 				}
-
 				if (Object.keys(newErrors).length > 0) {
 					setErrors(newErrors);
 				} else {
-					// If no specific field errors, set a general form error
 					setFormError("Registration failed. Please try again.");
 				}
 			} else if (err.request) {
-				// Request was made but no response received
 				setFormError(
 					"Network error. Please check your connection and try again."
 				);
 			} else {
-				// Something else caused the error
 				setFormError("An unexpected error occurred. Please try again later.");
 			}
 		} finally {
@@ -200,29 +167,31 @@ const Register = () => {
 		}
 	};
 
-	// Get strength color based on password strength percentage
 	const getStrengthColor = () => {
-		if (passwordStrength < 30) return "bg-red-500";
-		if (passwordStrength < 60) return "bg-yellow-500";
-		return "bg-green-500";
+		if (passwordStrength < 30) return "bg-red-500"; // Standard red for weak
+		if (passwordStrength < 60) return "bg-yellow-500"; // Standard yellow for medium
+		return "bg-primary-green"; // Primary green for strong
 	};
 
 	return (
-		<div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100 flex flex-col justify-center py-12">
+		// Main background: Gradient from primary-beige to accent-light-beige
+		<div className="min-h-screen bg-gradient-to-br from-primary-beige via-accent-light-beige to-primary-beige flex flex-col justify-center py-12">
 			{/* Logo and Back Button */}
 			<div className="absolute top-0 left-0 p-6 flex items-center">
 				<button
 					onClick={() => navigate("/")}
-					className="mr-4 text-green-800 hover:text-green-600 transition-colors"
+					// Text color: Dark green for visibility on light beige background
+					className="mr-4 text-accent-dark-green hover:text-primary-green transition-colors"
 					aria-label="Back to home"
 				>
 					<FaArrowLeft size={20} />
 				</button>
-				<Link
-					to="/"
-					className="text-3xl font-serif italic font-bold text-green-800"
-				>
-					Ajeen
+				<Link to="/">
+					<img
+						src={Logo}
+						alt="Ajeen Logo"
+						className="h-10 w-auto"
+					/>
 				</Link>
 			</div>
 
@@ -231,11 +200,13 @@ const Register = () => {
 				initial={{ opacity: 0, y: 20 }}
 				animate={{ opacity: 1, y: 0 }}
 				transition={{ duration: 0.5 }}
-				className="max-w-2xl w-full mx-auto px-6"
+				className="max-w-2xl w-full mx-auto px-6" // max-w-2xl for wider form
 			>
-				<div className="bg-white rounded-xl shadow-xl overflow-hidden">
+				{/* Card background: Light beige, with subtle border and shadow */}
+				<div className="bg-accent-light-beige rounded-xl shadow-xl overflow-hidden border border-accent-subtle-gray/50">
 					<div className="p-8">
-						<h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+						{/* Heading: Dark Green */}
+						<h2 className="text-2xl font-bold text-accent-dark-green mb-6 text-center">
 							Create Your Account
 						</h2>
 
@@ -243,7 +214,8 @@ const Register = () => {
 							<motion.div
 								initial={{ opacity: 0, y: -10 }}
 								animate={{ opacity: 1, y: 0 }}
-								className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm"
+								// Error message: Standard red for error, light red background
+								className="mb-6 bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded-md text-sm"
 							>
 								{formError}
 							</motion.div>
@@ -256,9 +228,10 @@ const Register = () => {
 							{/* Name Fields */}
 							<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 								<div>
+									{/* Label: Dark Green */}
 									<label
 										htmlFor="first_name"
-										className="block text-sm font-medium text-gray-700 mb-1"
+										className="block text-sm font-medium text-accent-dark-green mb-1"
 									>
 										First Name
 									</label>
@@ -268,15 +241,18 @@ const Register = () => {
 										type="text"
 										value={formData.first_name}
 										onChange={handleChange}
-										className={`w-full px-3 py-2 border ${
+										// Input: White bg, Dark Brown text, Subtle Gray border, Primary Green focus
+										className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 bg-white text-accent-dark-brown placeholder-accent-subtle-gray ${
 											errors.first_name
 												? "border-red-300 focus:ring-red-500 focus:border-red-500"
-												: "border-gray-300 focus:ring-green-500 focus:border-green-500"
-										} rounded-md focus:outline-none focus:ring-2`}
+												: "border-accent-subtle-gray focus:ring-primary-green focus:border-primary-green"
+										}`}
 										placeholder="Enter your first name"
 									/>
 									{errors.first_name && (
-										<p className="mt-1 text-sm text-red-600">
+										<p className="mt-1 text-xs text-red-600">
+											{" "}
+											{/* Smaller error text */}
 											{errors.first_name}
 										</p>
 									)}
@@ -285,7 +261,7 @@ const Register = () => {
 								<div>
 									<label
 										htmlFor="last_name"
-										className="block text-sm font-medium text-gray-700 mb-1"
+										className="block text-sm font-medium text-accent-dark-green mb-1"
 									>
 										Last Name
 									</label>
@@ -295,15 +271,15 @@ const Register = () => {
 										type="text"
 										value={formData.last_name}
 										onChange={handleChange}
-										className={`w-full px-3 py-2 border ${
+										className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 bg-white text-accent-dark-brown placeholder-accent-subtle-gray ${
 											errors.last_name
 												? "border-red-300 focus:ring-red-500 focus:border-red-500"
-												: "border-gray-300 focus:ring-green-500 focus:border-green-500"
-										} rounded-md focus:outline-none focus:ring-2`}
+												: "border-accent-subtle-gray focus:ring-primary-green focus:border-primary-green"
+										}`}
 										placeholder="Enter your last name"
 									/>
 									{errors.last_name && (
-										<p className="mt-1 text-sm text-red-600">
+										<p className="mt-1 text-xs text-red-600">
 											{errors.last_name}
 										</p>
 									)}
@@ -314,13 +290,14 @@ const Register = () => {
 							<div>
 								<label
 									htmlFor="username"
-									className="block text-sm font-medium text-gray-700 mb-1"
+									className="block text-sm font-medium text-accent-dark-green mb-1"
 								>
 									Username
 								</label>
 								<div className="relative">
 									<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-										<FaUser className="text-gray-400" />
+										{/* Icon: Subtle Gray */}
+										<FaUser className="text-accent-subtle-gray" />
 									</div>
 									<input
 										id="username"
@@ -328,16 +305,16 @@ const Register = () => {
 										type="text"
 										value={formData.username}
 										onChange={handleChange}
-										className={`w-full pl-10 px-3 py-2 border ${
+										className={`w-full pl-10 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 bg-white text-accent-dark-brown placeholder-accent-subtle-gray ${
 											errors.username
 												? "border-red-300 focus:ring-red-500 focus:border-red-500"
-												: "border-gray-300 focus:ring-green-500 focus:border-green-500"
-										} rounded-md focus:outline-none focus:ring-2`}
+												: "border-accent-subtle-gray focus:ring-primary-green focus:border-primary-green"
+										}`}
 										placeholder="Choose a username"
 									/>
 								</div>
 								{errors.username && (
-									<p className="mt-1 text-sm text-red-600">{errors.username}</p>
+									<p className="mt-1 text-xs text-red-600">{errors.username}</p>
 								)}
 							</div>
 
@@ -345,13 +322,13 @@ const Register = () => {
 							<div>
 								<label
 									htmlFor="email"
-									className="block text-sm font-medium text-gray-700 mb-1"
+									className="block text-sm font-medium text-accent-dark-green mb-1"
 								>
 									Email Address
 								</label>
 								<div className="relative">
 									<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-										<FaEnvelope className="text-gray-400" />
+										<FaEnvelope className="text-accent-subtle-gray" />
 									</div>
 									<input
 										id="email"
@@ -359,16 +336,16 @@ const Register = () => {
 										type="email"
 										value={formData.email}
 										onChange={handleChange}
-										className={`w-full pl-10 px-3 py-2 border ${
+										className={`w-full pl-10 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 bg-white text-accent-dark-brown placeholder-accent-subtle-gray ${
 											errors.email
 												? "border-red-300 focus:ring-red-500 focus:border-red-500"
-												: "border-gray-300 focus:ring-green-500 focus:border-green-500"
-										} rounded-md focus:outline-none focus:ring-2`}
+												: "border-accent-subtle-gray focus:ring-primary-green focus:border-primary-green"
+										}`}
 										placeholder="Enter your email address"
 									/>
 								</div>
 								{errors.email && (
-									<p className="mt-1 text-sm text-red-600">{errors.email}</p>
+									<p className="mt-1 text-xs text-red-600">{errors.email}</p>
 								)}
 							</div>
 
@@ -376,13 +353,13 @@ const Register = () => {
 							<div>
 								<label
 									htmlFor="password"
-									className="block text-sm font-medium text-gray-700 mb-1"
+									className="block text-sm font-medium text-accent-dark-green mb-1"
 								>
 									Password
 								</label>
 								<div className="relative">
 									<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-										<FaLock className="text-gray-400" />
+										<FaLock className="text-accent-subtle-gray" />
 									</div>
 									<input
 										id="password"
@@ -390,17 +367,18 @@ const Register = () => {
 										type={showPassword ? "text" : "password"}
 										value={formData.password}
 										onChange={handleChange}
-										className={`w-full pl-10 pr-10 py-2 border ${
+										className={`w-full pl-10 pr-10 py-2 border rounded-md focus:outline-none focus:ring-2 bg-white text-accent-dark-brown placeholder-accent-subtle-gray ${
 											errors.password
 												? "border-red-300 focus:ring-red-500 focus:border-red-500"
-												: "border-gray-300 focus:ring-green-500 focus:border-green-500"
-										} rounded-md focus:outline-none focus:ring-2`}
+												: "border-accent-subtle-gray focus:ring-primary-green focus:border-primary-green"
+										}`}
 										placeholder="Create a password"
 									/>
 									<button
 										type="button"
 										onClick={togglePasswordVisibility}
-										className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+										// Eye icon: Subtle Gray, hover to Dark Green
+										className="absolute inset-y-0 right-0 pr-3 flex items-center text-accent-subtle-gray hover:text-accent-dark-green"
 									>
 										{showPassword ? (
 											<FaEyeSlash size={16} />
@@ -410,15 +388,15 @@ const Register = () => {
 									</button>
 								</div>
 								{errors.password && (
-									<p className="mt-1 text-sm text-red-600">{errors.password}</p>
+									<p className="mt-1 text-xs text-red-600">{errors.password}</p>
 								)}
 
 								{/* Password strength meter */}
 								{formData.password && (
 									<div className="mt-2">
-										<div className="w-full bg-gray-200 rounded-full h-2">
+										<div className="w-full bg-accent-subtle-gray/50 rounded-full h-2">
 											<div
-												className={`h-2 rounded-full ${getStrengthColor()}`}
+												className={`h-2 rounded-full ${getStrengthColor()} transition-all duration-300`}
 												style={{ width: `${passwordStrength}%` }}
 											></div>
 										</div>
@@ -426,24 +404,24 @@ const Register = () => {
 											{passwordRequirements.map((req) => (
 												<div
 													key={req.id}
-													className="flex items-center text-sm"
+													className="flex items-center text-xs" // Smaller text for requirements
 												>
 													{req.test(formData.password) ? (
 														<FaCheck
-															className="text-green-500 mr-2"
+															className="text-primary-green mr-2 flex-shrink-0" // Primary green for check
 															size={12}
 														/>
 													) : (
 														<FaTimes
-															className="text-red-500 mr-2"
+															className="text-red-500 mr-2 flex-shrink-0" // Standard red for X
 															size={12}
 														/>
 													)}
 													<span
 														className={
 															req.test(formData.password)
-																? "text-green-700"
-																: "text-gray-600"
+																? "text-accent-dark-green" // Dark green for met requirement
+																: "text-accent-dark-brown" // Dark brown for unmet
 														}
 													>
 														{req.label}
@@ -459,13 +437,13 @@ const Register = () => {
 							<div>
 								<label
 									htmlFor="confirm_password"
-									className="block text-sm font-medium text-gray-700 mb-1"
+									className="block text-sm font-medium text-accent-dark-green mb-1"
 								>
 									Confirm Password
 								</label>
 								<div className="relative">
 									<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-										<FaLock className="text-gray-400" />
+										<FaLock className="text-accent-subtle-gray" />
 									</div>
 									<input
 										id="confirm_password"
@@ -473,20 +451,53 @@ const Register = () => {
 										type={showPassword ? "text" : "password"}
 										value={formData.confirm_password}
 										onChange={handleChange}
-										className={`w-full pl-10 py-2 border ${
+										className={`w-full pl-10 py-2 border rounded-md focus:outline-none focus:ring-2 bg-white text-accent-dark-brown placeholder-accent-subtle-gray ${
 											errors.confirm_password
 												? "border-red-300 focus:ring-red-500 focus:border-red-500"
-												: "border-gray-300 focus:ring-green-500 focus:border-green-500"
-										} rounded-md focus:outline-none focus:ring-2`}
+												: "border-accent-subtle-gray focus:ring-primary-green focus:border-primary-green"
+										}`}
 										placeholder="Confirm your password"
 									/>
 								</div>
 								{errors.confirm_password && (
-									<p className="mt-1 text-sm text-red-600">
+									<p className="mt-1 text-xs text-red-600">
 										{errors.confirm_password}
 									</p>
 								)}
 							</div>
+
+							{/* Rewards Program Opt-In */}
+							{/* The ComingSoonWrapper should ideally be styled to fit the theme if it adds its own background */}
+							<ComingSoonWrapper active={true}>
+								<div className="flex items-start mt-4 p-4 bg-primary-beige/50 rounded-lg border border-primary-green/30">
+									<div className="flex items-center h-5">
+										<input
+											id="is_rewards_opted_in"
+											name="is_rewards_opted_in"
+											type="checkbox"
+											checked={formData.is_rewards_opted_in}
+											onChange={handleChange}
+											// Checkbox: Primary Green
+											className="h-4 w-4 text-primary-green focus:ring-primary-green border-accent-subtle-gray rounded"
+										/>
+									</div>
+									<div className="ml-3 text-sm">
+										<label
+											htmlFor="is_rewards_opted_in"
+											// Label text: Dark Green
+											className="text-accent-dark-green font-medium flex items-center"
+										>
+											<FaGift className="text-primary-green mr-2" /> Join our
+											Rewards Program
+										</label>
+										{/* Description text: Dark Brown */}
+										<p className="text-accent-dark-brown text-xs mt-1">
+											Earn points on every purchase and receive exclusive
+											offers!
+										</p>
+									</div>
+								</div>
+							</ComingSoonWrapper>
 
 							{/* Terms and Conditions */}
 							<div className="flex items-start">
@@ -496,83 +507,49 @@ const Register = () => {
 										type="checkbox"
 										checked={agreeToTerms}
 										onChange={() => setAgreeToTerms(!agreeToTerms)}
-										className="h-4 w-4 text-green-500 focus:ring-green-500 border-gray-300 rounded"
+										// Checkbox: Primary Green
+										className="h-4 w-4 text-primary-green focus:ring-primary-green border-accent-subtle-gray rounded"
 									/>
 								</div>
 								<div className="ml-3 text-sm">
+									{/* Text: Dark Brown, Links: Primary Green */}
 									<label
 										htmlFor="terms"
-										className="text-gray-600"
+										className="text-accent-dark-brown"
 									>
 										I agree to the{" "}
 										<a
-											href="#"
-											className="text-green-600 hover:text-green-500"
+											href="#" // Replace with actual link
+											className="font-medium text-primary-green hover:text-accent-dark-green"
 										>
 											Terms of Service
 										</a>{" "}
 										and{" "}
 										<a
-											href="#"
-											className="text-green-600 hover:text-green-500"
+											href="#" // Replace with actual link
+											className="font-medium text-primary-green hover:text-accent-dark-green"
 										>
 											Privacy Policy
 										</a>
 									</label>
 									{errors.terms && (
-										<p className="mt-1 text-sm text-red-600">{errors.terms}</p>
+										<p className="mt-1 text-xs text-red-600">{errors.terms}</p>
 									)}
 								</div>
 							</div>
 
-							{/* Rewards Program Opt-In */}
-							<ComingSoonWrapper active={true}>
-								<div className="flex items-start mt-4 p-4 bg-green-50 rounded-lg border border-green-100">
-									<div className="flex items-center">
-										<input
-											id="is_rewards_opted_in"
-											name="is_rewards_opted_in"
-											type="checkbox"
-											checked={formData.is_rewards_opted_in} // Visually reflects state but is non-interactive
-											onChange={handleChange} // onChange is effectively disabled by ComingSoonWrapper
-											className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
-										/>
-										<label
-											htmlFor="is_rewards_opted_in"
-											className="ml-2 block text-sm text-gray-900"
-										>
-											Opt-in for Ajeen Rewards Program
-										</label>
-									</div>
-
-									<div className="ml-3">
-										<label
-											htmlFor="rewards-opt-in"
-											className="text-gray-700 font-medium flex items-center"
-										>
-											<FaGift className="text-green-500 mr-2" /> Join our
-											Rewards Program
-										</label>
-										<p className="text-sm text-gray-600 mt-1">
-											Earn points on every purchase and receive exclusive offers
-											and discounts
-										</p>
-									</div>
-								</div>
-							</ComingSoonWrapper>
-
-							{/* Submit Button */}
+							{/* Submit Button: Primary Green background, Light Beige text */}
 							<button
 								type="submit"
 								disabled={isLoading}
-								className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-white bg-green-500 hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 ${
+								className={`w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-accent-light-beige bg-primary-green hover:bg-accent-dark-green focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-green ${
 									isLoading ? "opacity-70 cursor-not-allowed" : ""
 								}`}
 							>
 								{isLoading ? (
 									<>
 										<svg
-											className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+											className="animate-spin -ml-1 mr-3 h-5 w-5 text-accent-light-beige"
 											xmlns="http://www.w3.org/2000/svg"
 											fill="none"
 											viewBox="0 0 24 24"
@@ -588,7 +565,7 @@ const Register = () => {
 											<path
 												className="opacity-75"
 												fill="currentColor"
-												d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0  12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+												d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
 											></path>
 										</svg>
 										Creating Account...
@@ -601,12 +578,14 @@ const Register = () => {
 					</div>
 
 					{/* Login Link */}
-					<div className="px-8 py-6 bg-gray-50 border-t border-gray-200">
-						<p className="text-center text-sm text-gray-600">
+					{/* Bottom panel: Primary Beige background, Subtle Gray border */}
+					<div className="px-8 py-6 bg-primary-beige border-t border-accent-subtle-gray/30">
+						{/* Text: Dark Brown, Link: Primary Green */}
+						<p className="text-center text-sm text-accent-dark-brown">
 							Already have an account?{" "}
 							<Link
 								to="/login"
-								className="font-medium text-green-600 hover:text-green-500"
+								className="font-medium text-primary-green hover:text-accent-dark-green"
 							>
 								Sign in
 							</Link>
