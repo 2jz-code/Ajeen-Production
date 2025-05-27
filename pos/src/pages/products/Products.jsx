@@ -1,8 +1,9 @@
 // src/pages/products/Products.jsx
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import axiosInstance from "../../api/config/axiosConfig";
+import axiosInstance from "../../api/config/axiosConfig"; // Used by CategoryManagementModal
 import { authService } from "../../api/services/authService";
+import { productService } from "../../api/services/productService"; // Import productService
 import {
 	PencilSquareIcon as PencilSolidIcon,
 	TrashIcon as TrashSolidIcon,
@@ -13,7 +14,8 @@ import {
 	ExclamationTriangleIcon,
 	EyeIcon,
 	ArchiveBoxIcon,
-	ArrowUpOnSquareStackIcon, // New icon for restock button
+	ArrowUpOnSquareStackIcon,
+	ArrowDownTrayIcon, // New icon for export button
 } from "@heroicons/react/24/outline";
 import { PackageIcon } from "lucide-react";
 import CategoryManagementModal from "../../components/CategoryManagementModal";
@@ -46,6 +48,7 @@ export default function Products() {
 	const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState(null);
+	const [isExporting, setIsExporting] = useState(false); // State for export loading
 
 	// ... (refs and useEffect for height calculation remain the same) ...
 	const pageContentRef = useRef(null);
@@ -95,14 +98,16 @@ export default function Products() {
 		const fetchData = async () => {
 			try {
 				const [categoriesRes, productsRes, authRes] = await Promise.all([
-					axiosInstance.get("products/categories/"),
-					axiosInstance.get("products/"),
+					// Using productService for consistency, assuming it's set up
+					productService.getProductCategories(),
+					productService.getProductsList(),
 					authService.checkStatus(),
 				]);
 				if (isMounted) {
-					setCategories(categoriesRes.data);
+					// Assuming productService returns { data: [...] } like axios
+					setCategories(categoriesRes); // If productService.getProductCategories() returns data directly
 					setSelectedCategory("");
-					setProducts(productsRes.data);
+					setProducts(productsRes); // If productService.getProductsList() returns data directly
 					setIsAdmin(authRes.is_admin);
 				}
 			} catch (err) {
@@ -150,9 +155,7 @@ export default function Products() {
 		// ... (handleDelete logic remains the same) ...
 		if (window.confirm(`Are you sure you want to delete "${productName}"?`)) {
 			try {
-				await axiosInstance.delete(
-					`products/${encodeURIComponent(productName)}/`
-				);
+				await productService.deleteProduct(productName); // Using productService
 				setProducts((prev) => prev.filter((p) => p.name !== productName));
 			} catch (err) {
 				console.error("Failed to delete product:", err);
@@ -169,6 +172,22 @@ export default function Products() {
 			return productCategoryId?.toString() === selectedCategory;
 		});
 	}, [products, selectedCategory]);
+
+	const handleExportProducts = async () => {
+		if (isExporting) return;
+		setIsExporting(true);
+		setError(null);
+		try {
+			await productService.exportProductsCSV();
+			// Success message could be a toast notification if you have a system for it
+		} catch (err) {
+			console.error(err);
+			// Error is handled and alerted by productService, but you could set local error state too
+			setError("Failed to export products. Please try again.");
+		} finally {
+			setIsExporting(false);
+		}
+	};
 
 	if (loading && products.length === 0) {
 		// ... (loading state remains the same) ...
@@ -201,6 +220,16 @@ export default function Products() {
 								className="px-3 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors flex items-center gap-1.5 shadow-sm"
 							>
 								<ArrowUpOnSquareStackIcon className="h-4 w-4" /> Restock Items
+							</button>
+						)}
+						{isAdmin && ( // Button to export products
+							<button
+								onClick={handleExportProducts}
+								disabled={isExporting}
+								className="px-3 py-2 bg-sky-600 text-white rounded-lg text-sm hover:bg-sky-700 transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+							>
+								<ArrowDownTrayIcon className="h-4 w-4" />
+								{isExporting ? "Exporting..." : "Export Products"}
 							</button>
 						)}
 						{isAdmin && (
@@ -254,27 +283,33 @@ export default function Products() {
 					)}
 				</div>
 
-				{error && !loading && (
-					<div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md flex items-center gap-2 text-sm shadow-sm flex-shrink-0">
-						<ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0" />
-						<span>{error}</span>
-						<button
-							onClick={() => window.location.reload()}
-							className="ml-auto text-xs font-medium text-red-800 hover:underline"
-						>
-							Retry
-						</button>
-					</div>
-				)}
+				{error &&
+					!loading && ( // Ensure error doesn't show during initial load if export fails later
+						<div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md flex items-center gap-2 text-sm shadow-sm flex-shrink-0">
+							<ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0" />
+							<span>{error}</span>
+							<button
+								onClick={() => {
+									setError(null); // Clear error before retry
+									// Potentially re-fetch data or just allow another export attempt
+									if (products.length === 0) window.location.reload();
+								}}
+								className="ml-auto text-xs font-medium text-red-800 hover:underline"
+							>
+								Retry/Clear
+							</button>
+						</div>
+					)}
 				<div
 					className="flex-1 overflow-y-auto custom-scrollbar pb-4"
 					style={{ height: gridHeight }}
 				>
-					{loading && products.length > 0 && (
-						<div className="text-center py-4">
-							<LoadingSpinner size="md" />
-						</div>
-					)}
+					{loading &&
+						products.length > 0 && ( // Show spinner if loading more while some products are already displayed
+							<div className="text-center py-4">
+								<LoadingSpinner size="md" />
+							</div>
+						)}
 					{!loading && filteredProducts.length === 0 && (
 						<div className="col-span-full text-center py-10 text-slate-500">
 							No products found{" "}

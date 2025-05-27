@@ -99,6 +99,7 @@ export const ENDPOINTS = {
 		DELETE: (name) => `products/${encodeURIComponent(name)}/`, // From your Products.jsx
 		BY_BARCODE: "products/by-barcode/", // <-- ADD THIS LINE
 		RESTOCK: `products/restock/`,
+		EXPORT_CSV: `products/export-csv/`,
 	},
 };
 

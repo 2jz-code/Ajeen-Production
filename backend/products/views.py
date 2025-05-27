@@ -8,6 +8,8 @@ from users.permissions import IsAdminUser
 import logging
 from django.db import transaction  # Import transaction
 from django.db.models import F  # Import F object
+from django.http import HttpResponse  # Import HttpResponse
+import csv  # Import csv module
 
 
 # Categories (Anyone can view, Admins & Managers can add)
@@ -292,3 +294,59 @@ class ProductRestockView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class ProductExportCSVView(APIView):
+    """
+    API view to export all products to a CSV file.
+    Accessible only by Admin users.
+    """
+
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    def get(self, request, *args, **kwargs):
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = 'attachment; filename="products_export.csv"'
+
+        writer = csv.writer(response)
+        # Write header row
+        writer.writerow(
+            [
+                "ID",
+                "Name",
+                "Price",
+                "Category ID",
+                "Category Name",
+                "Description",
+                "Barcode",
+                "Is Grocery Item",
+                "Inventory Quantity",
+                "Image URL",
+            ]
+        )
+
+        products = Product.objects.select_related(
+            "category"
+        ).all()  # Optimize by fetching category
+        for product in products:
+            writer.writerow(
+                [
+                    product.id,
+                    product.name,
+                    product.price,
+                    product.category.id if product.category else "",
+                    product.category.name if product.category else "N/A",
+                    product.description,
+                    product.barcode,
+                    product.is_grocery_item,
+                    product.inventory_quantity,
+                    (
+                        request.build_absolute_uri(product.image.url)
+                        if product.image
+                        else ""
+                    ),
+                ]
+            )
+
+        logger.info(f"User {request.user.username} exported products to CSV.")
+        return response

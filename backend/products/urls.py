@@ -7,6 +7,7 @@ from .views import (
     CategoryDetail,
     ProductByBarcodeView,
     ProductRestockView,
+    ProductExportCSVView,
 )
 
 urlpatterns = [
@@ -28,7 +29,12 @@ urlpatterns = [
     path(
         "products/restock/",
         ProductRestockView.as_view(),
-        name="product-bulk-restock",  # Correct name for the route
+        name="product-restock",  # Correct name for the route
+    ),
+    path(  # Add new path for CSV export
+        "products/export-csv/",
+        ProductExportCSVView.as_view(),
+        name="product-export-csv",
     ),
     # General route (with <str:name>) last for this group
     path("products/<str:name>/", ProductDetail.as_view(), name="product-detail"),

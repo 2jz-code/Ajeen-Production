@@ -138,4 +138,54 @@ export const productService = {
 			throw error; // Propagate other errors
 		}
 	},
+
+	/**
+	 * Export all products to a CSV file.
+	 * @returns {Promise<void>} A promise that resolves when the download is initiated.
+	 */
+	exportProductsCSV: async () => {
+		try {
+			const response = await axiosInstance.get(ENDPOINTS.PRODUCTS.EXPORT_CSV, {
+				responseType: "blob", // Important for file downloads
+			});
+			// Create a URL for the blob
+			const url = window.URL.createObjectURL(new Blob([response.data]));
+			const link = document.createElement("a");
+			link.href = url;
+			let filename = "products_export.csv";
+			// Try to get filename from content-disposition header
+			const contentDisposition = response.headers["content-disposition"];
+			if (contentDisposition) {
+				const filenameMatch = contentDisposition.match(/filename="?(.+)"?/i);
+				if (filenameMatch && filenameMatch.length > 1) {
+					filename = filenameMatch[1];
+				}
+			}
+			link.setAttribute("download", filename);
+			document.body.appendChild(link);
+			link.click();
+			link.remove();
+			window.URL.revokeObjectURL(url); // Clean up the object URL
+		} catch (error) {
+			console.error("Error exporting products to CSV:", error);
+			// You might want to show a user-friendly error message here
+			if (error.response && error.response.data) {
+				// If the blob data can be converted to text, it might contain an error message
+				try {
+					const errorText = await error.response.data.text();
+					const errorJson = JSON.parse(errorText); // If backend sends JSON error for blob request
+					console.error("Backend error details:", errorJson);
+					alert(
+						`Failed to export products: ${errorJson.detail || "Unknown error"}`
+					);
+					//eslint-disable-next-line
+				} catch (e) {
+					alert("Failed to export products. Check console for details.");
+				}
+			} else {
+				alert("Failed to export products. Check console for details.");
+			}
+			throw error;
+		}
+	},
 };
