@@ -14,20 +14,20 @@ class Order(models.Model):
         ("completed", "Completed"),
         ("voided", "Voided"),
         ("preparing", "Preparing"),
-        ("pending", "Pending"),  # General order status
-        ("cancelled", "Cancelled"),  # General order status
+        ("pending", "Pending"),
+        ("cancelled", "Cancelled"),
     ]
 
     PAYMENT_STATUS_CHOICES = [
         ("pending", "Pending"),
         ("paid", "Paid"),
-        ("failed", "Failed"),  # New or ensure it's used by webhook logic
+        ("failed", "Failed"),
         ("refunded", "Refunded"),
-        ("partially_refunded", "Partially Refunded"),  # New
-        ("disputed", "Disputed"),  # New
-        ("canceled", "Canceled"),  # New (for payment intent canceled)
-        ("refund_failed", "Refund Failed"),  # New
-        ("voided", "Voided"),  # New if payment is voided
+        ("partially_refunded", "Partially Refunded"),
+        ("disputed", "Disputed"),
+        ("canceled", "Canceled"),
+        ("refund_failed", "Refund Failed"),
+        ("voided", "Voided"),
     ]
 
     ORDER_SOURCE_CHOICES = [
@@ -83,11 +83,12 @@ class Order(models.Model):
         default=False,
         help_text="Flag if print jobs for this order were sent to POS via WebSocket",
     )
+    inventory_processed_for_completion = models.BooleanField(  # <-- Add this line
+        default=False,
+        help_text="Flag to ensure inventory is deducted only once upon completion/payment.",
+    )
 
-    # ... (rest of the Order model methods remain the same)
     def calculate_subtotal(self):
-        """Calculate subtotal based on items' stored unit_price.
-        For MVP, this might be overridden by frontend_subtotal."""
         if self.subtotal_from_frontend is not None:
             return self.subtotal_from_frontend
         return sum(
@@ -96,14 +97,8 @@ class Order(models.Model):
         )
 
     def calculate_discount(self, subtotal):
-        """Calculate discount amount based on applied discount.
-        For MVP, this might be overridden by frontend discount_amount."""
-        # If discount_amount is provided by frontend, it will be used directly.
-        # This calculation can serve as a fallback or verification if needed later.
         if not self.discount:
             return Decimal("0.00")
-        # ... (rest of the discount calculation logic, can be kept for non-MVP scenarios)
-        # For MVP, ensure this doesn't interfere if discount_amount is set directly.
         calculated_discount = Decimal("0.00")
         if self.discount.apply_to == "order":
             calculated_discount = self.discount.calculate_discount_amount(subtotal)
@@ -130,10 +125,7 @@ class Order(models.Model):
         return min(calculated_discount, subtotal)
 
     def calculate_surcharge(self, subtotal_after_discount):
-        """Calculate surcharge. For MVP, this might be overridden by frontend surcharge_amount."""
-        if (
-            self.surcharge_amount is not None and self.surcharge_amount > 0
-        ):  # If FE sends it
+        if self.surcharge_amount is not None and self.surcharge_amount > 0:
             return self.surcharge_amount
         if self.surcharge_percentage > 0:
             surcharge = (subtotal_after_discount * self.surcharge_percentage).quantize(
@@ -143,10 +135,9 @@ class Order(models.Model):
         return Decimal("0.00")
 
     def calculate_tax(self, amount_before_tax):
-        """Calculate tax. For MVP, this might be overridden by frontend_tax_amount."""
         if self.tax_amount_from_frontend is not None:
             return self.tax_amount_from_frontend
-        tax_rate = Decimal("0.10")  # Example: 10% tax rate
+        tax_rate = Decimal("0.10")
         tax_amount = (amount_before_tax * tax_rate).quantize(
             Decimal("0.01"), rounding=ROUND_HALF_UP
         )
@@ -155,10 +146,6 @@ class Order(models.Model):
     def calculate_total_price(
         self, save_instance=True, tip_to_add=None, frontend_values=None
     ):
-        """
-        Recalculate order subtotal, discount, surcharge, tax, and total_price.
-        If frontend_values are provided (for MVP), it will prioritize them.
-        """
         if frontend_values:
             self.subtotal_from_frontend = frontend_values.get(
                 "subtotal", self.subtotal_from_frontend
@@ -194,7 +181,6 @@ class Order(models.Model):
                 )
             return self.total_price
 
-        # Original calculation logic if frontend_values are not provided
         subtotal = self.calculate_subtotal()
 
         current_discount_amount = self.discount_amount

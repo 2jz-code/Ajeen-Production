@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import axiosInstance from "../../api/config/axiosConfig";
 import { authService } from "../../api/services/authService";
+import { productService } from "../../api/services/productService";
 import {
 	PencilSquareIcon as PencilSolidIcon,
 	TrashIcon as TrashSolidIcon,
@@ -10,30 +11,43 @@ import {
 import {
 	PlusIcon,
 	AdjustmentsHorizontalIcon,
-	// Bars3Icon, // Handled by MainLayout
 	ExclamationTriangleIcon,
 	EyeIcon,
-	// PackageIcon as PageIcon // Use specific icon below or pass from MainLayout context if needed
+	ArchiveBoxIcon,
+	ArrowUpOnSquareStackIcon,
+	ArrowDownTrayIcon,
+	ArrowUpTrayIcon,
+	EllipsisVerticalIcon, // Added for Dropdown trigger
 } from "@heroicons/react/24/outline";
-import { PackageIcon } from "lucide-react"; // Example if using lucide for main page icon
+import { PackageIcon } from "lucide-react"; // Added Settings2Icon as an alternative trigger
+
+// ShadCN/UI components (ensure paths are correct)
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "../../components/ui/dropdown-menu"; // Adjust path if necessary
+
 import CategoryManagementModal from "../../components/CategoryManagementModal";
 import LoadingSpinner from "../reports/components/LoadingSpinner";
 import MainLayout from "../layout/MainLayout";
 
-// Helper function to get category-specific colors
+// getCategoryColors function remains the same...
 const getCategoryColors = (categoryId) => {
 	const colors = [
 		["border-blue-300", "bg-blue-50", "text-blue-700"],
 		["border-emerald-300", "bg-emerald-50", "text-emerald-700"],
 		["border-amber-300", "bg-amber-50", "text-amber-700"],
 		["border-indigo-300", "bg-indigo-50", "text-indigo-700"],
-		// Add more colors if needed
 		["border-pink-300", "bg-pink-50", "text-pink-700"],
 		["border-sky-300", "bg-sky-50", "text-sky-700"],
 	];
 	const id = parseInt(categoryId, 10);
 	if (isNaN(id) || id === null) {
-		return ["border-slate-300", "bg-slate-100", "text-slate-600"]; // Default
+		return ["border-slate-300", "bg-slate-100", "text-slate-600"];
 	}
 	return colors[Math.abs(id) % colors.length];
 };
@@ -43,20 +57,45 @@ export default function Products() {
 	const [products, setProducts] = useState([]);
 	const [selectedCategory, setSelectedCategory] = useState("");
 	const [isAdmin, setIsAdmin] = useState(false);
-	// const [userName, setUserName] = useState(""); // Handled by MainLayout
 	const navigate = useNavigate();
 	const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState(null);
+	const [isExporting, setIsExporting] = useState(false);
 
-	const pageContentRef = useRef(null); // Ref for the main content area of this page
-	const tabsRef = useRef(null); // Ref for the category tabs section
-	const pageHeaderRef = useRef(null); // Ref for the page-specific header section
+	// CSV Import states
+	// selectedFile state is removed as we trigger upload immediately on file selection
+	const [isImportingCsv, setIsImportingCsv] = useState(false);
+	const fileInputRef = useRef(null);
+
+	const pageContentRef = useRef(null);
+	const tabsRef = useRef(null);
+	const pageHeaderRef = useRef(null);
 	const [gridHeight, setGridHeight] = useState("auto");
 
+	const fetchData = useCallback(async (showLoading = true) => {
+		if (showLoading) setLoading(true);
+		setError(null); // Clear previous errors on new fetch
+		try {
+			const [categoriesRes, productsRes, authRes] = await Promise.all([
+				productService.getProductCategories(),
+				productService.getProductsList(),
+				authService.checkStatus(),
+			]);
+			setCategories(categoriesRes || []);
+			setProducts(productsRes || []);
+			setIsAdmin(authRes.is_admin);
+		} catch (err) {
+			console.error("Error fetching data:", err);
+			setError("Failed to load product data. Please try again.");
+		} finally {
+			if (showLoading) setLoading(false);
+		}
+	}, []);
+
+	// handleCategoryChange, useEffects for data fetching and height calculation remain the same...
 	const handleCategoryChange = useCallback(
 		(action, data) => {
-			// Wrapped in useCallback
 			let categoryIdToDelete;
 			switch (action) {
 				case "add":
@@ -77,7 +116,10 @@ export default function Products() {
 					if (selectedCategory === categoryIdToDelete.toString())
 						setSelectedCategory("");
 					setProducts((prevProds) =>
-						prevProds.filter((p) => p.category !== categoryIdToDelete)
+						prevProds.filter((p) => {
+							const productCategoryId = p.category?.id ?? p.category;
+							return productCategoryId !== categoryIdToDelete;
+						})
 					);
 					break;
 				default:
@@ -85,49 +127,20 @@ export default function Products() {
 			}
 		},
 		[selectedCategory]
-	); // Added selectedCategory as it's used in delete case
+	);
 
 	useEffect(() => {
-		let isMounted = true;
-		setLoading(true);
-		setError(null);
-		const fetchData = async () => {
-			try {
-				const [categoriesRes, productsRes, authRes] = await Promise.all([
-					axiosInstance.get("products/categories/"),
-					axiosInstance.get("products/"),
-					authService.checkStatus(),
-				]);
-				if (isMounted) {
-					setCategories(categoriesRes.data);
-					setSelectedCategory("");
-					setProducts(productsRes.data);
-					setIsAdmin(authRes.is_admin);
-					// setUserName(authRes.username); // Handled by MainLayout
-				}
-			} catch (err) {
-				console.error("Error fetching data:", err);
-				if (isMounted)
-					setError("Failed to load product data. Please try again.");
-			} finally {
-				if (isMounted) setLoading(false);
-			}
-		};
 		fetchData();
-		return () => {
-			isMounted = false;
-		};
-	}, []);
+	}, [fetchData]);
 
 	useEffect(() => {
 		const calculateHeight = () => {
 			if (pageContentRef.current && tabsRef.current && pageHeaderRef.current) {
-				const mainLayoutHeaderHeight = 56; // Approx height of MainLayout's header (h-14)
-				const mainLayoutFooterHeight = 40; // Approx height of MainLayout's footer (h-10)
+				const mainLayoutHeaderHeight = 56;
+				const mainLayoutFooterHeight = 40;
 				const pageHeaderActualHeight = pageHeaderRef.current.offsetHeight;
 				const tabsActualHeight = tabsRef.current.offsetHeight;
-				const verticalPadding = 32; // Approx p-4 (1rem top, 1rem bottom) for the main content area of MainLayout
-
+				const verticalPadding = 32;
 				const availableHeight =
 					window.innerHeight -
 					mainLayoutHeaderHeight -
@@ -135,12 +148,11 @@ export default function Products() {
 					pageHeaderActualHeight -
 					tabsActualHeight -
 					verticalPadding -
-					16; // Extra 1rem for footer margin
-				setGridHeight(`${Math.max(200, availableHeight)}px`); // Min height 200px
+					16;
+				setGridHeight(`${Math.max(200, availableHeight)}px`);
 			}
 		};
 		if (!loading) {
-			// Calculate after initial data load
 			calculateHeight();
 			window.addEventListener("resize", calculateHeight);
 			return () => window.removeEventListener("resize", calculateHeight);
@@ -150,13 +162,12 @@ export default function Products() {
 	const handleDelete = async (productName) => {
 		if (window.confirm(`Are you sure you want to delete "${productName}"?`)) {
 			try {
-				await axiosInstance.delete(
-					`products/${encodeURIComponent(productName)}/`
-				);
+				await productService.deleteProduct(productName);
 				setProducts((prev) => prev.filter((p) => p.name !== productName));
+				alert(`Product "${productName}" deleted successfully.`);
 			} catch (err) {
 				console.error("Failed to delete product:", err);
-				setError(`Failed to delete ${productName}.`);
+				setError(`Failed to delete ${productName}. ${err.message || ""}`);
 			}
 		}
 	};
@@ -164,17 +175,121 @@ export default function Products() {
 	const filteredProducts = useMemo(() => {
 		return products.filter((product) => {
 			if (!selectedCategory) return true;
-			if (product.category != null)
-				return product.category.toString() === selectedCategory;
-			const selectedCategoryObj = categories.find(
-				(cat) => cat.id.toString() === selectedCategory
-			);
-			return product.category_name === selectedCategoryObj?.name;
+			const productCategoryId = product.category?.id ?? product.category;
+			return productCategoryId?.toString() === selectedCategory;
 		});
-	}, [products, selectedCategory, categories]);
+	}, [products, selectedCategory]);
 
-	if (loading && products.length === 0) {
-		// Show full page loader only on initial absolute load
+	const handleExportProducts = async () => {
+		if (isExporting) return;
+		setIsExporting(true);
+		setError(null);
+		try {
+			await productService.exportProductsCSV();
+			alert("Products exported successfully!");
+		} catch (err) {
+			console.error(err);
+			setError(
+				`Failed to export products. ${err.message || "Please try again."}`
+			);
+		} finally {
+			setIsExporting(false);
+		}
+	};
+
+	// --- CSV Import Handlers ---
+	const handleImportProducts = async (fileToImport) => {
+		if (!fileToImport) {
+			// This case might not be hit if called directly from handleFileChange
+			// but good for robustness if called from elsewhere.
+			alert("No file provided for import.");
+			return;
+		}
+		if (isImportingCsv) return;
+
+		setIsImportingCsv(true);
+		setError(null);
+		try {
+			const response = await productService.importProductsCSV(fileToImport); // Use the passed file
+			let successMessage =
+				response.message || "Products imported successfully!";
+			if (response.created_count > 0 || response.updated_count > 0) {
+				successMessage += `\nCreated: ${
+					response.created_count || 0
+				}, Updated: ${response.updated_count || 0}.`;
+			}
+			alert(successMessage);
+
+			if (response.errors && response.errors.length > 0) {
+				console.error("Import errors:", response.errors);
+				const errorDetails = response.errors
+					.map(
+						(err) =>
+							`Row ${err.row || "-"}: ${err.error} (Product: ${
+								err.product_name || "N/A"
+							})`
+					)
+					.join("\n");
+				setError(
+					`Import completed with ${
+						response.errors.length
+					} errors. Some products may not have been imported or updated correctly. Details:\n${errorDetails.substring(
+						0,
+						500
+					)}${errorDetails.length > 500 ? "..." : ""}`
+				);
+			} else {
+				setError(null);
+			}
+
+			fetchData(false); // Refresh product list without full page loading spinner
+			if (fileInputRef.current) {
+				fileInputRef.current.value = ""; // Reset file input
+			}
+		} catch (err) {
+			console.error("Failed to import products from CSV:", err);
+			let importError = "Failed to import products from CSV.";
+			if (err && err.error) {
+				importError = err.error;
+				if (err.missing_headers) {
+					importError += ` Missing headers: ${err.missing_headers.join(", ")}.`;
+				} else if (err.errors && Array.isArray(err.errors)) {
+					const specificErrors = err.errors
+						.slice(0, 3)
+						.map((e) => `Row ${e.row || "-"}: ${e.error}`)
+						.join("; ");
+					importError += ` Specific issues: ${specificErrors}${
+						err.errors.length > 3 ? "..." : ""
+					}`;
+				}
+			} else if (err && err.message) {
+				importError = err.message;
+			}
+			setError(importError);
+			alert(importError);
+		} finally {
+			setIsImportingCsv(false);
+		}
+	};
+
+	const handleFileChangeAndInitiateImport = (event) => {
+		const file = event.target.files[0];
+		if (file) {
+			handleImportProducts(file); // Directly call import handler with the file
+		}
+		// Reset file input for consistent behavior if the same file is chosen again
+		if (fileInputRef.current) {
+			fileInputRef.current.value = "";
+		}
+	};
+
+	const triggerFileInput = () => {
+		fileInputRef.current?.click();
+	};
+	// --- End CSV Import Handlers ---
+
+	// Loading and error states rendering (remains the same)
+	if (loading && products.length === 0 && !error) {
 		return (
 			<MainLayout pageTitle="Loading Products...">
 				<div className="flex items-center justify-center h-full">
@@ -184,13 +299,42 @@ export default function Products() {
 		);
 	}
 
+	if (error && products.length === 0 && loading) {
+		return (
+			<MainLayout pageTitle="Error Loading Products">
+				<div className="flex flex-col items-center justify-center h-full p-4 text-center">
+					<ExclamationTriangleIcon className="h-12 w-12 text-red-500 mb-4" />
+					<p className="text-red-700 text-lg mb-2">
+						Could not load product data.
+					</p>
+					<p className="text-red-600 text-sm mb-4">{error}</p>
+					<button
+						onClick={() => fetchData(true)}
+						className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+					>
+						Retry
+					</button>
+				</div>
+			</MainLayout>
+		);
+	}
+
 	return (
 		<MainLayout pageTitle="Product Management">
+			{/* Hidden File Input for CSV Import */}
+			<input
+				type="file"
+				accept=".csv"
+				ref={fileInputRef}
+				onChange={handleFileChangeAndInitiateImport}
+				className="hidden"
+				disabled={isImportingCsv}
+			/>
+
 			<div
 				ref={pageContentRef}
 				className="flex flex-col h-full"
 			>
-				{/* Page-specific header */}
 				<header
 					ref={pageHeaderRef}
 					className="flex flex-wrap justify-between items-center mb-4 pb-4 border-b border-slate-200 gap-3 flex-shrink-0"
@@ -198,20 +342,60 @@ export default function Products() {
 					<h2 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center gap-2">
 						<PackageIcon className="h-6 w-6 text-slate-600" /> Product Catalog
 					</h2>
-					<div className="flex items-center gap-2 sm:gap-3">
-						{isAdmin && (
-							<button
-								onClick={() => navigate("/products/add")}
-								className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors flex items-center gap-1.5 shadow-sm"
+
+					{/* Consolidated Admin Actions Dropdown */}
+					{isAdmin && (
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<button
+									className="px-3 py-2 bg-slate-700 text-white rounded-lg text-sm hover:bg-slate-800 transition-colors flex items-center gap-2 shadow-sm"
+									aria-label="Product Actions"
+								>
+									Actions
+									<EllipsisVerticalIcon className="h-4 w-4" />
+									{/* Or use Settings2Icon from lucide-react if preferred: <Settings2Icon className="h-4 w-4" /> */}
+								</button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent
+								align="end"
+								className="w-56"
 							>
-								<PlusIcon className="h-4 w-4" /> Add Product
-							</button>
-						)}
-						{/* Dashboard button handled by MainLayout */}
-					</div>
+								<DropdownMenuLabel>Manage Products</DropdownMenuLabel>
+								<DropdownMenuSeparator />
+								<DropdownMenuItem onClick={() => navigate("/products/add")}>
+									<PlusIcon className="mr-2 h-4 w-4" />
+									<span>Add New Product</span>
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									onClick={() => navigate("/products/bulk-restock")}
+								>
+									<ArrowUpOnSquareStackIcon className="mr-2 h-4 w-4" />
+									<span>Bulk Restock Items</span>
+								</DropdownMenuItem>
+								<DropdownMenuSeparator />
+								<DropdownMenuLabel>Import / Export</DropdownMenuLabel>
+								<DropdownMenuItem
+									onClick={triggerFileInput}
+									disabled={isImportingCsv}
+								>
+									<ArrowUpTrayIcon className="mr-2 h-4 w-4" />
+									<span>
+										{isImportingCsv ? "Importing..." : "Import from CSV"}
+									</span>
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									onClick={handleExportProducts}
+									disabled={isExporting}
+								>
+									<ArrowDownTrayIcon className="mr-2 h-4 w-4" />
+									<span>{isExporting ? "Exporting..." : "Export to CSV"}</span>
+								</DropdownMenuItem>
+							</DropdownMenuContent>
+						</DropdownMenu>
+					)}
 				</header>
 
-				{/* Category Tabs Section */}
+				{/* Category Tabs (remains the same) */}
 				<div
 					ref={tabsRef}
 					className="flex items-center flex-wrap gap-2 mb-4 bg-white p-2 rounded-lg shadow-sm border border-slate-200 overflow-x-auto custom-scrollbar flex-shrink-0"
@@ -250,30 +434,36 @@ export default function Products() {
 					)}
 				</div>
 
+				{/* Error display (remains the same) */}
 				{error && !loading && (
 					<div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md flex items-center gap-2 text-sm shadow-sm flex-shrink-0">
 						<ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0" />
-						<span>{error}</span>
+						<span className="flex-1 break-words">{error}</span>
 						<button
-							onClick={() => window.location.reload()}
-							className="ml-auto text-xs font-medium text-red-800 hover:underline"
+							onClick={() => {
+								setError(null);
+								if (products.length === 0 && !loading) fetchData(true);
+							}}
+							className="ml-auto text-xs font-medium text-red-800 hover:underline flex-shrink-0"
 						>
-							Retry
+							Clear
 						</button>
 					</div>
 				)}
 
-				{/* Product Grid Area */}
+				{/* Product Grid (remains the same) */}
 				<div
 					className="flex-1 overflow-y-auto custom-scrollbar pb-4"
 					style={{ height: gridHeight }}
 				>
-					{loading &&
-						products.length > 0 && ( // Show inline loader when refreshing/filtering
-							<div className="text-center py-4">
-								<LoadingSpinner size="md" />
-							</div>
-						)}
+					{loading && products.length > 0 && (
+						<div className="text-center py-4">
+							<LoadingSpinner size="md" />{" "}
+							<span className="ml-2 text-slate-600">
+								Refreshing products...
+							</span>
+						</div>
+					)}
 					{!loading && filteredProducts.length === 0 && (
 						<div className="col-span-full text-center py-10 text-slate-500">
 							No products found{" "}
@@ -283,21 +473,24 @@ export default function Products() {
 											?.name || "this category"
 								  }"`
 								: ""}
-							.
+							.{" "}
+							{products.length === 0 &&
+								"Consider adding new products or importing a CSV."}
 						</div>
 					)}
 					<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 sm:gap-5 grid-auto-rows-min">
 						{filteredProducts.map((product) => {
 							const [borderColor, badgeBgColor, badgeTextColor] =
-								getCategoryColors(product.category);
+								getCategoryColors(product.category?.id ?? product.category);
 							const categoryName =
-								categories.find((c) => c.id === product.category)?.name ||
+								product.category?.name ||
 								product.category_name ||
 								"Uncategorized";
+
 							return (
 								<div
 									key={product.id || product.name}
-									className={`bg-white max-h-[320px] w-full rounded-lg shadow hover:shadow-lg transition-all overflow-hidden border-t-4 ${borderColor} border border-slate-200 flex flex-col group relative`}
+									className={`bg-white max-h-[350px] w-full rounded-lg shadow hover:shadow-lg transition-all overflow-hidden border-t-4 ${borderColor} border border-slate-200 flex flex-col group relative`}
 								>
 									<button
 										onClick={() =>
@@ -334,11 +527,27 @@ export default function Products() {
 											>
 												{product.name}
 											</h3>
-											<span
-												className={`inline-block ${badgeBgColor} ${badgeTextColor} text-xs font-medium px-1.5 py-0.5 rounded mb-1`}
-											>
-												{categoryName}
-											</span>
+											<div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
+												<span
+													className={`inline-block ${badgeBgColor} ${badgeTextColor} text-xs font-medium px-1.5 py-0.5 rounded`}
+												>
+													{categoryName}
+												</span>
+												{product.is_grocery_item && (
+													<span
+														className={`inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded ${
+															product.inventory_quantity > 5
+																? "bg-green-100 text-green-700"
+																: product.inventory_quantity > 0
+																? "bg-orange-100 text-orange-700"
+																: "bg-red-100 text-red-700"
+														}`}
+													>
+														<ArchiveBoxIcon className="h-3 w-3" />
+														{product.inventory_quantity}
+													</span>
+												)}
+											</div>
 											<p className="text-slate-800 font-semibold text-sm">
 												${Number(product.price).toFixed(2)}
 											</p>
@@ -375,7 +584,8 @@ export default function Products() {
 						})}
 					</div>
 				</div>
-				{/* Footer/Status Bar (now handled by MainLayout) */}
+
+				{/* CategoryManagementModal (remains the same) */}
 				<CategoryManagementModal
 					isOpen={isCategoryModalOpen}
 					onClose={() => setIsCategoryModalOpen(false)}

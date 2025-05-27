@@ -7,11 +7,12 @@ import {
 	ArrowLeftIcon,
 	ExclamationTriangleIcon,
 	PhotoIcon,
-	PencilSquareIcon, // Changed from PencilIcon for consistency with EditProduct button
-	TagIcon, // For category
-	CurrencyDollarIcon, // For price
-	Bars3BottomLeftIcon, // For description
+	PencilSquareIcon,
+	TagIcon,
+	CurrencyDollarIcon,
+	Bars3BottomLeftIcon,
 	QrCodeIcon,
+	ArchiveBoxIcon, // For inventory
 } from "@heroicons/react/24/outline";
 import { PackageIcon } from "lucide-react";
 import LoadingSpinner from "../reports/components/LoadingSpinner";
@@ -81,8 +82,6 @@ export default function ProductDetail() {
 	return (
 		<MainLayout pageTitle={pageTitle}>
 			<div className="max-w-3xl mx-auto">
-				{" "}
-				{/* Centered content */}
 				<div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
 					<h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
 						<PackageIcon className="h-6 w-6 text-slate-600" />
@@ -147,6 +146,25 @@ export default function ProductDetail() {
 								${Number(product.price).toFixed(2)}
 							</p>
 						</div>
+
+						{product.is_grocery_item && (
+							<div>
+								<label className="text-xs font-medium text-slate-500 flex items-center gap-1">
+									<ArchiveBoxIcon className="h-3.5 w-3.5" />
+									Inventory
+								</label>
+								<p
+									className={`text-lg font-semibold mt-0.5 ${
+										product.inventory_quantity > 0
+											? "text-green-600"
+											: "text-red-600"
+									}`}
+								>
+									{product.inventory_quantity} in stock
+								</p>
+							</div>
+						)}
+
 						<div>
 							<label className="text-xs font-medium text-slate-500 flex items-center gap-1">
 								<Bars3BottomLeftIcon className="h-3.5 w-3.5" />
@@ -177,4 +195,3 @@ export default function ProductDetail() {
 		</MainLayout>
 	);
 }
-// No direct props, PropTypes for the component itself is optional.

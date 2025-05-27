@@ -6,21 +6,24 @@ import { ENDPOINTS } from "../../api/config/apiEndpoints";
 import {
 	ArrowLeftIcon,
 	CheckIcon,
-	XMarkIcon, // For cancel button in form
+	XMarkIcon,
 	ExclamationTriangleIcon,
 	PhotoIcon,
 	QrCodeIcon,
 	ArrowPathIcon,
+	ArchiveBoxIcon, // For inventory
 } from "@heroicons/react/24/outline";
 import { PackageIcon } from "lucide-react";
 import LoadingSpinner from "../reports/components/LoadingSpinner";
 import { toast } from "react-toastify";
 import MainLayout from "../layout/MainLayout";
+import { Switch } from "@/components/ui/switch"; // Assuming you have a Switch component
+import { Label } from "@/components/ui/label"; // Assuming you have a Label component
 
 export default function EditProduct() {
 	const { name: productNameParam } = useParams();
 	const navigate = useNavigate();
-	const [product, setProduct] = useState(null); // Initialize as null
+	const [product, setProduct] = useState(null);
 	const [categories, setCategories] = useState([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState(null);
@@ -28,7 +31,6 @@ export default function EditProduct() {
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	const fetchProductData = useCallback(async () => {
-		// Renamed and wrapped in useCallback
 		setLoading(true);
 		setError(null);
 		setFieldErrors({});
@@ -38,8 +40,12 @@ export default function EditProduct() {
 			);
 			const fetchedProduct = response.data;
 			fetchedProduct.category =
-				fetchedProduct.category?.id ?? fetchedProduct.category ?? ""; // Handle category object or ID
+				fetchedProduct.category?.id ?? fetchedProduct.category ?? "";
 			fetchedProduct.barcode = fetchedProduct.barcode || "";
+			// Initialize new fields if they come from backend
+			fetchedProduct.is_grocery_item = fetchedProduct.is_grocery_item || false;
+			fetchedProduct.inventory_quantity =
+				fetchedProduct.inventory_quantity || 0;
 			setProduct(fetchedProduct);
 		} catch (err) {
 			console.error("Error fetching product:", err);
@@ -47,7 +53,7 @@ export default function EditProduct() {
 				"Failed to fetch product details. It might have been deleted or the name changed."
 			);
 			toast.error("Failed to load product details.");
-			setProduct(null); // Ensure product is null on error
+			setProduct(null);
 		} finally {
 			setLoading(false);
 		}
@@ -62,15 +68,29 @@ export default function EditProduct() {
 				console.error("Error fetching categories:", err);
 				toast.error("Could not load categories.");
 			});
-	}, [fetchProductData]); // Depend on the memoized fetch function
+	}, [fetchProductData]);
 
 	const handleChange = (e) => {
-		if (!product) return; // Guard against product not being loaded
-		const { name, value } = e.target;
-		setProduct({ ...product, [name]: value });
+		if (!product) return;
+		const { name, value, type, checked } = e.target;
+
+		setProduct((prevProduct) => ({
+			...prevProduct,
+			[name]: type === "checkbox" ? checked : value,
+		}));
+
 		if (fieldErrors[name])
 			setFieldErrors((prev) => ({ ...prev, [name]: null }));
 		if (error) setError(null);
+	};
+
+	// Specific handler for the Switch component if it doesn't use standard event target
+	const handleGroceryItemChange = (checked) => {
+		if (!product) return;
+		setProduct((prevProduct) => ({
+			...prevProduct,
+			is_grocery_item: checked,
+		}));
 	};
 
 	const validateForm = () => {
@@ -83,6 +103,15 @@ export default function EditProduct() {
 		if (!product.description.trim())
 			errors.description = "Description is required.";
 		if (!product.category) errors.category = "Category is required.";
+
+		if (
+			product.is_grocery_item &&
+			(isNaN(parseInt(product.inventory_quantity)) ||
+				parseInt(product.inventory_quantity) < 0)
+		) {
+			errors.inventory_quantity =
+				"Inventory must be a non-negative number for grocery items.";
+		}
 		setFieldErrors(errors);
 		return Object.keys(errors).length === 0;
 	};
@@ -98,12 +127,15 @@ export default function EditProduct() {
 		}
 		setIsSubmitting(true);
 		const updatedProductData = { ...product };
-		delete updatedProductData.image;
+		delete updatedProductData.image; // Image upload not handled here
 		updatedProductData.category = parseInt(updatedProductData.category, 10);
 		updatedProductData.barcode =
-			updatedProductData.barcode.trim() === ""
+			updatedProductData.barcode && updatedProductData.barcode.trim() === ""
 				? null
-				: updatedProductData.barcode.trim();
+				: updatedProductData.barcode?.trim();
+		updatedProductData.inventory_quantity = product.is_grocery_item
+			? parseInt(product.inventory_quantity)
+			: 0;
 
 		try {
 			await axiosInstance.put(
@@ -161,7 +193,6 @@ export default function EditProduct() {
 		);
 	}
 	if (error && !product) {
-		// If fetch failed and product is still null
 		return (
 			<MainLayout pageTitle="Error">
 				<div className="flex flex-col items-center justify-center h-full p-6 text-center">
@@ -181,7 +212,6 @@ export default function EditProduct() {
 		);
 	}
 	if (!product) {
-		// Fallback if product is still null after loading (should be caught by error state ideally)
 		return (
 			<MainLayout pageTitle="Product Not Found">
 				<div className="p-8 text-center">Product data could not be loaded.</div>
@@ -192,8 +222,6 @@ export default function EditProduct() {
 	return (
 		<MainLayout pageTitle={`Edit: ${product.name || "Product"}`}>
 			<div className="max-w-4xl mx-auto">
-				{" "}
-				{/* Centered content with more width */}
 				<div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
 					<h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
 						<PackageIcon className="h-6 w-6 text-slate-600" />
@@ -239,20 +267,20 @@ export default function EditProduct() {
 					</div>
 
 					<div className="w-full md:w-2/3 p-6 sm:p-8">
-						{error && !fieldErrors.detail && (
-							<div
-								role="alert"
-								className="mb-5 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 shadow-sm"
-							>
-								<ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0" />
-								<span>{error}</span>
-							</div>
-						)}
+						{error &&
+							!fieldErrors.detail && ( // Show general error if not a field-specific one from backend
+								<div
+									role="alert"
+									className="mb-5 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 shadow-sm"
+								>
+									<ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0" />
+									<span>{error}</span>
+								</div>
+							)}
 						<form
 							onSubmit={handleSubmit}
 							className="flex flex-col space-y-4"
 						>
-							{/* Form fields from AddProduct, adapted for EditProduct */}
 							<div>
 								<label
 									htmlFor="product-name-edit"
@@ -398,6 +426,58 @@ export default function EditProduct() {
 									</p>
 								)}
 							</div>
+
+							{/* Grocery Item and Inventory Fields */}
+							<div className="space-y-3 border-t border-slate-200 pt-4">
+								<div className="flex items-center space-x-2">
+									<Switch
+										id="is-grocery-item-edit"
+										checked={product.is_grocery_item}
+										onCheckedChange={handleGroceryItemChange} // Use specific handler
+										name="is_grocery_item" // Keep name for consistency if needed, though Switch might not use it
+									/>
+									<Label
+										htmlFor="is-grocery-item-edit"
+										className="text-sm font-medium text-slate-700"
+									>
+										This is a grocery item (track inventory)
+									</Label>
+								</div>
+
+								{product.is_grocery_item && (
+									<div>
+										<label
+											htmlFor="inventory-quantity-edit"
+											className="flex items-center text-xs font-medium text-slate-600 mb-1"
+										>
+											<ArchiveBoxIcon className="h-3.5 w-3.5 mr-1 text-slate-500" />
+											Current Inventory Quantity{" "}
+											<span className="text-red-500">*</span>
+										</label>
+										<input
+											type="number"
+											id="inventory-quantity-edit"
+											name="inventory_quantity"
+											value={product.inventory_quantity}
+											onChange={handleChange}
+											min="0"
+											className={
+												fieldErrors.inventory_quantity
+													? inputErrorClass
+													: inputNormalClass
+											}
+											placeholder="e.g., 100"
+											required={product.is_grocery_item}
+										/>
+										{fieldErrors.inventory_quantity && (
+											<p className="mt-1 text-xs text-red-500">
+												{fieldErrors.inventory_quantity}
+											</p>
+										)}
+									</div>
+								)}
+							</div>
+
 							<div className="flex justify-end space-x-3 pt-2">
 								<button
 									type="button"
@@ -427,5 +507,3 @@ export default function EditProduct() {
 		</MainLayout>
 	);
 }
-
-// EditProduct doesn't take direct props from router, so PropTypes isn't essential for the component itself
