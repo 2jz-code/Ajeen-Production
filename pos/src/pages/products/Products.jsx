@@ -10,30 +10,29 @@ import {
 import {
 	PlusIcon,
 	AdjustmentsHorizontalIcon,
-	// Bars3Icon, // Handled by MainLayout
 	ExclamationTriangleIcon,
 	EyeIcon,
-	// PackageIcon as PageIcon // Use specific icon below or pass from MainLayout context if needed
+	ArchiveBoxIcon,
+	ArrowUpOnSquareStackIcon, // New icon for restock button
 } from "@heroicons/react/24/outline";
-import { PackageIcon } from "lucide-react"; // Example if using lucide for main page icon
+import { PackageIcon } from "lucide-react";
 import CategoryManagementModal from "../../components/CategoryManagementModal";
 import LoadingSpinner from "../reports/components/LoadingSpinner";
 import MainLayout from "../layout/MainLayout";
 
-// Helper function to get category-specific colors
+// ... (getCategoryColors function remains the same) ...
 const getCategoryColors = (categoryId) => {
 	const colors = [
 		["border-blue-300", "bg-blue-50", "text-blue-700"],
 		["border-emerald-300", "bg-emerald-50", "text-emerald-700"],
 		["border-amber-300", "bg-amber-50", "text-amber-700"],
 		["border-indigo-300", "bg-indigo-50", "text-indigo-700"],
-		// Add more colors if needed
 		["border-pink-300", "bg-pink-50", "text-pink-700"],
 		["border-sky-300", "bg-sky-50", "text-sky-700"],
 	];
 	const id = parseInt(categoryId, 10);
 	if (isNaN(id) || id === null) {
-		return ["border-slate-300", "bg-slate-100", "text-slate-600"]; // Default
+		return ["border-slate-300", "bg-slate-100", "text-slate-600"];
 	}
 	return colors[Math.abs(id) % colors.length];
 };
@@ -43,20 +42,19 @@ export default function Products() {
 	const [products, setProducts] = useState([]);
 	const [selectedCategory, setSelectedCategory] = useState("");
 	const [isAdmin, setIsAdmin] = useState(false);
-	// const [userName, setUserName] = useState(""); // Handled by MainLayout
 	const navigate = useNavigate();
 	const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState(null);
 
-	const pageContentRef = useRef(null); // Ref for the main content area of this page
-	const tabsRef = useRef(null); // Ref for the category tabs section
-	const pageHeaderRef = useRef(null); // Ref for the page-specific header section
+	// ... (refs and useEffect for height calculation remain the same) ...
+	const pageContentRef = useRef(null);
+	const tabsRef = useRef(null);
+	const pageHeaderRef = useRef(null);
 	const [gridHeight, setGridHeight] = useState("auto");
 
 	const handleCategoryChange = useCallback(
 		(action, data) => {
-			// Wrapped in useCallback
 			let categoryIdToDelete;
 			switch (action) {
 				case "add":
@@ -77,7 +75,10 @@ export default function Products() {
 					if (selectedCategory === categoryIdToDelete.toString())
 						setSelectedCategory("");
 					setProducts((prevProds) =>
-						prevProds.filter((p) => p.category !== categoryIdToDelete)
+						prevProds.filter((p) => {
+							const productCategoryId = p.category?.id ?? p.category;
+							return productCategoryId !== categoryIdToDelete;
+						})
 					);
 					break;
 				default:
@@ -85,7 +86,7 @@ export default function Products() {
 			}
 		},
 		[selectedCategory]
-	); // Added selectedCategory as it's used in delete case
+	);
 
 	useEffect(() => {
 		let isMounted = true;
@@ -103,7 +104,6 @@ export default function Products() {
 					setSelectedCategory("");
 					setProducts(productsRes.data);
 					setIsAdmin(authRes.is_admin);
-					// setUserName(authRes.username); // Handled by MainLayout
 				}
 			} catch (err) {
 				console.error("Error fetching data:", err);
@@ -122,11 +122,11 @@ export default function Products() {
 	useEffect(() => {
 		const calculateHeight = () => {
 			if (pageContentRef.current && tabsRef.current && pageHeaderRef.current) {
-				const mainLayoutHeaderHeight = 56; // Approx height of MainLayout's header (h-14)
-				const mainLayoutFooterHeight = 40; // Approx height of MainLayout's footer (h-10)
+				const mainLayoutHeaderHeight = 56;
+				const mainLayoutFooterHeight = 40;
 				const pageHeaderActualHeight = pageHeaderRef.current.offsetHeight;
 				const tabsActualHeight = tabsRef.current.offsetHeight;
-				const verticalPadding = 32; // Approx p-4 (1rem top, 1rem bottom) for the main content area of MainLayout
+				const verticalPadding = 32;
 
 				const availableHeight =
 					window.innerHeight -
@@ -135,12 +135,11 @@ export default function Products() {
 					pageHeaderActualHeight -
 					tabsActualHeight -
 					verticalPadding -
-					16; // Extra 1rem for footer margin
-				setGridHeight(`${Math.max(200, availableHeight)}px`); // Min height 200px
+					16;
+				setGridHeight(`${Math.max(200, availableHeight)}px`);
 			}
 		};
 		if (!loading) {
-			// Calculate after initial data load
 			calculateHeight();
 			window.addEventListener("resize", calculateHeight);
 			return () => window.removeEventListener("resize", calculateHeight);
@@ -148,6 +147,7 @@ export default function Products() {
 	}, [loading]);
 
 	const handleDelete = async (productName) => {
+		// ... (handleDelete logic remains the same) ...
 		if (window.confirm(`Are you sure you want to delete "${productName}"?`)) {
 			try {
 				await axiosInstance.delete(
@@ -162,19 +162,16 @@ export default function Products() {
 	};
 
 	const filteredProducts = useMemo(() => {
+		// ... (filteredProducts logic remains the same) ...
 		return products.filter((product) => {
 			if (!selectedCategory) return true;
-			if (product.category != null)
-				return product.category.toString() === selectedCategory;
-			const selectedCategoryObj = categories.find(
-				(cat) => cat.id.toString() === selectedCategory
-			);
-			return product.category_name === selectedCategoryObj?.name;
+			const productCategoryId = product.category?.id ?? product.category;
+			return productCategoryId?.toString() === selectedCategory;
 		});
-	}, [products, selectedCategory, categories]);
+	}, [products, selectedCategory]);
 
 	if (loading && products.length === 0) {
-		// Show full page loader only on initial absolute load
+		// ... (loading state remains the same) ...
 		return (
 			<MainLayout pageTitle="Loading Products...">
 				<div className="flex items-center justify-center h-full">
@@ -190,7 +187,6 @@ export default function Products() {
 				ref={pageContentRef}
 				className="flex flex-col h-full"
 			>
-				{/* Page-specific header */}
 				<header
 					ref={pageHeaderRef}
 					className="flex flex-wrap justify-between items-center mb-4 pb-4 border-b border-slate-200 gap-3 flex-shrink-0"
@@ -201,17 +197,25 @@ export default function Products() {
 					<div className="flex items-center gap-2 sm:gap-3">
 						{isAdmin && (
 							<button
+								onClick={() => navigate("/products/bulk-restock")} // Navigate to new page
+								className="px-3 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors flex items-center gap-1.5 shadow-sm"
+							>
+								<ArrowUpOnSquareStackIcon className="h-4 w-4" /> Restock Items
+							</button>
+						)}
+						{isAdmin && (
+							<button
 								onClick={() => navigate("/products/add")}
 								className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors flex items-center gap-1.5 shadow-sm"
 							>
 								<PlusIcon className="h-4 w-4" /> Add Product
 							</button>
 						)}
-						{/* Dashboard button handled by MainLayout */}
 					</div>
 				</header>
 
-				{/* Category Tabs Section */}
+				{/* Category Tabs and Product Grid remain largely the same */}
+				{/* ... (rest of the component: tabs, error handling, product grid) ... */}
 				<div
 					ref={tabsRef}
 					className="flex items-center flex-wrap gap-2 mb-4 bg-white p-2 rounded-lg shadow-sm border border-slate-200 overflow-x-auto custom-scrollbar flex-shrink-0"
@@ -262,18 +266,15 @@ export default function Products() {
 						</button>
 					</div>
 				)}
-
-				{/* Product Grid Area */}
 				<div
 					className="flex-1 overflow-y-auto custom-scrollbar pb-4"
 					style={{ height: gridHeight }}
 				>
-					{loading &&
-						products.length > 0 && ( // Show inline loader when refreshing/filtering
-							<div className="text-center py-4">
-								<LoadingSpinner size="md" />
-							</div>
-						)}
+					{loading && products.length > 0 && (
+						<div className="text-center py-4">
+							<LoadingSpinner size="md" />
+						</div>
+					)}
 					{!loading && filteredProducts.length === 0 && (
 						<div className="col-span-full text-center py-10 text-slate-500">
 							No products found{" "}
@@ -289,15 +290,13 @@ export default function Products() {
 					<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 sm:gap-5 grid-auto-rows-min">
 						{filteredProducts.map((product) => {
 							const [borderColor, badgeBgColor, badgeTextColor] =
-								getCategoryColors(product.category);
-							const categoryName =
-								categories.find((c) => c.id === product.category)?.name ||
-								product.category_name ||
-								"Uncategorized";
+								getCategoryColors(product.category?.id ?? product.category);
+							const categoryName = product.category_name || "Uncategorized";
+
 							return (
 								<div
 									key={product.id || product.name}
-									className={`bg-white max-h-[320px] w-full rounded-lg shadow hover:shadow-lg transition-all overflow-hidden border-t-4 ${borderColor} border border-slate-200 flex flex-col group relative`}
+									className={`bg-white max-h-[350px] w-full rounded-lg shadow hover:shadow-lg transition-all overflow-hidden border-t-4 ${borderColor} border border-slate-200 flex flex-col group relative`}
 								>
 									<button
 										onClick={() =>
@@ -334,11 +333,27 @@ export default function Products() {
 											>
 												{product.name}
 											</h3>
-											<span
-												className={`inline-block ${badgeBgColor} ${badgeTextColor} text-xs font-medium px-1.5 py-0.5 rounded mb-1`}
-											>
-												{categoryName}
-											</span>
+											<div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
+												<span
+													className={`inline-block ${badgeBgColor} ${badgeTextColor} text-xs font-medium px-1.5 py-0.5 rounded`}
+												>
+													{categoryName}
+												</span>
+												{product.is_grocery_item && (
+													<span
+														className={`inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded ${
+															product.inventory_quantity > 5
+																? "bg-green-100 text-green-700"
+																: product.inventory_quantity > 0
+																? "bg-orange-100 text-orange-700"
+																: "bg-red-100 text-red-700"
+														}`}
+													>
+														<ArchiveBoxIcon className="h-3 w-3" />
+														{product.inventory_quantity}
+													</span>
+												)}
+											</div>
 											<p className="text-slate-800 font-semibold text-sm">
 												${Number(product.price).toFixed(2)}
 											</p>
@@ -375,13 +390,13 @@ export default function Products() {
 						})}
 					</div>
 				</div>
-				{/* Footer/Status Bar (now handled by MainLayout) */}
+
 				<CategoryManagementModal
 					isOpen={isCategoryModalOpen}
 					onClose={() => setIsCategoryModalOpen(false)}
 					onCategoryChange={handleCategoryChange}
 					categories={categories}
-					axiosInstance={axiosInstance}
+					axiosInstance={axiosInstance} // Pass axiosInstance if modal makes its own API calls
 				/>
 			</div>
 		</MainLayout>

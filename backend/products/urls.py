@@ -6,7 +6,8 @@ from .views import (
     CategoryList,
     CategoryDetail,
     ProductByBarcodeView,
-)  # <-- Import new view
+    ProductRestockView,
+)
 
 urlpatterns = [
     path("products/categories/", CategoryList.as_view(), name="category-list"),
@@ -15,13 +16,20 @@ urlpatterns = [
         CategoryDetail.as_view(),
         name="category-detail",
     ),
-    path("products/", ProductList.as_view(), name="product-list"),
+    path(
+        "products/", ProductList.as_view(), name="product-list-create"
+    ),  # Consistent naming with previous suggestion
     path(
         "products/by-barcode/",
         ProductByBarcodeView.as_view(),
         name="product-by-barcode",
-    ),  # <-- Add this URL
+    ),
+    # Specific routes first
     path(
-        "products/<str:name>/", ProductDetail.as_view(), name="product-detail"
-    ),  # Ensure this is specific enough or comes after by-barcode
+        "products/restock/",
+        ProductRestockView.as_view(),
+        name="product-bulk-restock",  # Correct name for the route
+    ),
+    # General route (with <str:name>) last for this group
+    path("products/<str:name>/", ProductDetail.as_view(), name="product-detail"),
 ]

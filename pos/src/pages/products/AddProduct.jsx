@@ -9,10 +9,13 @@ import {
 	ExclamationTriangleIcon,
 	ArrowPathIcon,
 	QrCodeIcon,
+	ArchiveBoxIcon, // For inventory
 } from "@heroicons/react/24/outline";
-import { PackageIcon } from "lucide-react"; // Example if using lucide for main page icon
+import { PackageIcon } from "lucide-react";
 import { toast } from "react-toastify";
 import MainLayout from "../layout/MainLayout";
+import { Switch } from "@/components/ui/switch"; // Assuming you have a Switch component
+import { Label } from "@/components/ui/label"; // Assuming you have a Label component
 
 export default function AddProduct() {
 	const [name, setName] = useState("");
@@ -20,8 +23,10 @@ export default function AddProduct() {
 	const [description, setDescription] = useState("");
 	const [category, setCategory] = useState("");
 	const [barcode, setBarcode] = useState("");
+	const [isGroceryItem, setIsGroceryItem] = useState(false);
+	const [inventoryQuantity, setInventoryQuantity] = useState(0);
 	const [categories, setCategories] = useState([]);
-	const [error, setError] = useState(null); // General API error
+	const [error, setError] = useState(null);
 	const [fieldErrors, setFieldErrors] = useState({});
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const navigate = useNavigate();
@@ -44,6 +49,13 @@ export default function AddProduct() {
 			errors.price = "Price must be a positive number.";
 		if (!description.trim()) errors.description = "Description is required.";
 		if (!category) errors.category = "Category is required.";
+		if (
+			isGroceryItem &&
+			(isNaN(parseInt(inventoryQuantity)) || parseInt(inventoryQuantity) < 0)
+		) {
+			errors.inventoryQuantity =
+				"Inventory must be a non-negative number for grocery items.";
+		}
 		setFieldErrors(errors);
 		return Object.keys(errors).length === 0;
 	};
@@ -64,6 +76,8 @@ export default function AddProduct() {
 				description,
 				category,
 				barcode: barcode.trim() === "" ? null : barcode.trim(),
+				is_grocery_item: isGroceryItem,
+				inventory_quantity: isGroceryItem ? parseInt(inventoryQuantity) : 0,
 			};
 			await axiosInstance.post(ENDPOINTS.PRODUCTS.ADD, payload);
 			toast.success("Product added successfully!");
@@ -109,8 +123,6 @@ export default function AddProduct() {
 	return (
 		<MainLayout pageTitle="Add New Product">
 			<div className="max-w-2xl mx-auto">
-				{" "}
-				{/* Centered content */}
 				<div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
 					<h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
 						<PackageIcon className="h-6 w-6 text-slate-600" />
@@ -139,7 +151,6 @@ export default function AddProduct() {
 						className="space-y-5"
 						noValidate
 					>
-						{/* Form fields remain the same as your original, just styled */}
 						<div>
 							<label
 								htmlFor="product-name"
@@ -277,6 +288,56 @@ export default function AddProduct() {
 								</p>
 							)}
 						</div>
+
+						{/* Grocery Item and Inventory Fields */}
+						<div className="space-y-2 border-t border-slate-200 pt-4">
+							<div className="flex items-center space-x-2">
+								<Switch
+									id="is-grocery-item"
+									checked={isGroceryItem}
+									onCheckedChange={setIsGroceryItem}
+								/>
+								<Label
+									htmlFor="is-grocery-item"
+									className="text-sm font-medium text-slate-700"
+								>
+									This is a grocery item (track inventory)
+								</Label>
+							</div>
+
+							{isGroceryItem && (
+								<div>
+									<label
+										htmlFor="inventory-quantity"
+										className="flex items-center text-xs font-medium text-slate-600 mb-1"
+									>
+										<ArchiveBoxIcon className="h-3.5 w-3.5 mr-1 text-slate-500" />
+										Initial Inventory Quantity{" "}
+										<span className="text-red-500">*</span>
+									</label>
+									<input
+										type="number"
+										id="inventory-quantity"
+										value={inventoryQuantity}
+										onChange={(e) => setInventoryQuantity(e.target.value)}
+										min="0"
+										className={
+											fieldErrors.inventoryQuantity
+												? inputErrorClass
+												: inputNormalClass
+										}
+										placeholder="e.g., 100"
+										required={isGroceryItem}
+									/>
+									{fieldErrors.inventoryQuantity && (
+										<p className="mt-1 text-xs text-red-500">
+											{fieldErrors.inventoryQuantity}
+										</p>
+									)}
+								</div>
+							)}
+						</div>
+
 						<div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-slate-200">
 							<button
 								type="button"
@@ -305,4 +366,3 @@ export default function AddProduct() {
 		</MainLayout>
 	);
 }
-// No direct props for AddProduct

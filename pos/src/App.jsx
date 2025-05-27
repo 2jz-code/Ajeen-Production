@@ -43,7 +43,7 @@ import TerminalProvider from "./features/payment/contexts/TerminalProvider";
 import DiscountList from "./pages/discounts/DiscountList";
 import DiscountForm from "./pages/discounts/DiscountForm";
 import { useDocumentTitle } from "./hooks/useDocumentTitle";
-
+import RestockPage from "./pages/products/RestockPage";
 // Lazy load COGS pages
 const CogsDashboardPage = lazy(() => import("./pages/cogs/CogsDashboardPage"));
 const UnitsOfMeasurePage = lazy(() =>
@@ -185,6 +185,11 @@ function AppContent() {
 							path="/products/edit/:name"
 							element={<EditProduct />}
 						/>
+						<Route
+							path="products/bulk-restock"
+							element={<RestockPage />}
+						/>{" "}
+						{/* <-- Add route */}
 						<Route
 							path="/orders"
 							element={<Orders />}

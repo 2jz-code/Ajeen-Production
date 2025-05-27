@@ -5,11 +5,13 @@ from django.dispatch import receiver
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from django.db import transaction
-from django.conf import settings  # Import settings
-from .models import Order  # Your Order model, ensure it has 'pos_print_jobs_sent' field
-from .serializers import OrderSerializer  # Main serializer for POS print jobs
-from .kitchen.serializers import KitchenOrderSerializer  # For Kitchen Display Screen
+from django.conf import settings
+from .models import Order, OrderItem  # Ensure OrderItem is imported
+from products.models import Product  # Import Product model
+from django.db.models import F  # Import F object
 
+from .serializers import OrderSerializer
+from .kitchen.serializers import KitchenOrderSerializer
 
 # Import the updated controller
 from hardware.controllers.receipt_printer import ReceiptPrinterController
@@ -17,18 +19,94 @@ from hardware.controllers.receipt_printer import ReceiptPrinterController
 logger = logging.getLogger(__name__)
 
 
-@receiver(post_save, sender=Order)
-def order_status_update(sender, instance, created, update_fields=None, **kwargs):
+def deduct_inventory_for_order(order_id: int):
     """
-    Universal handler for order status changes.
-    Triggers WebSocket updates and station/QC printing based on status transitions,
-    using a flag to prevent duplicate printing.
+    Deducts inventory for grocery items in a given order.
+    This function is intended to be called via transaction.on_commit.
+    It fetches a fresh order instance to ensure data consistency.
+    """
+    try:
+        # Fetch a fresh instance of the order within the on_commit lambda
+        order_instance = (
+            Order.objects.select_related(None)
+            .prefetch_related("items__product")
+            .get(pk=order_id)
+        )
+
+        # Final check of the flag, though it should ideally be handled before scheduling.
+        # This acts as a safeguard if the calling logic didn't update the in-memory instance's flag.
+        if order_instance.inventory_processed_for_completion:
+            logger.info(
+                f"Order {order_instance.id}: Inventory deduction already marked as processed. Skipping inside on_commit task."
+            )
+            return
+
+        logger.info(
+            f"Order {order_instance.id}: Executing inventory deduction (on_commit)."
+        )
+
+        items_to_update = []
+        with transaction.atomic():  # Nested transaction for inventory updates
+            for item in order_instance.items.all():  # Iterate over prefetched items
+                product = item.product
+                if product.is_grocery_item:
+                    quantity_sold = item.quantity
+                    logger.info(
+                        f"Order {order_instance.id}: Product '{product.name}' (ID: {product.id}) is grocery. "
+                        f"Attempting to deduct {quantity_sold} from inventory."
+                    )
+                    # Use Product.objects.filter().update() for atomic operation
+                    updated_rows = Product.objects.filter(pk=product.pk).update(
+                        inventory_quantity=F("inventory_quantity") - quantity_sold
+                    )
+                    if updated_rows > 0:
+                        logger.info(
+                            f"Order {order_instance.id}: Successfully deducted {quantity_sold} "
+                            f"from inventory for product '{product.name}'."
+                        )
+                    else:
+                        logger.warning(
+                            f"Order {order_instance.id}: Could not deduct inventory for product "
+                            f"'{product.name}' (ID: {product.id}). Product not found or update failed (e.g. race condition)."
+                        )
+
+            # After all items are processed, mark the order's inventory as processed.
+            # This is crucial to prevent reprocessing.
+            order_instance.inventory_processed_for_completion = True
+            order_instance.save(update_fields=["inventory_processed_for_completion"])
+            logger.info(
+                f"Order {order_instance.id}: Flag 'inventory_processed_for_completion' successfully set to True in DB."
+            )
+
+    except Order.DoesNotExist:
+        logger.error(
+            f"Order with ID {order_id} not found when attempting to deduct inventory."
+        )
+    except Exception as e:
+        logger.error(
+            f"Order {order_id}: Unexpected error during inventory deduction: {e}",
+            exc_info=True,
+        )
+
+
+@receiver(post_save, sender=Order)
+def order_status_change_handler(
+    sender, instance: Order, created: bool, update_fields=None, **kwargs
+):
+    """
+    Consolidated signal handler for Order post_save events.
+    Handles:
+    1. WebSocket updates for customer-facing website and KDS.
+    2. Kitchen/QC ticket printing via direct backend or POS agent.
+    3. Inventory deduction for completed/paid orders.
     """
     channel_layer = get_channel_layer()
 
-    # --- WebSocket updates (Keep existing logic) ---
+    # --- 1. WebSocket Updates (KDS & Customer Facing) ---
     if instance.source == "website":
-        logger.debug(f"Website order {instance.id} status changed to {instance.status}")
+        logger.debug(
+            f"Order {instance.id} (Website): Status changed to {instance.status}, Payment: {instance.payment_status}. Sending customer update."
+        )
         async_to_sync(channel_layer.group_send)(
             f"website_order_{instance.id}",
             {
@@ -38,80 +116,221 @@ def order_status_update(sender, instance, created, update_fields=None, **kwargs)
             },
         )
 
-    relevant_pos_statuses = ["saved", "in_progress", "completed", "voided"]
-    relevant_website_statuses = ["pending", "preparing", "completed", "cancelled"]
-    should_update_kitchen = (
-        instance.source == "pos" and instance.status in relevant_pos_statuses
-    ) or (instance.source == "website" and instance.status in relevant_website_statuses)
-    if should_update_kitchen:
-        order_data = KitchenOrderSerializer(instance).data
-        message_type = "new_order" if created else "order_update"
-        async_to_sync(channel_layer.group_send)(
-            "kitchen_orders", {"type": message_type, "order": order_data}
-        )
+    # KDS Update Logic
+    kds_relevant_pos_statuses = ["saved", "in-progress", "completed", "voided"]
+    kds_relevant_website_statuses = [
+        "pending",
+        "preparing",
+        "completed",
+        "cancelled",
+    ]  # For KDS, 'pending' usually means paid & ready
+
+    should_update_kds = False
+    if instance.source == "pos" and instance.status in kds_relevant_pos_statuses:
+        should_update_kds = True
+    # For website orders, only update KDS if paid and in a relevant status
+    elif (
+        instance.source == "website"
+        and instance.payment_status == "paid"
+        and instance.status in kds_relevant_website_statuses
+    ):
+        should_update_kds = True
+
+    if should_update_kds:
+        kds_order_data = KitchenOrderSerializer(instance).data
+        kds_message_type = "order_update"
+        # Determine if it's a "new" order for KDS (not yet completed/voided/cancelled, and if website, must be paid)
+        is_new_for_kds = instance.status not in ["completed", "voided", "cancelled"]
+        if instance.source == "website" and instance.payment_status != "paid":
+            is_new_for_kds = False  # Don't treat unpaid website orders as new for KDS
+
+        if created and is_new_for_kds:
+            kds_message_type = "new_order"
+
         logger.debug(
-            f"Sent {message_type} for {instance.source} order {instance.id} to kitchen display"
+            f"Order {instance.id}: Sending KDS {kds_message_type} to kitchen_orders group."
         )
-    # --- End WebSocket updates ---
+        async_to_sync(channel_layer.group_send)(
+            "kitchen_orders", {"type": kds_message_type, "order": kds_order_data}
+        )
 
-    # --- Station/QC Printing Trigger Condition (Checks Status AND Print Flag) ---
-    should_check_flag = False  # Flag to indicate if status condition met
-
-    # Check status conditions only on updates, not initial creation
-    if not created:
-        # Condition 1: POS order payment is completed
+    # --- 2. Kitchen Ticket Printing (Direct Backend Printing) ---
+    # This section handles printing based on 'kitchen_ticket_printed' flag
+    can_print_kitchen_ticket = False
+    if not created:  # Only on updates
         if instance.source == "pos" and instance.payment_status == "paid":
-            logger.info(
-                f"Order {instance.id}: POS Payment status IS 'paid' on update. Will check print flag."
-            )
-            should_check_flag = True
+            can_print_kitchen_ticket = True
+        elif (
+            instance.source == "website"
+            and instance.status == "pending"
+            and instance.payment_status == "paid"
+        ):  # Assuming website 'pending' + 'paid' means ready for kitchen
+            can_print_kitchen_ticket = True
 
-        # Condition 2: Website order moves to preparation stage
-        elif instance.source == "website" and instance.status == "pending":
-            logger.info(
-                f"Order {instance.id}: Website Status IS 'preparing' on update. Will check print flag."
-            )
-            should_check_flag = True
-
-    # --- Check Print Flag and Schedule Printing ---
-    if should_check_flag:
-        # --- Check the kitchen_ticket_printed flag ---
+    if can_print_kitchen_ticket:
         if not instance.kitchen_ticket_printed:
             logger.info(
-                f"Order {instance.id}: Status condition met AND kitchen ticket not printed yet. Setting flag and scheduling print."
+                f"Order {instance.id}: Conditions met and kitchen_ticket_printed is False. Setting flag and scheduling direct print."
             )
-            # Set the flag to True *before* scheduling the print
-            instance.kitchen_ticket_printed = True
-            # Save *only* this flag update, using update_fields to prevent recursion!
+            instance.kitchen_ticket_printed = True  # Mark in-memory
             try:
-                # Use a specific save call just for the flag
+                # Save only this flag to prevent recursion and other signal interference
+                # This save will re-trigger this signal. The 'kitchen_ticket_printed' check prevents infinite loop.
                 instance.save(update_fields=["kitchen_ticket_printed"])
                 logger.info(
-                    f"Order {instance.id}: kitchen_ticket_printed flag saved successfully."
+                    f"Order {instance.id}: kitchen_ticket_printed flag updated to True in DB."
                 )
-                # Schedule the actual printing function to run after the transaction commits
                 transaction.on_commit(lambda: print_kitchen_and_qc_tickets(instance.id))
-            except Exception as save_err:
-                # Log error if saving the flag fails
+            except Exception as e_save_flag:
                 logger.error(
-                    f"Order {instance.id}: CRITICAL ERROR - Failed to save kitchen_ticket_printed flag: {save_err}",
+                    f"Order {instance.id}: FAILED to save kitchen_ticket_printed flag: {e_save_flag}",
                     exc_info=True,
                 )
-                # Consider how to handle this - maybe try printing anyway? Or log prominently.
-
         else:
-            # If the flag is already True, log it and do nothing more
             logger.info(
-                f"Order {instance.id}: Status condition met BUT kitchen_ticket_printed flag is already True. Skipping duplicate print."
+                f"Order {instance.id}: Direct kitchen print conditions met, but kitchen_ticket_printed is already True."
             )
-            # --- End Check ---
-    else:
-        # Log why the initial status condition wasn't met (useful for debugging)
-        if not created:  # Only log non-met conditions for updates
+    elif not created:
+        logger.debug(
+            f"Order {instance.id}: Direct kitchen print conditions NOT met. Source: {instance.source}, Status: {instance.status}, PaymentStatus: {instance.payment_status}, PrintedFlag: {instance.kitchen_ticket_printed}"
+        )
+
+    # --- 3. POS Agent Print Job Trigger ---
+    # This section handles triggering prints via the POS Hardware Agent
+    # It uses the 'pos_print_jobs_sent' flag.
+
+    # Determine if conditions are met to send print jobs to agent
+    should_send_agent_jobs = False
+    log_reason_agent = ""
+    if not instance.pos_print_jobs_sent:  # Only if not already sent
+        if instance.source == "website" and instance.payment_status == "paid":
+            should_send_agent_jobs = True
+            log_reason_agent = "Website order paid and agent jobs not yet sent."
+        elif (
+            instance.source == "pos"
+            and instance.status == "completed"
+            and instance.payment_status == "paid"
+        ):
+            should_send_agent_jobs = True
+            log_reason_agent = (
+                "POS order completed & paid, and agent jobs not yet sent."
+            )
+
+    if should_send_agent_jobs:
+        logger.info(
+            f"Order {instance.id}: {log_reason_agent} Scheduling POS agent print jobs."
+        )
+        instance.pos_print_jobs_sent = True  # Mark in-memory to prevent re-queuing by this signal invocation on subsequent saves within same transaction
+
+        # Prepare job list (ensure OrderSerializer has these methods or adapt)
+        pos_print_job_serializer = OrderSerializer(instance)
+        print_jobs_list = []
+        qc_payload = getattr(
+            pos_print_job_serializer, "get_kitchen_qc_payload", lambda o: None
+        )(instance)
+        if qc_payload:
+            print_jobs_list.append(
+                {
+                    "printer_id": "kitchen_qc_printer",
+                    "ticket_type": "kitchen_qc_ticket",
+                    "ticket_data": qc_payload,
+                }
+            )
+        drinks_payload = getattr(
+            pos_print_job_serializer, "get_kitchen_drinks_payload", lambda o: None
+        )(instance)
+        if drinks_payload:
+            print_jobs_list.append(
+                {
+                    "printer_id": "kitchen_drinks_printer",
+                    "ticket_type": "kitchen_drinks_ticket",
+                    "ticket_data": drinks_payload,
+                }
+            )
+
+        if print_jobs_list:
+            pos_group_name = (
+                "pos_updates_location_default_location"  # Determine group name
+            )
             logger.debug(
-                f"Order {instance.id}: Status conditions NOT met for printing station/QC tickets this time (Source: {instance.source}, Status: {instance.status}, PaymentStatus: {instance.payment_status})"
+                f"Order {instance.id}: Sending {len(print_jobs_list)} jobs to POS agent group '{pos_group_name}'."
             )
-        pass
+            async_to_sync(channel_layer.group_send)(
+                pos_group_name,
+                {
+                    "type": "send.print.jobs",
+                    "order_id": str(instance.id),
+                    "print_jobs": print_jobs_list,
+                },
+            )
+
+            # Defer DB update of the flag until commit
+            def mark_agent_jobs_sent_on_commit():
+                Order.objects.filter(pk=instance.pk).update(pos_print_jobs_sent=True)
+                logger.info(
+                    f"Order {instance.id}: Flag 'pos_print_jobs_sent' DB update to True (agent jobs sent) after commit."
+                )
+
+            transaction.on_commit(mark_agent_jobs_sent_on_commit)
+        else:  # No jobs generated, but conditions were met
+            logger.info(
+                f"Order {instance.id}: Agent print job conditions met, but no specific jobs generated by serializer."
+            )
+
+            def mark_agent_jobs_flag_anyway_on_commit():  # Still mark flag to prevent reprocessing this event
+                Order.objects.filter(pk=instance.pk).update(pos_print_jobs_sent=True)
+                logger.info(
+                    f"Order {instance.id}: Flag 'pos_print_jobs_sent' DB update to True (no agent jobs) after commit."
+                )
+
+            transaction.on_commit(mark_agent_jobs_flag_anyway_on_commit)
+
+    elif instance.pos_print_jobs_sent and (
+        (instance.source == "website" and instance.payment_status == "paid")
+        or (
+            instance.source == "pos"
+            and instance.status == "completed"
+            and instance.payment_status == "paid"
+        )
+    ):
+        logger.info(
+            f"Order {instance.id}: POS agent print job conditions met, but 'pos_print_jobs_sent' is already True."
+        )
+
+    # --- 4. Inventory Deduction ---
+    # Check if order is completed, paid, and inventory has not been processed yet.
+    if (
+        instance.status == "completed"
+        and instance.payment_status == "paid"
+        and not instance.inventory_processed_for_completion
+    ):
+
+        logger.info(
+            f"Order {instance.id}: Conditions met for inventory deduction "
+            f"(Status: {instance.status}, Payment: {instance.payment_status}, InvProcessedFlag: {instance.inventory_processed_for_completion}). "
+            f"Scheduling deduction."
+        )
+        # Mark the flag in-memory for the current instance.
+        # This helps prevent this same signal *invocation* from re-queueing if the instance is saved again
+        # before the transaction commits (e.g., by another part of this signal).
+        # The actual DB update of this flag is handled by `deduct_inventory_for_order`.
+        instance.inventory_processed_for_completion = True
+
+        transaction.on_commit(lambda: deduct_inventory_for_order(instance.id))
+
+    elif (
+        instance.status == "completed"
+        and instance.payment_status == "paid"
+        and instance.inventory_processed_for_completion
+    ):
+        logger.info(
+            f"Order {instance.id}: Is completed and paid, but 'inventory_processed_for_completion' is already True. Skipping inventory deduction queue."
+        )
+
+
+# Keep the print_kitchen_and_qc_tickets and recalculate_and_broadcast_prep_times functions as they are,
+# assuming they are correct for their specific tasks.
+# Make sure they are defined before being called if you move them around.
 
 
 def recalculate_and_broadcast_prep_times():
@@ -119,24 +338,15 @@ def recalculate_and_broadcast_prep_times():
     Recalculates the estimated preparation times for all pending website orders
     and broadcasts the updates via WebSocket.
     """
-    # Get all pending website orders, ordered by creation time
     pending_orders = Order.objects.filter(status="pending", source="website").order_by(
         "created_at"
     )
-
-    print(
+    logger.debug(
         f"Recalculating preparation times for {pending_orders.count()} pending orders"
     )
-
-    # Get the channel layer for WebSocket communication
     channel_layer = get_channel_layer()
-
-    # Calculate and broadcast updated preparation times
     for index, order in enumerate(pending_orders):
-        # Each order takes 15 minutes; position in queue determines time
         estimated_time = (index + 1) * 15
-
-        # Broadcast to the specific order's group
         try:
             async_to_sync(channel_layer.group_send)(
                 f"website_order_{order.id}",
@@ -145,14 +355,13 @@ def recalculate_and_broadcast_prep_times():
                     "estimated_preparation_time": estimated_time,
                 },
             )
-            print(
+            logger.debug(
                 f"Broadcast updated prep time for order {order.id}: {estimated_time} min"
             )
         except Exception as e:
-            print(f"Error broadcasting prep time for order {order.id}: {str(e)}")
+            logger.error(f"Error broadcasting prep time for order {order.id}: {str(e)}")
 
 
-# --- Keep the print_kitchen_and_qc_tickets function as is (with logging) ---
 def print_kitchen_and_qc_tickets(order_id):
     """Fetches the order and triggers printing to configured station/QC printers."""
     logger.info(
@@ -174,246 +383,36 @@ def print_kitchen_and_qc_tickets(order_id):
             )
             if not config.get("enabled", False):
                 continue
-
             role = config.get("role")
             result = None
-
             if role == "station":
                 logger.info(
                     f"Order {order_id}: Attempting to print to STATION printer '{name}'..."
                 )
                 result = controller.print_station_ticket(order, name)
-                if result:
-                    logger.info(
-                        f"Order {order_id}: Result from print_station_ticket('{name}'): {result.get('status')} - {result.get('message')}"
-                    )
-                else:
-                    logger.error(
-                        f"Order {order_id}: No result returned from print_station_ticket('{name}')"
-                    )
-
             elif role == "quality_control":
                 logger.info(
                     f"Order {order_id}: Attempting to print to QC printer '{name}'..."
                 )
                 result = controller.print_qc_ticket(order, name)
-                if result:
-                    logger.info(
-                        f"Order {order_id}: Result from print_qc_ticket('{name}'): {result.get('status')} - {result.get('message')}"
-                    )
-                else:
-                    logger.error(
-                        f"Order {order_id}: No result returned from print_qc_ticket('{name}')"
-                    )
+
+            if result:
+                logger.info(
+                    f"Order {order_id}: Result from printer '{name}': {result.get('status')} - {result.get('message')}"
+                )
+            elif role in [
+                "station",
+                "quality_control",
+            ]:  # Only log no result if it was a role we tried to print for
+                logger.error(
+                    f"Order {order_id}: No result returned from printer '{name}' for role '{role}'"
+                )
 
         logger.info(f"--- Finished print attempt loop for Order ID: {order_id} ---")
-
     except Order.DoesNotExist:
         logger.error(f"Order with ID {order_id} not found for printing.")
     except Exception as e:
         logger.error(
             f"Unexpected error in print_kitchen_and_qc_tickets for Order ID {order_id}: {e}",
             exc_info=True,
-        )
-
-
-@receiver(post_save, sender=Order)
-def order_event_handler(
-    sender, instance: Order, created: bool, update_fields=None, **kwargs
-):
-    channel_layer = get_channel_layer()
-
-    # --- 1. Customer-facing Website Order Status Updates ---
-    if instance.source == "website":
-        # ... (existing logic for customer status) ...
-        logger.debug(
-            f"Order {instance.id}: Sending customer status (Status: {instance.status}, Payment: {instance.payment_status}) to website_order_{instance.id}"
-        )
-        async_to_sync(channel_layer.group_send)(
-            f"website_order_{instance.id}",
-            {
-                "type": "status_update",
-                "status": instance.status,
-                "payment_status": instance.payment_status,
-            },
-        )
-
-    # --- 2. Kitchen Display Screen (KDS) Updates ---
-    should_update_kds = False
-    if instance.source == "pos" and instance.status in [
-        "saved",
-        "in-progress",
-        "completed",
-        "voided",
-    ]:
-        should_update_kds = True
-    elif (
-        instance.source == "website"
-        and instance.payment_status == "paid"
-        and instance.status in ["pending", "preparing", "completed", "cancelled"]
-    ):
-        should_update_kds = True
-
-    if should_update_kds:
-        # ... (existing logic for KDS updates) ...
-        kds_serializer = KitchenOrderSerializer(instance)
-        kds_order_data = kds_serializer.data
-        kds_message_type = "order_update"
-        if created and instance.status not in ["completed", "voided", "cancelled"]:
-            kds_message_type = "new_order"
-        logger.debug(
-            f"Order {instance.id}: Sending KDS {kds_message_type} to kitchen_orders group."
-        )
-        async_to_sync(channel_layer.group_send)(
-            "kitchen_orders", {"type": kds_message_type, "order": kds_order_data}
-        )
-
-    # --- 3. Print Job Trigger for POS Frontend -> Agent ---
-    print_jobs_trigger_met = False
-    log_reason = ""
-
-    # Check if the flag is already true for this instance *before* checking conditions.
-    # This helps if the instance passed to the signal handler is stale in a rapid save sequence.
-    # We fetch the latest state of the flag from DB.
-    try:
-        # It's generally better to pass the instance around, but for a flag check like this,
-        # a fresh fetch can avoid issues with stale instance data if multiple saves are happening.
-        # However, instance.refresh_from_db() is usually preferred if you need to update the instance.
-        # For now, let's rely on the transaction.on_commit to set the flag and the initial check.
-        current_pos_print_jobs_sent = instance.pos_print_jobs_sent
-    except Order.DoesNotExist:  # Should not happen if instance exists
-        logger.error(
-            f"Order {instance.id}: Does not exist when checking pos_print_jobs_sent flag. Aborting print trigger."
-        )
-        return
-
-    if instance.source == "website":
-        if instance.payment_status == "paid" and not current_pos_print_jobs_sent:
-            print_jobs_trigger_met = True
-            log_reason = "Website order paid and jobs not yet sent."
-    elif instance.source == "pos":
-        if instance.status == "completed" and not current_pos_print_jobs_sent:
-            print_jobs_trigger_met = True
-            log_reason = "POS order completed and kitchen print jobs not yet sent."
-
-    if print_jobs_trigger_met:
-        logger.info(
-            f"Order {instance.id} (Source: {instance.source}): Triggering print jobs for POS agent. Reason: {log_reason}"
-        )
-
-        # --- Important: Set flag immediately on the instance for subsequent signal calls in same transaction sequence ---
-        # This is an in-memory change to the instance being processed by this specific signal invocation.
-        # The database update is still deferred with transaction.on_commit.
-        instance.pos_print_jobs_sent = (
-            True  # Mark as being processed by *this* signal invocation
-        )
-
-        pos_print_job_serializer = OrderSerializer(instance)
-        print_jobs_list = []
-
-        if instance.source == "website":
-            qc_payload = pos_print_job_serializer.get_kitchen_qc_payload(instance)
-            if qc_payload:
-                print_jobs_list.append(
-                    {
-                        "printer_id": "kitchen_qc_printer",
-                        "ticket_type": "kitchen_qc_ticket",
-                        "ticket_data": qc_payload,
-                    }
-                )
-            drinks_payload = pos_print_job_serializer.get_kitchen_drinks_payload(
-                instance
-            )
-            if drinks_payload:
-                print_jobs_list.append(
-                    {
-                        "printer_id": "kitchen_drinks_printer",
-                        "ticket_type": "kitchen_drinks_ticket",
-                        "ticket_data": drinks_payload,
-                    }
-                )
-
-        elif instance.source == "pos":  # Only kitchen tickets
-            qc_payload_pos = pos_print_job_serializer.get_kitchen_qc_payload(instance)
-            if qc_payload_pos:
-                print_jobs_list.append(
-                    {
-                        "printer_id": "kitchen_qc_printer",
-                        "ticket_type": "kitchen_qc_ticket",
-                        "ticket_data": qc_payload_pos,
-                    }
-                )
-            drinks_payload_pos = pos_print_job_serializer.get_kitchen_drinks_payload(
-                instance
-            )
-            if drinks_payload_pos:
-                print_jobs_list.append(
-                    {
-                        "printer_id": "kitchen_drinks_printer",
-                        "ticket_type": "kitchen_drinks_ticket",
-                        "ticket_data": drinks_payload_pos,
-                    }
-                )
-
-        if print_jobs_list:
-            pos_group_name = "pos_updates_location_default_location"
-            if hasattr(instance, "location") and instance.location:
-                location_identifier = getattr(
-                    instance.location, "id_string", instance.location.pk
-                )
-                pos_group_name = f"pos_updates_location_{location_identifier}"
-            else:
-                logger.warning(
-                    f"Order {instance.id}: Defaulting POS group '{pos_group_name}'."
-                )
-
-            logger.debug(
-                f"Order {instance.id}: Sending {len(print_jobs_list)} print jobs to POS group '{pos_group_name}'."
-            )
-            async_to_sync(channel_layer.group_send)(
-                pos_group_name,
-                {
-                    "type": "send.print.jobs",
-                    "order_id": str(instance.id),
-                    "print_jobs": print_jobs_list,
-                },
-            )
-
-            # Defer the database update of the flag until the transaction commits.
-            # This ensures it's only set if the whole operation (including all saves that triggered this) is successful.
-            def mark_pos_jobs_sent_on_commit():
-                Order.objects.filter(pk=instance.pk).update(pos_print_jobs_sent=True)
-                logger.info(
-                    f"Order {instance.id}: Flag 'pos_print_jobs_sent' DB update to True after commit (jobs sent: {len(print_jobs_list)})."
-                )
-
-            transaction.on_commit(mark_pos_jobs_sent_on_commit)
-        else:
-            logger.info(
-                f"Order {instance.id}: Trigger condition met, but no kitchen print jobs by serializer. Source: {instance.source}, Status: {instance.status}."
-            )
-
-            # Even if no jobs, set the flag to prevent re-evaluation for THIS specific trigger event.
-            def mark_pos_jobs_sent_anyway_on_commit():
-                Order.objects.filter(pk=instance.pk).update(pos_print_jobs_sent=True)
-                logger.info(
-                    f"Order {instance.id}: Flag 'pos_print_jobs_sent' DB update (no specific kitchen jobs generated) after commit."
-                )
-
-            transaction.on_commit(mark_pos_jobs_sent_anyway_on_commit)
-    elif (
-        not print_jobs_trigger_met
-        and (
-            instance.source == "pos"
-            and instance.status == "completed"
-            and current_pos_print_jobs_sent
-        )
-        or (
-            instance.source == "website"
-            and instance.payment_status == "paid"
-            and current_pos_print_jobs_sent
-        )
-    ):
-        logger.info(
-            f"Order {instance.id}: Print job trigger conditions met (Source: {instance.source}, Status: {instance.status}, Payment: {instance.payment_status}), but 'pos_print_jobs_sent' is already True. No action taken."
         )
