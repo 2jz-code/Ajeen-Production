@@ -100,6 +100,7 @@ export const ENDPOINTS = {
 		BY_BARCODE: "products/by-barcode/", // <-- ADD THIS LINE
 		RESTOCK: `products/restock/`,
 		EXPORT_CSV: `products/export-csv/`,
+		IMPORT_CSV: `products/import-csv/`,
 	},
 };
 

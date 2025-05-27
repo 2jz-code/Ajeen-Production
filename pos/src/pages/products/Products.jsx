@@ -1,9 +1,9 @@
 // src/pages/products/Products.jsx
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import axiosInstance from "../../api/config/axiosConfig"; // Used by CategoryManagementModal
+import axiosInstance from "../../api/config/axiosConfig";
 import { authService } from "../../api/services/authService";
-import { productService } from "../../api/services/productService"; // Import productService
+import { productService } from "../../api/services/productService";
 import {
 	PencilSquareIcon as PencilSolidIcon,
 	TrashIcon as TrashSolidIcon,
@@ -15,14 +15,27 @@ import {
 	EyeIcon,
 	ArchiveBoxIcon,
 	ArrowUpOnSquareStackIcon,
-	ArrowDownTrayIcon, // New icon for export button
+	ArrowDownTrayIcon,
+	ArrowUpTrayIcon,
+	EllipsisVerticalIcon, // Added for Dropdown trigger
 } from "@heroicons/react/24/outline";
-import { PackageIcon } from "lucide-react";
+import { PackageIcon } from "lucide-react"; // Added Settings2Icon as an alternative trigger
+
+// ShadCN/UI components (ensure paths are correct)
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "../../components/ui/dropdown-menu"; // Adjust path if necessary
+
 import CategoryManagementModal from "../../components/CategoryManagementModal";
 import LoadingSpinner from "../reports/components/LoadingSpinner";
 import MainLayout from "../layout/MainLayout";
 
-// ... (getCategoryColors function remains the same) ...
+// getCategoryColors function remains the same...
 const getCategoryColors = (categoryId) => {
 	const colors = [
 		["border-blue-300", "bg-blue-50", "text-blue-700"],
@@ -48,14 +61,39 @@ export default function Products() {
 	const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState(null);
-	const [isExporting, setIsExporting] = useState(false); // State for export loading
+	const [isExporting, setIsExporting] = useState(false);
 
-	// ... (refs and useEffect for height calculation remain the same) ...
+	// CSV Import states
+	// selectedFile state is removed as we trigger upload immediately on file selection
+	const [isImportingCsv, setIsImportingCsv] = useState(false);
+	const fileInputRef = useRef(null);
+
 	const pageContentRef = useRef(null);
 	const tabsRef = useRef(null);
 	const pageHeaderRef = useRef(null);
 	const [gridHeight, setGridHeight] = useState("auto");
 
+	const fetchData = useCallback(async (showLoading = true) => {
+		if (showLoading) setLoading(true);
+		setError(null); // Clear previous errors on new fetch
+		try {
+			const [categoriesRes, productsRes, authRes] = await Promise.all([
+				productService.getProductCategories(),
+				productService.getProductsList(),
+				authService.checkStatus(),
+			]);
+			setCategories(categoriesRes || []);
+			setProducts(productsRes || []);
+			setIsAdmin(authRes.is_admin);
+		} catch (err) {
+			console.error("Error fetching data:", err);
+			setError("Failed to load product data. Please try again.");
+		} finally {
+			if (showLoading) setLoading(false);
+		}
+	}, []);
+
+	// handleCategoryChange, useEffects for data fetching and height calculation remain the same...
 	const handleCategoryChange = useCallback(
 		(action, data) => {
 			let categoryIdToDelete;
@@ -92,37 +130,8 @@ export default function Products() {
 	);
 
 	useEffect(() => {
-		let isMounted = true;
-		setLoading(true);
-		setError(null);
-		const fetchData = async () => {
-			try {
-				const [categoriesRes, productsRes, authRes] = await Promise.all([
-					// Using productService for consistency, assuming it's set up
-					productService.getProductCategories(),
-					productService.getProductsList(),
-					authService.checkStatus(),
-				]);
-				if (isMounted) {
-					// Assuming productService returns { data: [...] } like axios
-					setCategories(categoriesRes); // If productService.getProductCategories() returns data directly
-					setSelectedCategory("");
-					setProducts(productsRes); // If productService.getProductsList() returns data directly
-					setIsAdmin(authRes.is_admin);
-				}
-			} catch (err) {
-				console.error("Error fetching data:", err);
-				if (isMounted)
-					setError("Failed to load product data. Please try again.");
-			} finally {
-				if (isMounted) setLoading(false);
-			}
-		};
 		fetchData();
-		return () => {
-			isMounted = false;
-		};
-	}, []);
+	}, [fetchData]);
 
 	useEffect(() => {
 		const calculateHeight = () => {
@@ -132,7 +141,6 @@ export default function Products() {
 				const pageHeaderActualHeight = pageHeaderRef.current.offsetHeight;
 				const tabsActualHeight = tabsRef.current.offsetHeight;
 				const verticalPadding = 32;
-
 				const availableHeight =
 					window.innerHeight -
 					mainLayoutHeaderHeight -
@@ -152,20 +160,19 @@ export default function Products() {
 	}, [loading]);
 
 	const handleDelete = async (productName) => {
-		// ... (handleDelete logic remains the same) ...
 		if (window.confirm(`Are you sure you want to delete "${productName}"?`)) {
 			try {
-				await productService.deleteProduct(productName); // Using productService
+				await productService.deleteProduct(productName);
 				setProducts((prev) => prev.filter((p) => p.name !== productName));
+				alert(`Product "${productName}" deleted successfully.`);
 			} catch (err) {
 				console.error("Failed to delete product:", err);
-				setError(`Failed to delete ${productName}.`);
+				setError(`Failed to delete ${productName}. ${err.message || ""}`);
 			}
 		}
 	};
 
 	const filteredProducts = useMemo(() => {
-		// ... (filteredProducts logic remains the same) ...
 		return products.filter((product) => {
 			if (!selectedCategory) return true;
 			const productCategoryId = product.category?.id ?? product.category;
@@ -179,18 +186,110 @@ export default function Products() {
 		setError(null);
 		try {
 			await productService.exportProductsCSV();
-			// Success message could be a toast notification if you have a system for it
+			alert("Products exported successfully!");
 		} catch (err) {
 			console.error(err);
-			// Error is handled and alerted by productService, but you could set local error state too
-			setError("Failed to export products. Please try again.");
+			setError(
+				`Failed to export products. ${err.message || "Please try again."}`
+			);
 		} finally {
 			setIsExporting(false);
 		}
 	};
 
-	if (loading && products.length === 0) {
-		// ... (loading state remains the same) ...
+	// --- CSV Import Handlers ---
+	const handleImportProducts = async (fileToImport) => {
+		if (!fileToImport) {
+			// This case might not be hit if called directly from handleFileChange
+			// but good for robustness if called from elsewhere.
+			alert("No file provided for import.");
+			return;
+		}
+		if (isImportingCsv) return;
+
+		setIsImportingCsv(true);
+		setError(null);
+		try {
+			const response = await productService.importProductsCSV(fileToImport); // Use the passed file
+			let successMessage =
+				response.message || "Products imported successfully!";
+			if (response.created_count > 0 || response.updated_count > 0) {
+				successMessage += `\nCreated: ${
+					response.created_count || 0
+				}, Updated: ${response.updated_count || 0}.`;
+			}
+			alert(successMessage);
+
+			if (response.errors && response.errors.length > 0) {
+				console.error("Import errors:", response.errors);
+				const errorDetails = response.errors
+					.map(
+						(err) =>
+							`Row ${err.row || "-"}: ${err.error} (Product: ${
+								err.product_name || "N/A"
+							})`
+					)
+					.join("\n");
+				setError(
+					`Import completed with ${
+						response.errors.length
+					} errors. Some products may not have been imported or updated correctly. Details:\n${errorDetails.substring(
+						0,
+						500
+					)}${errorDetails.length > 500 ? "..." : ""}`
+				);
+			} else {
+				setError(null);
+			}
+
+			fetchData(false); // Refresh product list without full page loading spinner
+			if (fileInputRef.current) {
+				fileInputRef.current.value = ""; // Reset file input
+			}
+		} catch (err) {
+			console.error("Failed to import products from CSV:", err);
+			let importError = "Failed to import products from CSV.";
+			if (err && err.error) {
+				importError = err.error;
+				if (err.missing_headers) {
+					importError += ` Missing headers: ${err.missing_headers.join(", ")}.`;
+				} else if (err.errors && Array.isArray(err.errors)) {
+					const specificErrors = err.errors
+						.slice(0, 3)
+						.map((e) => `Row ${e.row || "-"}: ${e.error}`)
+						.join("; ");
+					importError += ` Specific issues: ${specificErrors}${
+						err.errors.length > 3 ? "..." : ""
+					}`;
+				}
+			} else if (err && err.message) {
+				importError = err.message;
+			}
+			setError(importError);
+			alert(importError);
+		} finally {
+			setIsImportingCsv(false);
+		}
+	};
+
+	const handleFileChangeAndInitiateImport = (event) => {
+		const file = event.target.files[0];
+		if (file) {
+			handleImportProducts(file); // Directly call import handler with the file
+		}
+		// Reset file input for consistent behavior if the same file is chosen again
+		if (fileInputRef.current) {
+			fileInputRef.current.value = "";
+		}
+	};
+
+	const triggerFileInput = () => {
+		fileInputRef.current?.click();
+	};
+	// --- End CSV Import Handlers ---
+
+	// Loading and error states rendering (remains the same)
+	if (loading && products.length === 0 && !error) {
 		return (
 			<MainLayout pageTitle="Loading Products...">
 				<div className="flex items-center justify-center h-full">
@@ -200,8 +299,38 @@ export default function Products() {
 		);
 	}
 
+	if (error && products.length === 0 && loading) {
+		return (
+			<MainLayout pageTitle="Error Loading Products">
+				<div className="flex flex-col items-center justify-center h-full p-4 text-center">
+					<ExclamationTriangleIcon className="h-12 w-12 text-red-500 mb-4" />
+					<p className="text-red-700 text-lg mb-2">
+						Could not load product data.
+					</p>
+					<p className="text-red-600 text-sm mb-4">{error}</p>
+					<button
+						onClick={() => fetchData(true)}
+						className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+					>
+						Retry
+					</button>
+				</div>
+			</MainLayout>
+		);
+	}
+
 	return (
 		<MainLayout pageTitle="Product Management">
+			{/* Hidden File Input for CSV Import */}
+			<input
+				type="file"
+				accept=".csv"
+				ref={fileInputRef}
+				onChange={handleFileChangeAndInitiateImport}
+				className="hidden"
+				disabled={isImportingCsv}
+			/>
+
 			<div
 				ref={pageContentRef}
 				className="flex flex-col h-full"
@@ -213,38 +342,60 @@ export default function Products() {
 					<h2 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center gap-2">
 						<PackageIcon className="h-6 w-6 text-slate-600" /> Product Catalog
 					</h2>
-					<div className="flex items-center gap-2 sm:gap-3">
-						{isAdmin && (
-							<button
-								onClick={() => navigate("/products/bulk-restock")} // Navigate to new page
-								className="px-3 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors flex items-center gap-1.5 shadow-sm"
+
+					{/* Consolidated Admin Actions Dropdown */}
+					{isAdmin && (
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<button
+									className="px-3 py-2 bg-slate-700 text-white rounded-lg text-sm hover:bg-slate-800 transition-colors flex items-center gap-2 shadow-sm"
+									aria-label="Product Actions"
+								>
+									Actions
+									<EllipsisVerticalIcon className="h-4 w-4" />
+									{/* Or use Settings2Icon from lucide-react if preferred: <Settings2Icon className="h-4 w-4" /> */}
+								</button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent
+								align="end"
+								className="w-56"
 							>
-								<ArrowUpOnSquareStackIcon className="h-4 w-4" /> Restock Items
-							</button>
-						)}
-						{isAdmin && ( // Button to export products
-							<button
-								onClick={handleExportProducts}
-								disabled={isExporting}
-								className="px-3 py-2 bg-sky-600 text-white rounded-lg text-sm hover:bg-sky-700 transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
-							>
-								<ArrowDownTrayIcon className="h-4 w-4" />
-								{isExporting ? "Exporting..." : "Export Products"}
-							</button>
-						)}
-						{isAdmin && (
-							<button
-								onClick={() => navigate("/products/add")}
-								className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors flex items-center gap-1.5 shadow-sm"
-							>
-								<PlusIcon className="h-4 w-4" /> Add Product
-							</button>
-						)}
-					</div>
+								<DropdownMenuLabel>Manage Products</DropdownMenuLabel>
+								<DropdownMenuSeparator />
+								<DropdownMenuItem onClick={() => navigate("/products/add")}>
+									<PlusIcon className="mr-2 h-4 w-4" />
+									<span>Add New Product</span>
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									onClick={() => navigate("/products/bulk-restock")}
+								>
+									<ArrowUpOnSquareStackIcon className="mr-2 h-4 w-4" />
+									<span>Bulk Restock Items</span>
+								</DropdownMenuItem>
+								<DropdownMenuSeparator />
+								<DropdownMenuLabel>Import / Export</DropdownMenuLabel>
+								<DropdownMenuItem
+									onClick={triggerFileInput}
+									disabled={isImportingCsv}
+								>
+									<ArrowUpTrayIcon className="mr-2 h-4 w-4" />
+									<span>
+										{isImportingCsv ? "Importing..." : "Import from CSV"}
+									</span>
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									onClick={handleExportProducts}
+									disabled={isExporting}
+								>
+									<ArrowDownTrayIcon className="mr-2 h-4 w-4" />
+									<span>{isExporting ? "Exporting..." : "Export to CSV"}</span>
+								</DropdownMenuItem>
+							</DropdownMenuContent>
+						</DropdownMenu>
+					)}
 				</header>
 
-				{/* Category Tabs and Product Grid remain largely the same */}
-				{/* ... (rest of the component: tabs, error handling, product grid) ... */}
+				{/* Category Tabs (remains the same) */}
 				<div
 					ref={tabsRef}
 					className="flex items-center flex-wrap gap-2 mb-4 bg-white p-2 rounded-lg shadow-sm border border-slate-200 overflow-x-auto custom-scrollbar flex-shrink-0"
@@ -283,33 +434,36 @@ export default function Products() {
 					)}
 				</div>
 
-				{error &&
-					!loading && ( // Ensure error doesn't show during initial load if export fails later
-						<div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md flex items-center gap-2 text-sm shadow-sm flex-shrink-0">
-							<ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0" />
-							<span>{error}</span>
-							<button
-								onClick={() => {
-									setError(null); // Clear error before retry
-									// Potentially re-fetch data or just allow another export attempt
-									if (products.length === 0) window.location.reload();
-								}}
-								className="ml-auto text-xs font-medium text-red-800 hover:underline"
-							>
-								Retry/Clear
-							</button>
-						</div>
-					)}
+				{/* Error display (remains the same) */}
+				{error && !loading && (
+					<div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md flex items-center gap-2 text-sm shadow-sm flex-shrink-0">
+						<ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0" />
+						<span className="flex-1 break-words">{error}</span>
+						<button
+							onClick={() => {
+								setError(null);
+								if (products.length === 0 && !loading) fetchData(true);
+							}}
+							className="ml-auto text-xs font-medium text-red-800 hover:underline flex-shrink-0"
+						>
+							Clear
+						</button>
+					</div>
+				)}
+
+				{/* Product Grid (remains the same) */}
 				<div
 					className="flex-1 overflow-y-auto custom-scrollbar pb-4"
 					style={{ height: gridHeight }}
 				>
-					{loading &&
-						products.length > 0 && ( // Show spinner if loading more while some products are already displayed
-							<div className="text-center py-4">
-								<LoadingSpinner size="md" />
-							</div>
-						)}
+					{loading && products.length > 0 && (
+						<div className="text-center py-4">
+							<LoadingSpinner size="md" />{" "}
+							<span className="ml-2 text-slate-600">
+								Refreshing products...
+							</span>
+						</div>
+					)}
 					{!loading && filteredProducts.length === 0 && (
 						<div className="col-span-full text-center py-10 text-slate-500">
 							No products found{" "}
@@ -319,14 +473,19 @@ export default function Products() {
 											?.name || "this category"
 								  }"`
 								: ""}
-							.
+							.{" "}
+							{products.length === 0 &&
+								"Consider adding new products or importing a CSV."}
 						</div>
 					)}
 					<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 sm:gap-5 grid-auto-rows-min">
 						{filteredProducts.map((product) => {
 							const [borderColor, badgeBgColor, badgeTextColor] =
 								getCategoryColors(product.category?.id ?? product.category);
-							const categoryName = product.category_name || "Uncategorized";
+							const categoryName =
+								product.category?.name ||
+								product.category_name ||
+								"Uncategorized";
 
 							return (
 								<div
@@ -426,12 +585,13 @@ export default function Products() {
 					</div>
 				</div>
 
+				{/* CategoryManagementModal (remains the same) */}
 				<CategoryManagementModal
 					isOpen={isCategoryModalOpen}
 					onClose={() => setIsCategoryModalOpen(false)}
 					onCategoryChange={handleCategoryChange}
 					categories={categories}
-					axiosInstance={axiosInstance} // Pass axiosInstance if modal makes its own API calls
+					axiosInstance={axiosInstance}
 				/>
 			</div>
 		</MainLayout>

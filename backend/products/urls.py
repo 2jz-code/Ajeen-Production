@@ -8,6 +8,7 @@ from .views import (
     ProductByBarcodeView,
     ProductRestockView,
     ProductExportCSVView,
+    ProductImportCSVView,  # Add this import
 )
 
 urlpatterns = [
@@ -35,6 +36,11 @@ urlpatterns = [
         "products/export-csv/",
         ProductExportCSVView.as_view(),
         name="product-export-csv",
+    ),
+    path(  # Add new path for CSV import
+        "products/import-csv/",
+        ProductImportCSVView.as_view(),
+        name="product-import-csv",
     ),
     # General route (with <str:name>) last for this group
     path("products/<str:name>/", ProductDetail.as_view(), name="product-detail"),

@@ -188,4 +188,37 @@ export const productService = {
 			throw error;
 		}
 	},
+
+	/**
+	 * Imports products from a CSV file.
+	 * @param {File} file The CSV file to import.
+	 * @returns {Promise<Object>} The response from the server.
+	 */
+	importProductsCSV: async (file) => {
+		const formData = new FormData();
+		formData.append("file", file);
+
+		try {
+			const response = await axiosInstance.post(
+				ENDPOINTS.PRODUCTS.IMPORT_CSV,
+				formData,
+				{
+					headers: {
+						"Content-Type": "multipart/form-data",
+					},
+				}
+			);
+			return response.data;
+		} catch (error) {
+			console.error(
+				"Error importing products from CSV:",
+				error.response || error.message
+			);
+			// Propagate a more structured error if available from backend, else a generic one
+			if (error.response && error.response.data) {
+				throw error.response.data;
+			}
+			throw new Error("Network error or server issue during CSV import.");
+		}
+	},
 };
