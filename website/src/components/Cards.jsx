@@ -1,6 +1,6 @@
 import React from "react";
 import { useInView } from "react-intersection-observer";
-import Laptop from "../assests/Zaatar.jpeg"; // [cite: uploaded:src/components/Cards.jsx]
+import Laptop from "../assests/Zaatar.jpeg"; //
 
 const AboutCard = ({
 	title,
@@ -37,12 +37,12 @@ const AboutCard = ({
 					/>
 					{/* Optional: Overlay effect on hover - can be styled with new colors if desired */}
 					{/* <div className="absolute inset-0 bg-gradient-to-t from-accent-dark-green/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl flex items-end">
-						<div className="p-4">
-							<span className="text-accent-light-beige text-sm font-medium bg-accent-warm-brown px-3 py-1 rounded-full">
-								Learn More
-							</span>
-						</div>
-					</div> */}
+                        <div className="p-4">
+                            <span className="text-accent-light-beige text-sm font-medium bg-accent-warm-brown px-3 py-1 rounded-full">
+                                Learn More
+                            </span>
+                        </div>
+                    </div> */}
 				</div>
 			</div>
 			<div className="flex flex-col justify-center">
@@ -65,27 +65,28 @@ const Cards = () => {
 		{
 			title: "Who we are",
 			description:
-				"At Ajeen, we are passionate about bringing authentic Middle Eastern flavors to your table. Our family recipes have been passed down through generations, preserving the rich culinary traditions while adding our own modern twist. Every dish we create is made with love, using only the freshest ingredients sourced from local suppliers.",
-			image: Laptop, // [cite: uploaded:src/components/Cards.jsx]
+				"The best food tells a story. Ours goes beyond your average Mediterranean restaurant. At Ajeen, we are a family rooted in Tarsheeha, Palestine, with lived experiences in the vibrant cultures of South Lebanon, Syria, and Jordan.\n\nEvery country we've called home has left a mark on our identity and, most importantly, on the very essence of our food. These diverse experiences are more than just memories; they are the very soul of Ajeen, representing the rich, authentic flavors and shared stories of the entire Levant region right here in Eagan, Minnesota. Each item on our menu reflects these cherished memories and generations of traditional recipes passed down to us.",
+			image: Laptop, //
 			reverse: false,
 			delay: 0,
 		},
 		{
 			title: "How it started",
 			description:
-				"Our journey began in 2010 when our founder, inspired by childhood memories of cooking with his grandmother, decided to share these beloved recipes with the community. What started as a small family operation quickly gained popularity as word spread about our authentic flavors and warm hospitality. We've grown steadily since then, but our commitment to quality and tradition remains unchanged.",
-			image: Laptop, // [cite: uploaded:src/components/Cards.jsx]
+				"After settling down in Minnesota, we wanted to bring the truest mana'eesh. So we knew we had to go back straight to the source. We traveled back to Amman, Jordan, where many of our family's recipes began. We spent months working in different local bakeries, learning from master bakers. Day by day, we perfected our skills. We didn’t just learn how to make mana'eesh, but how to perfect it.\n\nSo we didn’t just bring back recipes, we’ve brought a deep understanding, skill, and love for this craft. We brought back the real taste of the Levant, straight from its heart to our Minnesota community.",
+			image: Laptop, //
 			reverse: true,
 			delay: 200,
 		},
-		{
-			title: "Where we are now",
-			description:
-				"Today, Ajeen has become a beloved part of the local food scene. We've expanded our menu to include both traditional favorites and innovative creations that cater to evolving tastes. Our restaurant has become a gathering place for families and friends to enjoy delicious food in a warm, welcoming atmosphere. We're proud of how far we've come and excited about what the future holds.",
-			image: Laptop, // [cite: uploaded:src/components/Cards.jsx]
-			reverse: false,
-			delay: 400,
-		},
+		// {
+		// 	// This section is now uncommented
+		// 	title: "Where we are now",
+		// 	description:
+		// 		"Today, Ajeen has become a beloved part of the local food scene. We've expanded our menu to include both traditional favorites and innovative creations that cater to evolving tastes. Our restaurant has become a gathering place for families and friends to enjoy delicious food in a warm, welcoming atmosphere. We're proud of how far we've come and excited about what the future holds.",
+		// 	image: Laptop, //
+		// 	reverse: false,
+		// 	delay: 400,
+		// },
 	];
 
 	return (

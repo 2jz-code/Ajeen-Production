@@ -111,8 +111,8 @@ function App() {
 										<Hero /> {/* */}
 										<div className="common-bg">
 											<Cards /> {/* */}
-											<Faq /> {/* */}
 											<Location /> {/* */}
+											<Faq /> {/* */}
 											<Order /> {/* */}
 										</div>
 									</>
