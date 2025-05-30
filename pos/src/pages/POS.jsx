@@ -1,40 +1,23 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-// useNavigate is not directly used here anymore, can be removed if POSLayout handles all navigation
-// import { useNavigate } from "react-router-dom";
 import { useCartStore } from "../store/cartStore";
 import Cart from "../features/cart/components/Cart";
 import axiosInstance from "../api/config/axiosConfig";
 import { ENDPOINTS } from "../api/config/apiEndpoints";
 import { useCustomerCartDisplay } from "../features/customerDisplay/hooks/useCustomerCartDisplay";
-// LogoutButton is now part of POSLayout
-// import LogoutButton from "../components/LogoutButton";
 import { toast } from "react-toastify";
 import { formatPrice } from "../utils/numberUtils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useBarcodeScanner } from "../hooks/useBarcodeScanner";
 import POSLayout from "./layout/POSLayout";
 
-// Removed ShadCN UI imports that are now handled by POSLayout or not needed here
 import { Card, CardContent } from "@/components/ui/card";
-import {
-	Package, // Keep for product grid placeholders
-	Loader2,
-	Scan,
-	Search as SearchIcon, // If using an icon for no search results
-} from "lucide-react";
+import { Package, Loader2, Scan, Search as SearchIcon } from "lucide-react";
 
 export default function POS() {
-	// States managed by POSLayout are removed from here if passed as props by POSLayout
-	// const [categories, setCategories] = useState([]); // Now in POSLayout
-	// const [selectedCategory, setSelectedCategory] = useState(""); // Now in POSLayout
-	// const [searchQuery, setSearchQuery] = useState(""); // Now in POSLayout
-
-	const [products, setProducts] = useState({}); // POS still fetches and manages products
-
+	const [products, setProducts] = useState({});
 	const { showOverlay } = useCartStore();
-	// orderId, cart are accessed from POSLayout's footer via useCartStore directly
 	const addToCartAction = useCartStore((state) => state.addToCart);
 	const { updateCartDisplay } = useCustomerCartDisplay();
 	const isMountedRef = useRef(false);
@@ -43,7 +26,6 @@ export default function POS() {
 		useState(false);
 	const [isModalOpen] = useState(false); // Placeholder
 
-	// States for search and category to be passed to POSLayout and received back
 	const [posSearchQuery, setPosSearchQuery] = useState("");
 	const [posSelectedCategory, setPosSelectedCategory] = useState("");
 
@@ -58,9 +40,8 @@ export default function POS() {
 		if (isMountedRef.current) {
 			updateCartDisplay();
 		}
-	}, [useCartStore((state) => state.cart), updateCartDisplay]); // Listen to cart changes directly
+	}, [useCartStore((state) => state.cart), updateCartDisplay]);
 
-	// Fetch products (categories are fetched in POSLayout now)
 	useEffect(() => {
 		if (isMountedRef.current) {
 			axiosInstance
@@ -89,14 +70,12 @@ export default function POS() {
 	const filteredProducts = useMemo(() => {
 		let itemsToFilter = [];
 		if (!posSelectedCategory) {
-			// Use state managed by POSLayout, passed as prop
 			itemsToFilter = Object.values(products).flat();
 		} else if (products[posSelectedCategory]) {
 			itemsToFilter = products[posSelectedCategory];
 		}
 
 		if (!posSearchQuery) {
-			// Use state managed by POSLayout, passed as prop
 			return itemsToFilter;
 		}
 
@@ -119,7 +98,7 @@ export default function POS() {
 		async (barcode) => {
 			if (isFetchingProductByBarcode) return;
 			setIsFetchingProductByBarcode(true);
-			setPosSearchQuery(""); // Clear search query passed to POSLayout
+			setPosSearchQuery("");
 
 			try {
 				const response = await axiosInstance.get(
@@ -161,10 +140,12 @@ export default function POS() {
 			onCategoryChange={setPosSelectedCategory}
 			isFetchingProductByBarcode={isFetchingProductByBarcode}
 		>
-			<div className="flex-1 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 xl:grid-cols-5 gap-0 h-full overflow-hidden">
-				{/* Products Grid */}
-				<div className="md:col-span-2 lg:col-span-4 xl:col-span-3 p-4 sm:p-6 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100/50">
-					{/* ... (product listing logic - unchanged from your last version) ... */}
+			{/* Changed from grid to flex for the main product/cart layout */}
+			<div className="flex flex-1 h-full overflow-hidden">
+				{" "}
+				{/* Use flex here */}
+				{/* Products Section - takes remaining space */}
+				<div className="flex-1 p-4 sm:p-6 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100/50">
 					<AnimatePresence>
 						{isFetchingProductByBarcode && (
 							<motion.div
@@ -188,6 +169,8 @@ export default function POS() {
 
 					{Object.keys(products).length === 0 && (
 						<div className="flex items-center justify-center h-[calc(100vh-200px)]">
+							{" "}
+							{/* Adjusted height for placeholder */}
 							<div className="text-center">
 								<Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
 								<h3 className="text-xl font-semibold mb-2">Loading Products</h3>
@@ -202,6 +185,8 @@ export default function POS() {
 						filteredProducts.length === 0 &&
 						(posSearchQuery || posSelectedCategory) && (
 							<div className="flex items-center justify-center h-[calc(100vh-200px)]">
+								{" "}
+								{/* Adjusted height for placeholder */}
 								<div className="text-center">
 									<SearchIcon className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
 									<h3 className="text-xl font-semibold mb-2">
@@ -216,11 +201,14 @@ export default function POS() {
 								</div>
 							</div>
 						)}
+
 					{Object.keys(products).length > 0 &&
 						filteredProducts.length === 0 &&
 						!posSearchQuery &&
 						!posSelectedCategory && (
 							<div className="flex items-center justify-center h-[calc(100vh-200px)]">
+								{" "}
+								{/* Adjusted height for placeholder */}
 								<div className="text-center">
 									<Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
 									<h3 className="text-xl font-semibold mb-2">
@@ -291,16 +279,9 @@ export default function POS() {
 						</div>
 					)}
 				</div>
-
-				{/* Cart Sidebar Column Container - This is the grid item */}
-				{/* Added `flex justify-end` to push its child (the cart visual wrapper) to the right */}
-				<div className="md:col-span-1 lg:col-span-3 xl:col-span-2 flex justify-end h-full overflow-hidden">
-					{/* Cart Visual Wrapper - This div now has the max-width */}
-					<div className="w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg bg-background border-l border-border flex flex-col shadow-xl h-full">
-						{/* Added responsive max-width classes. `lg:max-w-md` should match the visual size you liked. 
-                            You can adjust these (e.g., `xl:max-w-lg` if you want it wider on very large screens) */}
-						<Cart />
-					</div>
+				{/* Cart Section - Fixed max-width, direct child of the flex container */}
+				<div className="w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg bg-background border-l border-border flex flex-col shadow-xl h-full">
+					<Cart />
 				</div>
 			</div>
 		</POSLayout>
