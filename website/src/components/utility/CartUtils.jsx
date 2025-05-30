@@ -12,11 +12,10 @@ import { toast } from "react-toastify";
 // This function fetches data and updates state using passed setters.
 // It handles both authenticated and guest users.
 export const fetchCurrentCartData = async () => {
-	// ... (Function remains the same - fetches auth or guest cart and returns { items, itemCount, error }) ...
+	// ... (previous function body remains the same) ...
 	let itemCount = 0;
 	let items = [];
 	let error = null;
-	// console.log("fetchCurrentCartData: Starting fetch...");
 	try {
 		const authStatus = await checkAuth();
 		let response = null;
@@ -24,35 +23,15 @@ export const fetchCurrentCartData = async () => {
 
 		if (authStatus === "authenticated") {
 			endpoint = "website/cart/";
-			// console.log("fetchCurrentCartData: Fetching authenticated cart...");
 			response = await axiosInstance.get(endpoint);
 		} else if (authStatus === "guest") {
 			endpoint = "website/guest-cart/";
-			// console.log("fetchCurrentCartData: Fetching guest cart...");
 			response = await axiosInstance.get(endpoint);
-		} else {
-			// console.log(
-			// 	`WorkspaceCurrentCartData: Auth status is ${authStatus}. Cart is empty or inaccessible.`
-			// );
 		}
 
 		if (response && response.data) {
-			// console.log(
-			// 	`WorkspaceCurrentCartData: Raw response data from ${endpoint}:`,
-			// 	JSON.stringify(response.data)
-			// );
 			items = response.data.items || [];
 			itemCount = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
-			// console.log(
-			// 	"fetchCurrentCartData: Calculated itemCount:",
-			// 	itemCount,
-			// 	"from items array length:",
-			// 	items.length
-			// );
-		} else if (authStatus === "authenticated" || authStatus === "guest") {
-			// console.log(
-			// 	`WorkspaceCurrentCartData: No data received for status ${authStatus}, setting empty cart.`
-			// );
 		}
 	} catch (fetchError) {
 		console.error(`Error fetching cart data (final): ${fetchError}`);
@@ -60,11 +39,6 @@ export const fetchCurrentCartData = async () => {
 		items = [];
 		itemCount = 0;
 	}
-	// console.log("fetchCurrentCartData: Returning:", {
-	// 	itemCount: itemCount,
-	// 	itemsLength: items.length,
-	// 	error: error,
-	// });
 	return { items, itemCount, error };
 };
 
@@ -75,62 +49,49 @@ const useCart = (/* isMenuPage is no longer needed here */) => {
 	const [categories, setCategories] = useState([]);
 	const [isLoadingCategories, setIsLoadingCategories] = useState(false);
 
-	// Fetches cart data and updates ONLY the count state within this hook
 	const refreshCartCount = useCallback(async () => {
-		// ... (refreshCartCount function remains the same as previous version with logging) ...
-		// console.log("useCart/refreshCartCount: CALLED. Fetching data...");
 		setIsLoadingCount(true);
 		const { itemCount, error } = await fetchCurrentCartData();
 		if (error) {
 			console.error("useCart/refreshCartCount - Error fetching count:", error);
 		}
-		// console.log(
-		// 	"useCart/refreshCartCount: Received itemCount:",
-		// 	itemCount,
-		// 	". Calling setCartItemCount..."
-		// );
 		setCartItemCount(itemCount);
 		setIsLoadingCount(false);
-		// console.log("useCart/refreshCartCount: State update called.");
-	}, []);
+	}, []); // Removed stable setters from deps as they don't change
 
-	// --- Category Fetching Logic ---
 	const fetchCategories = useCallback(async () => {
-		// Wrap in useCallback
-		// console.log("useCart: Fetching categories..."); // Add log
 		setIsLoadingCategories(true);
 		try {
-			const response = await axiosInstance.get("products/categories/"); // Ensure endpoint is correct
-			// console.log("useCart: Categories response received:", response.data);
-			setCategories(Array.isArray(response.data) ? response.data : []); // Ensure it's an array
+			const response = await axiosInstance.get("products/categories/");
+			let fetchedCategories = Array.isArray(response.data) ? response.data : [];
+
+			// **MODIFICATION START: Filter out the "Grocery" category**
+			fetchedCategories = fetchedCategories.filter(
+				(category) => category.name !== "grocery"
+			);
+			// **MODIFICATION END**
+
+			setCategories(fetchedCategories);
 		} catch (error) {
 			console.error("useCart: Failed to fetch categories:", error);
-			setCategories([]); // Set empty on error
+			setCategories([]);
 		} finally {
 			setIsLoadingCategories(false);
-			// console.log("useCart: Finished fetching categories.");
 		}
-	}, []); // Empty dependency array, fetchCategories reference is stable
+	}, []); // Removed stable setters from deps
 
-	// Fetch initial data when the hook mounts
 	useEffect(() => {
-		// --- FIX: Removed the if (isMenuPage) condition ---
-		// console.log(
-		// 	"useCart: useEffect running - fetching categories and initial count."
-		// );
 		fetchCategories();
-		refreshCartCount(); // Fetch initial count regardless of page
-		// --- End FIX ---
-	}, [fetchCategories, refreshCartCount]); // Depend on the stable callbacks
+		refreshCartCount();
+	}, [fetchCategories, refreshCartCount]);
 
-	// Provide state and the refresh function
 	return {
 		cartItemCount,
 		isLoadingCount,
-		refreshCartCount, // Provide function to refresh the count state
+		refreshCartCount,
 		categories,
 		isLoadingCategories,
-		updateCartItemCount: refreshCartCount, // Alias
+		updateCartItemCount: refreshCartCount,
 	};
 };
 

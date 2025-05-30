@@ -1,3 +1,4 @@
+// src/components/menu/ProductList.jsx
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -8,18 +9,18 @@ import {
 	FaPlus,
 	FaSearch,
 	FaTimes,
-} from "react-icons/fa"; // Added FaTimes
+} from "react-icons/fa";
 import {
 	addToCart,
 	fetchProducts,
-	groupByCategory,
-} from "../utility/CartUtils";
+	groupByCategory, // Assuming groupByCategory is imported from CartUtils
+} from "../utility/CartUtils"; // Ensure this path is correct
 
 const ProductList = ({
-	categories, // Expecting categories to be passed from ProductPage
+	categories, // This will be the filtered list from useCart
 	selectedCategory,
 	updateCartItemCount,
-	setSelectedCategory,
+	setSelectedCategory, // Keep if ProductList can change category, otherwise can be removed
 	activeView = "grid",
 }) => {
 	const [products, setProducts] = useState([]);
@@ -27,13 +28,15 @@ const ProductList = ({
 	const [quantities, setQuantities] = useState({});
 	const [searchTerm, setSearchTerm] = useState("");
 	const [showQuickAdd, setShowQuickAdd] = useState({});
-	// eslint-disable-next-line no-unused-vars
-	const navigate = useNavigate();
+	const navigate = useNavigate(); // eslint-disable-line no-unused-vars
 
 	useEffect(() => {
+		// fetchProducts is from CartUtils, it sets products, quantities, and isLoading
 		fetchProducts(setProducts, setQuantities, setIsLoading);
 	}, []);
 
+	// This effect seems redundant if fetchProducts already initializes quantities.
+	// Consider removing if fetchProducts handles it.
 	useEffect(() => {
 		if (products.length > 0 && Object.keys(quantities).length === 0) {
 			const initialQuantities = {};
@@ -89,10 +92,10 @@ const ProductList = ({
 		e.preventDefault();
 		setShowQuickAdd((prev) => {
 			const newState = Object.keys(prev).reduce((acc, key) => {
-				acc[key] = false;
+				acc[key] = false; // Close other quick adds
 				return acc;
 			}, {});
-			newState[productId] = !prev[productId];
+			newState[productId] = !prev[productId]; // Toggle current one
 			return newState;
 		});
 	};
@@ -113,14 +116,14 @@ const ProductList = ({
 
 		if (selectedCategory) {
 			productsToDisplay = productsToDisplay.filter((product) => {
-				if (product.category && !Array.isArray(product.category)) {
-					return product.category.id === selectedCategory;
-				} else if (product.category && Array.isArray(product.category)) {
-					return product.category.some(
-						(cat) => cat && cat.id === selectedCategory
-					);
-				}
-				return false;
+				const productCategories = Array.isArray(product.category)
+					? product.category
+					: product.category
+					? [product.category]
+					: []; // Ensure product.category exists
+				return productCategories.some(
+					(cat) => cat && cat.id === selectedCategory
+				);
 			});
 		}
 
@@ -129,7 +132,18 @@ const ProductList = ({
 		if (selectedCategory || searchTerm) {
 			return productsToDisplay;
 		} else {
-			return groupByCategory(productsToDisplay);
+			let grouped = groupByCategory(productsToDisplay);
+
+			// **MODIFICATION: Make deletion case-insensitive by finding all grocery-like keys**
+			const keysToDelete = Object.keys(grouped).filter(
+				(key) => key.toLowerCase() === "grocery"
+			);
+			keysToDelete.forEach((key) => {
+				delete grouped[key];
+			});
+			// **MODIFICATION END**
+
+			return grouped;
 		}
 	};
 
@@ -174,7 +188,7 @@ const ProductList = ({
 						<div className="absolute top-2 left-2">
 							<span className="inline-block bg-primary-green/20 text-primary-green text-xs px-2.5 py-1 rounded-full font-medium">
 								{Array.isArray(product.category) && product.category.length > 0
-									? product.category[0].name
+									? product.category[0].name // Display first category name if it's an array
 									: product.category.name || "Product"}
 							</span>
 						</div>
@@ -221,7 +235,7 @@ const ProductList = ({
 										decrementQuantity(product.id);
 									}}
 									className="px-3 py-1.5 text-accent-dark-brown hover:bg-primary-beige/50 disabled:opacity-50"
-									disabled={quantities[product.id] <= 1}
+									disabled={(quantities[product.id] || 1) <= 1}
 								>
 									<FaMinus size={12} />
 								</button>
@@ -326,13 +340,11 @@ const ProductList = ({
 					>
 						{showQuickAdd[product.id] ? (
 							<>
-								{" "}
-								<FaTimes className="mr-1.5" /> Close{" "}
+								<FaTimes className="mr-1.5" /> Close
 							</>
 						) : (
 							<>
-								{" "}
-								<FaShoppingCart className="mr-1.5" /> Add{" "}
+								<FaShoppingCart className="mr-1.5" /> Add
 							</>
 						)}
 					</button>
@@ -365,7 +377,7 @@ const ProductList = ({
 										decrementQuantity(product.id);
 									}}
 									className="px-2.5 py-1 text-accent-dark-brown hover:bg-primary-beige/50 disabled:opacity-50"
-									disabled={quantities[product.id] <= 1}
+									disabled={(quantities[product.id] || 1) <= 1}
 								>
 									<FaMinus size={10} />
 								</button>
@@ -448,20 +460,23 @@ const ProductList = ({
 				</div>
 			) : (
 				<>
-					{Array.isArray(displayProducts) ? (
+					{Array.isArray(displayProducts) ? ( // True if a category is selected or searching
 						<>
 							{displayProducts.length > 0 ? (
 								<div>
 									<h2 className="text-2xl font-bold text-accent-dark-green mb-6">
-										{searchTerm
-											? `Search Results for "${searchTerm}"`
-											: selectedCategory &&
-											  categories.find((c) => c.id === selectedCategory) // Check if categories is available and category exists
-											? `${
-													categories.find((c) => c.id === selectedCategory)
-														?.name || "Category"
-											  } Items`
-											: "All Items"}
+										{
+											searchTerm
+												? `Search Results for "${searchTerm}"`
+												: selectedCategory &&
+												  categories &&
+												  categories.find((c) => c.id === selectedCategory)
+												? `${
+														categories.find((c) => c.id === selectedCategory)
+															?.name || "Category"
+												  } Items`
+												: "Filtered Items" // Fallback if category name not found, but shouldn't happen
+										}
 									</h2>
 									<div
 										className={`${
@@ -481,15 +496,20 @@ const ProductList = ({
 								<div className="text-center py-12">
 									<FaSearch className="mx-auto h-12 w-12 text-accent-subtle-gray" />
 									<h3 className="mt-2 text-lg font-medium text-accent-dark-green">
-										No results for "{searchTerm}"
+										No results for "
+										{searchTerm ||
+											categories.find((c) => c.id === selectedCategory)?.name ||
+											"this category"}
+										"
 									</h3>
 									<p className="mt-1 text-sm text-accent-dark-brown">
-										Try a different search term or browse our categories.
+										Try a different search term or browse other categories.
 									</p>
 								</div>
 							)}
 						</>
 					) : (
+						// False if "All" categories are shown (displayProducts is an object)
 						Object.keys(displayProducts).map((categoryName) => (
 							<div
 								key={categoryName}
@@ -502,7 +522,6 @@ const ProductList = ({
 									<button
 										onClick={(e) => {
 											e.preventDefault();
-											// Ensure categories is defined and is an array before using .find()
 											const categoryObject = Array.isArray(categories)
 												? categories.find((c) => c.name === categoryName)
 												: null;
