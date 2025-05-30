@@ -131,7 +131,7 @@ const PaymentForm = ({ orderId, amount, onPaymentSuccess, onPaymentError }) => {
 			)}
 
 			{/* Debug information display */}
-			{process.env.NODE_ENV === "development" && (
+			{/* {process.env.NODE_ENV === "development" && (
 				// Debug box: Subtle Gray bg, Dark Brown text
 				<div className="mb-4 p-3 bg-accent-subtle-gray/20 text-xs text-accent-dark-brown rounded-md border border-accent-subtle-gray/30">
 					<div>
@@ -147,7 +147,7 @@ const PaymentForm = ({ orderId, amount, onPaymentSuccess, onPaymentError }) => {
 						Last Update: {new Date(debugInfo.timestamp).toLocaleTimeString()}
 					</div>
 				</div>
-			)}
+			)} */}
 
 			{/* Pay Button: Primary Green bg, Light Beige text. Disabled: Subtle Gray bg, Dark Brown text */}
 			<button

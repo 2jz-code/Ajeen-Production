@@ -186,23 +186,23 @@ const ConfirmationPage = () => {
 								</span>{" "}
 								has been received.
 							</p>
-							{displayEmail && (
+							{/* {displayEmail && (
 								<div className="flex items-center justify-center text-sm text-accent-dark-brown/80 mb-1">
 									<FaEnvelope className="mr-2 text-accent-subtle-gray" />{" "}
 									Confirmation sent to: {displayEmail}
 								</div>
-							)}
-							{displayPhone && (
+							)} */}
+							{/* {displayPhone && (
 								<div className="flex items-center justify-center text-sm text-accent-dark-brown/80 mb-4">
 									<FaPhone className="mr-2 text-accent-subtle-gray" /> Contact:{" "}
 									{displayPhone}
 								</div>
-							)}
+							)} */}
 							<p className="text-accent-dark-brown mb-2 text-lg">
 								We'll start preparing it shortly.
 							</p>
 							<p className="text-primary-green mb-6 text-xl font-bold">
-								Est. Prep. Time: {displayEstimatedTime()}
+								Est. Prep. Time: 10 - 20 min.
 							</p>
 						</div>
 						{orderDetails &&

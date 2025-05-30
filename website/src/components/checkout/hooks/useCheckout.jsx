@@ -1,9 +1,40 @@
-// File: combined/website/src/components/checkout/hooks/useCheckout.jsx
+// src/components/checkout/hooks/useCheckout.jsx
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import axiosInstance from "../../../api/api";
 import { useAuth } from "../../../contexts/AuthContext";
 import { fetchCurrentCartData } from "../../utility/CartUtils";
+
+// Debounce utility function
+const debounce = (func, delay) => {
+	let timeoutId;
+	const debouncedFunc = (...args) => {
+		clearTimeout(timeoutId);
+		timeoutId = setTimeout(() => {
+			func.apply(this, args);
+		}, delay);
+	};
+	debouncedFunc.cancel = () => {
+		clearTimeout(timeoutId);
+	};
+	return debouncedFunc;
+};
+
+// Phone formatting utility function
+const formatPhoneNumber = (value) => {
+	if (!value) return value;
+	const phoneNumber = value.replace(/[^\d]/g, ""); // Remove all non-digits
+	const phoneNumberLength = phoneNumber.length;
+
+	if (phoneNumberLength < 4) return `(${phoneNumber}`;
+	if (phoneNumberLength < 7) {
+		return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
+	}
+	return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(
+		3,
+		6
+	)}-${phoneNumber.slice(6, 10)}`;
+};
 
 const SURCHARGE_RATE_WEBSITE = 0.035;
 const TAX_RATE = 0.08125;
@@ -23,7 +54,6 @@ const useCheckout = () => {
 		);
 		const defaultFormData = {
 			first_name: "",
-			// Corrected: lastName to last_name to match formData structure and backend expectations
 			last_name: "",
 			email: "",
 			phone: "",
@@ -33,7 +63,7 @@ const useCheckout = () => {
 		};
 		try {
 			const parsed = storedFormData ? JSON.parse(storedFormData) : {};
-			return { ...defaultFormData, ...parsed }; // Merge to ensure all keys exist
+			return { ...defaultFormData, ...parsed };
 		} catch (e) {
 			return defaultFormData;
 		}
@@ -48,6 +78,7 @@ const useCheckout = () => {
 	const [isProcessingOrder, setIsProcessingOrder] = useState(false);
 	const [error, setError] = useState(null);
 	const prevUserRef = useRef(user);
+	const isProcessingOrderRef = useRef(false);
 
 	useEffect(() => {
 		localStorage.setItem(
@@ -91,41 +122,51 @@ const useCheckout = () => {
 
 	const handleChange = (e) => {
 		const { name, value } = e.target;
-		setFormData((prev) => ({ ...prev, [name]: value }));
+		if (name === "phone") {
+			const formattedPhone = formatPhoneNumber(value);
+			setFormData((prev) => ({ ...prev, [name]: formattedPhone }));
+		} else {
+			setFormData((prev) => ({ ...prev, [name]: value }));
+		}
+		setError(null);
 	};
 
 	const nextStep = () => setStep((prev) => Math.min(prev + 1, 2));
 	const prevStep = () => setStep((prev) => Math.max(prev - 1, 1));
 
-	const prepareOrderForPayment = useCallback(async () => {
-		// Check if already processing *inside* the function to prevent concurrent calls
-		// This check is important if the function is called from multiple places or rapidly.
-		if (isProcessingOrder) {
+	const prepareOrderLogic = useCallback(async () => {
+		if (isProcessingOrderRef.current) {
 			console.log(
-				"prepareOrderForPayment: Already processing, returning current pendingOrderId or null."
+				"prepareOrderLogic: Already processing an order creation/update. Aborting."
 			);
-			return pendingOrderId || null;
+			return;
 		}
 
 		const { first_name, last_name, email, phone } = formData;
 		let missingFieldNames = [];
 		if (!isAuthenticated) {
 			if (!first_name) missingFieldNames.push("First Name");
-			if (!last_name) missingFieldNames.push("Last Name"); // Corrected key
+			if (!last_name) missingFieldNames.push("Last Name");
 			if (!email) missingFieldNames.push("Email");
 		}
-		if (!phone) missingFieldNames.push("Phone Number");
+		const rawPhone = phone.replace(/[^\d]/g, ""); // Get raw digits for validation
+		if (!rawPhone || rawPhone.length < 10) {
+			// Basic validation for 10 digits
+			missingFieldNames.push("Valid Phone Number (10 digits)");
+		}
 
 		if (missingFieldNames.length > 0) {
 			setError(
 				`Please fill in all required fields: ${missingFieldNames.join(", ")}.`
 			);
 			window.scrollTo(0, 0);
-			return null; // Return null to indicate failure/stop
+			return;
 		}
 
-		setIsProcessingOrder(true); // Set processing to true
+		isProcessingOrderRef.current = true;
+		setIsProcessingOrder(true);
 		setError(null);
+
 		const financialPayload = {
 			subtotal: parseFloat(subtotal.toFixed(2)),
 			tax_amount: parseFloat(tax.toFixed(2)),
@@ -136,13 +177,18 @@ const useCheckout = () => {
 			total_amount: parseFloat(total.toFixed(2)),
 		};
 
-		let orderDataPayload = { ...formData, ...financialPayload };
+		// Send the raw digits for the phone number to the backend
+		const orderDataForApi = { ...formData, phone: rawPhone };
+		let orderDataPayload = { ...orderDataForApi, ...financialPayload };
 		let response;
 		let orderIdToReturn = null;
 
 		try {
-			if (pendingOrderId) {
-				orderDataPayload.order_id = pendingOrderId;
+			const currentPendingOrderIdFromStorage = localStorage.getItem(
+				LOCAL_STORAGE_PENDING_ORDER_ID_KEY
+			);
+			if (currentPendingOrderIdFromStorage) {
+				orderDataPayload.order_id = currentPendingOrderIdFromStorage;
 				console.log(
 					"Frontend: Calling backend to UPDATE order record. Payload:",
 					JSON.stringify(orderDataPayload, null, 2)
@@ -162,73 +208,94 @@ const useCheckout = () => {
 				);
 			}
 
-			const orderIdFromServer = response.data.id || response.data.order_id;
-			if (!orderIdFromServer) {
+			orderIdToReturn = response.data.id || response.data.order_id;
+			if (!orderIdToReturn) {
 				setError(
-					"Failed to prepare order for payment (no ID returned). Please try again."
+					"Failed to prepare order (no ID returned by backend). Please try again."
 				);
-				orderIdToReturn = null;
 			} else {
-				if (!pendingOrderId || pendingOrderId !== orderIdFromServer) {
-					setPendingOrderId(orderIdFromServer);
+				if (pendingOrderId !== orderIdToReturn) {
+					setPendingOrderId(orderIdToReturn);
 				}
-				orderIdToReturn = orderIdFromServer;
 			}
 		} catch (err) {
 			const errorMsg =
-				err.response?.data?.error || "Failed to prepare your order.";
+				err.response?.data?.error ||
+				"An error occurred while preparing your order.";
 			setError(errorMsg);
 			window.scrollTo(0, 0);
-			orderIdToReturn = null;
 		} finally {
-			setIsProcessingOrder(false); // Set processing to false in finally block
+			isProcessingOrderRef.current = false;
+			setIsProcessingOrder(false);
 		}
-		return orderIdToReturn; // Return the orderId or null
 	}, [
 		formData,
 		isAuthenticated,
-		pendingOrderId, // isProcessingOrder removed from here
 		subtotal,
 		tax,
 		surchargeAmount,
 		total,
 		tipAmount,
 		discountAmount,
-		// setPendingOrderId, setError, setIsProcessingOrder are stable setters
+		setError,
+		setIsProcessingOrder,
+		setPendingOrderId,
+		pendingOrderId,
 	]);
 
+	const debouncedPrepareOrder = useCallback(
+		debounce(() => {
+			console.log("Debounced prepare order called");
+			prepareOrderLogic();
+		}, 750),
+		[prepareOrderLogic]
+	);
+
+	useEffect(() => {
+		if (step === 2 && cartItems.length > 0 && authChecked) {
+			debouncedPrepareOrder();
+		}
+		return () => {
+			debouncedPrepareOrder.cancel();
+		};
+	}, [step, cartItems, authChecked, formData, debouncedPrepareOrder]); // formData added to re-trigger debounce setup on its change
+
 	const handlePaymentSuccess = (paymentResult) => {
-		if (pendingOrderId) {
+		const currentPendingOrderId = localStorage.getItem(
+			LOCAL_STORAGE_PENDING_ORDER_ID_KEY
+		);
+
+		if (currentPendingOrderId) {
 			localStorage.removeItem(LOCAL_STORAGE_CHECKOUT_FORM_DATA_KEY);
 			localStorage.removeItem(LOCAL_STORAGE_PENDING_ORDER_ID_KEY);
 			setPendingOrderId(null);
 
 			const navigationState = {
-				orderId: pendingOrderId,
+				orderId: currentPendingOrderId,
 				isGuest: !isAuthenticated,
 				customerDetails: { ...formData },
 				paymentIntentId: paymentResult?.paymentIntent?.id,
 			};
 			navigate("/confirmation", { state: navigationState });
 		} else {
-			setError("Payment succeeded but order finalization issue occurred.");
+			setError(
+				"Payment succeeded but there was an issue finalizing your order (Order ID missing). Please contact support."
+			);
 		}
 	};
 
 	useEffect(() => {
 		if (!authChecked) return;
+
 		setIsLoading(true);
 		fetchCurrentCartData()
 			.then((backendCartData) => {
 				if (backendCartData?.items && backendCartData.items.length > 0) {
 					setCartItems(backendCartData.items);
 				} else {
-					const storedFormDataExists = !!localStorage.getItem(
-						LOCAL_STORAGE_CHECKOUT_FORM_DATA_KEY
-					);
 					if (
-						!storedFormDataExists &&
-						(!backendCartData || backendCartData.items.length === 0)
+						!localStorage.getItem(LOCAL_STORAGE_CHECKOUT_FORM_DATA_KEY) &&
+						!localStorage.getItem(LOCAL_STORAGE_PENDING_ORDER_ID_KEY)
 					) {
 						navigate("/menu");
 						return;
@@ -255,10 +322,9 @@ const useCheckout = () => {
 									currentValInForm === lsVal)
 							)
 								return profileVal;
-							return currentValInForm || lsVal || ""; // Ensure fallback to empty string
+							return currentValInForm || lsVal || "";
 						};
 						return {
-							// ...lastSavedFormData, // Start with LS data
 							first_name: getFieldVal(
 								user.first_name,
 								currentFormState.first_name,
@@ -277,111 +343,68 @@ const useCheckout = () => {
 								C_PREV_USER?.email,
 								lastSavedFormData.email
 							),
-							phone: getFieldVal(
-								user.phone_number,
-								currentFormState.phone,
-								C_PREV_USER?.phone_number,
-								lastSavedFormData.phone
+							// Format phone from user profile or LS if it exists
+							phone: formatPhoneNumber(
+								getFieldVal(
+									user.phone_number,
+									currentFormState.phone,
+									C_PREV_USER?.phone_number,
+									lastSavedFormData.phone
+								)
 							),
 							notes: currentFormState.notes || lastSavedFormData.notes || "",
-							delivery_method: lastSavedFormData.delivery_method || "pickup",
-							payment_method: lastSavedFormData.payment_method || "card",
+							delivery_method:
+								currentFormState.delivery_method ||
+								lastSavedFormData.delivery_method ||
+								"pickup",
+							payment_method:
+								currentFormState.payment_method ||
+								lastSavedFormData.payment_method ||
+								"card",
 						};
 					});
 				} else if (!isAuthenticated && authChecked) {
 					if (C_PREV_USER) {
-						// User just logged out
 						setFormData({
 							first_name: "",
 							last_name: "",
 							email: "",
-							phone: "",
+							phone: formatPhoneNumber(lastSavedFormData.phone || ""), // Format phone from LS
 							delivery_method: lastSavedFormData.delivery_method || "pickup",
 							payment_method: lastSavedFormData.payment_method || "card",
 							notes: lastSavedFormData.notes || "",
 						});
 					} else {
-						// Guest from start, formData already initialized from localStorage or default
 						setFormData((prev) => ({
 							...prev,
 							...lastSavedFormData,
-							payment_method: "card",
-							delivery_method: "pickup",
+							phone: formatPhoneNumber(
+								lastSavedFormData.phone || prev.phone || ""
+							), // Format phone from LS or existing prev state
 						}));
 					}
 				}
 				prevUserRef.current = user;
 			})
 			.catch((err) => {
-				setError("Unable to load your cart. Please try refreshing.");
-			})
-			.finally(() => setIsLoading(false));
-	}, [authChecked, isAuthenticated, user, navigate]);
-
-	// Effect to call prepareOrderForPayment when moving to step 2 OR if cartItems/formData changes on step 2
-	useEffect(() => {
-		if (step === 2 && cartItems.length > 0 && authChecked) {
-			// Check isProcessingOrder *inside* to prevent starting a new call if one is in progress
-			if (!isProcessingOrder) {
-				const { first_name, last_name, email, phone } = formData;
-				let canProceed = true;
-				if (!isAuthenticated) {
-					if (!first_name || !last_name || !email) canProceed = false;
-				}
-				if (!phone) canProceed = false;
-
-				if (canProceed) {
-					console.log(
-						"useEffect [step, cartItems...]: Triggering prepareOrderForPayment. Current pendingOrderId:",
-						pendingOrderId
-					);
-					prepareOrderForPayment();
-				} else {
-					// Don't set error if already processing, error will be set by prepareOrderForPayment if needed
-					console.log(
-						"useEffect [step, cartItems...]: Contact info incomplete, not calling prepareOrderForPayment."
-					);
-					setError("Please complete your contact information to proceed.");
-				}
-			} else {
-				console.log(
-					"useEffect [step, cartItems...]: Skipped prepareOrderForPayment because isProcessingOrder is true."
+				setError(
+					"Unable to load your cart details. Please refresh the page or try again later."
 				);
-			}
-		}
-	}, [
-		step,
-		cartItems, // If cart items change (e.g. quantity update in another tab, then totals change), re-prepare.
-		formData, // If form data changes (e.g. user edits phone number), re-validate and re-prepare.
-		authChecked,
-		isAuthenticated,
-		prepareOrderForPayment, // This is a dependency as it's called.
-		// isProcessingOrder is NOT a dependency here to break the loop.
-		// pendingOrderId is implicitly handled by prepareOrderForPayment logic.
-	]);
+			})
+			.finally(() => {
+				setIsLoading(false);
+			});
+	}, [authChecked, isAuthenticated, user, navigate]);
 
 	useEffect(() => {
 		const isCheckoutPage = location.pathname.includes("/checkout");
 		if (cartItems.length === 0 && !isLoading && authChecked && isCheckoutPage) {
-			if (
-				pendingOrderId ||
-				localStorage.getItem(LOCAL_STORAGE_PENDING_ORDER_ID_KEY)
-			) {
+			if (localStorage.getItem(LOCAL_STORAGE_PENDING_ORDER_ID_KEY)) {
 				console.log(
-					"Cart is empty while on checkout, clearing pending order ID and form data."
+					"Cart is empty while on checkout page with a pending order. Clearing pending order."
 				);
 				localStorage.removeItem(LOCAL_STORAGE_PENDING_ORDER_ID_KEY);
-				localStorage.removeItem(LOCAL_STORAGE_CHECKOUT_FORM_DATA_KEY);
 				setPendingOrderId(null);
-				setFormData({
-					first_name: "",
-					last_name: "",
-					email: "",
-					phone: "",
-					delivery_method: "pickup",
-					payment_method: "card",
-					notes: "",
-				});
 				if (step === 2) setStep(1);
 			}
 		}
@@ -389,11 +412,10 @@ const useCheckout = () => {
 		cartItems.length,
 		isLoading,
 		authChecked,
-		pendingOrderId,
 		location.pathname,
 		step,
 		navigate,
-	]); // Added navigate
+	]);
 
 	return {
 		cartItems,
@@ -413,7 +435,6 @@ const useCheckout = () => {
 		handleChange,
 		nextStep,
 		prevStep,
-		prepareOrderForPayment,
 		handlePaymentSuccess,
 		setError,
 		isAuthenticated,
