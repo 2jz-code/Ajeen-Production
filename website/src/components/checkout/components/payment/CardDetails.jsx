@@ -47,10 +47,6 @@ const CardDetails = ({ onChange }) => {
 					className="w-full" // Ensure CardElement takes full width of its container
 				/>
 			</div>
-			{/* Helper text: Dark Brown, slightly transparent */}
-			<p className="mt-2 text-xs text-accent-dark-brown/80">
-				Test card: 4242 4242 4242 4242 (any future date, any CVC)
-			</p>
 		</div>
 	);
 };

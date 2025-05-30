@@ -318,7 +318,7 @@ function AppContent() {
 				</Routes>
 			</div>
 			<ToastContainer
-				position="top-right"
+				position="bottom-left"
 				autoClose={1000} // Auto-close after 1 second
 				hideProgressBar={false}
 				newestOnTop={false} // Usually true is preferred if limit > 1, but with limit=1 it matters less.
