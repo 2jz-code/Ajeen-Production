@@ -1,51 +1,83 @@
+// src/components/menu/ProductPage.jsx
+
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion } from "framer-motion"; // Keep if used elsewhere or for consistency
 import MenuNav from "./MenuNav";
 import ProductList from "./ProductList";
-import Layout from "./Layout"; // This is the styled Layout we just did
-import useCart from "../utility/CartUtils"; // Assuming path is correct
+import Layout from "./Layout";
+import useCart from "../utility/CartUtils";
+
+// Helper function to get category from URL search params
+const getCategoryFromURL = (search) => {
+	const params = new URLSearchParams(search);
+	const categoryIdFromUrl = params.get("category");
+	return categoryIdFromUrl ? Number(categoryIdFromUrl) : null;
+};
 
 const ProductPage = () => {
 	const location = useLocation();
 	const navigate = useNavigate();
-	const isMenuPage = location.pathname === "/menu";
-	const [selectedCategory, setSelectedCategory] = useState(null);
+
+	// Initialize selectedCategory directly from the URL on component mount.
+	// This is crucial for refresh scenarios.
+	const [selectedCategory, setSelectedCategory] = useState(() =>
+		getCategoryFromURL(location.search)
+	);
+
 	const [activeView, setActiveView] = useState("grid");
 
 	const {
-		categories, // This is the categories array we need to pass
+		categories,
 		cartItemCount,
 		isLoadingCategories,
 		updateCartItemCount,
-	} = useCart(isMenuPage);
+	} = useCart();
 
+	// Effect 1: Update URL when `selectedCategory` state changes (e.g., user clicks a category).
 	useEffect(() => {
-		const params = new URLSearchParams(location.search);
-		const categoryId = params.get("category");
-		if (categoryId) {
-			setSelectedCategory(Number(categoryId));
+		const currentCategoryInUrl = getCategoryFromURL(location.search);
+
+		if (selectedCategory !== null) {
+			// A specific category is selected in state.
+			// If it's different from what's in the URL, update the URL.
+			if (selectedCategory !== currentCategoryInUrl) {
+				navigate(`/menu?category=${selectedCategory}`, { replace: true });
+			}
 		} else {
-			setSelectedCategory(null);
-		}
-	}, [location.search]);
-
-	useEffect(() => {
-		if (selectedCategory) {
-			navigate(`/menu?category=${selectedCategory}`, { replace: true });
-		} else if (location.pathname === "/menu" && location.search) {
-			if (new URLSearchParams(location.search).get("category")) {
+			// "All" categories is selected (selectedCategory is null).
+			// If the URL still has a category parameter, clear it.
+			if (currentCategoryInUrl !== null) {
 				navigate("/menu", { replace: true });
 			}
 		}
-	}, [selectedCategory, navigate, location.pathname, location.search]);
+		// This effect depends on `selectedCategory` (changes from user interaction)
+		// and `Maps`. `location.search` is included to ensure `currentCategoryInUrl`
+		// is up-to-date for the comparison, preventing unnecessary navigation if the URL
+		// has just been updated to match `selectedCategory`.
+	}, [selectedCategory, navigate, location.search]);
 
+	// Effect 2: Update `selectedCategory` state if the URL changes externally
+	// (e.g., browser back/forward buttons, or if the initial useState initializer didn't catch it).
+	useEffect(() => {
+		const categoryIdFromUrl = getCategoryFromURL(location.search);
+		// Only update the state if the URL's category is genuinely different
+		// from the component's current `selectedCategory` state.
+		if (selectedCategory !== categoryIdFromUrl) {
+			setSelectedCategory(categoryIdFromUrl);
+		}
+		// This effect should primarily react to changes in `location.search`.
+		// `setSelectedCategory` is a stable dispatcher.
+	}, [location.search, setSelectedCategory]); // Keep setSelectedCategory for exhaustive-deps, it's stable.
+
+	// The rest of your ProductPage component
 	return (
 		<Layout
 			cartItemCount={cartItemCount}
 			updateCartItemCount={updateCartItemCount}
 		>
 			<div className="min-h-screen">
+				{/* Header section */}
 				<div className="bg-gradient-to-r from-primary-green to-accent-dark-green text-accent-light-beige py-12">
 					<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 						<div className="text-center">
@@ -70,6 +102,7 @@ const ProductPage = () => {
 					</div>
 				</div>
 
+				{/* Menu Navigation */}
 				{isLoadingCategories ? (
 					<div className="py-4 flex justify-center">
 						<div className="animate-pulse flex space-x-4">
@@ -86,6 +119,7 @@ const ProductPage = () => {
 					/>
 				)}
 
+				{/* View Switcher */}
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-end">
 					<div className="flex space-x-1 bg-accent-light-beige p-1 rounded-lg shadow-sm border border-accent-subtle-gray/30">
 						<button
@@ -97,6 +131,7 @@ const ProductPage = () => {
 							} transition-colors`}
 							aria-label="Grid view"
 						>
+							{/* SVG Icon */}
 							<svg
 								className="w-5 h-5"
 								fill="none"
@@ -120,6 +155,7 @@ const ProductPage = () => {
 							} transition-colors`}
 							aria-label="List view"
 						>
+							{/* SVG Icon */}
 							<svg
 								className="w-5 h-5"
 								fill="none"
@@ -137,10 +173,11 @@ const ProductPage = () => {
 					</div>
 				</div>
 
+				{/* Product List */}
 				<ProductList
-					categories={categories} // --- Pass categories prop here ---
+					categories={categories}
 					selectedCategory={selectedCategory}
-					setSelectedCategory={setSelectedCategory}
+					setSelectedCategory={setSelectedCategory} // Ensure ProductList doesn't also cause loops if it manipulates this
 					updateCartItemCount={updateCartItemCount}
 					activeView={activeView}
 				/>
