@@ -1,0 +1,14 @@
+/* combined/website/components/ReviewCarousel.css */
+.review-carousel-container .slick-prev:before,
+.review-carousel-container .slick-next:before {
+  color: var(--color-accent-dark-green) !important;
+}
+
+.review-carousel-container .slick-dots li div {
+  /* This targets the div we made in customPaging */
+  background-color: var(--color-accent-subtle-gray);
+}
+
+.review-carousel-container .slick-dots li.slick-active div {
+  background-color: var(--color-accent-warm-brown) !important;
+}

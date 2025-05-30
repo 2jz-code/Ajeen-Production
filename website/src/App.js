@@ -31,6 +31,7 @@ import "react-toastify/dist/ReactToastify.css";
 
 // Import the ComingSoonPage
 import ComingSoonPage from "./components/ComingSoonPage"; // Adjust path if needed
+import ReviewCarousel from "./components/ReviewCarousel";
 
 // Create a component to handle scrolling after navigation
 function ScrollHandler() {
@@ -107,13 +108,14 @@ function App() {
 								path="/"
 								element={
 									<>
-										<Navbar /> {/* */}
-										<Hero /> {/* */}
+										<Navbar /> 
+										<Hero /> 
 										<div className="common-bg">
-											<Cards /> {/* */}
-											<Location /> {/* */}
-											<Faq /> {/* */}
-											<Order /> {/* */}
+											<Cards /> 
+											<ReviewCarousel/>
+											<Location /> 
+											<Faq /> 
+											<Order /> 
 										</div>
 									</>
 								}
@@ -122,7 +124,7 @@ function App() {
 								path="/menu"
 								element={
 									<>
-										<ProductPage /> {/* */}
+										<ProductPage /> 
 									</>
 								}
 							/>
