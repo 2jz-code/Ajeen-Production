@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import Logo from "@/assets/logo.png"; // Make sure this path is correct for your project setup
+import Logo from "@/assets/logo-svg.svg"; // Make sure this path is correct for your project setup
 
 /**
  * WelcomePage Component
@@ -54,7 +54,8 @@ const WelcomePage = () => {
 			exit="exit"
 		>
 			{/* Content directly on the gradient, constrained by this div */}
-			<div className="w-full max-w-md">
+			<div className="w-full max-w-lg sm:max-w-xl md:max-w-2xl lg:max-w-4xl">
+				{" "}
 				{/* Logo/Icon */}
 				<motion.div
 					variants={itemVariants} // This applies the initial appear animation to the div containing the logo
@@ -63,7 +64,7 @@ const WelcomePage = () => {
 					<motion.img
 						src={Logo}
 						alt="Company Logo"
-						className="mx-auto h-24 w-auto" // Your existing classes for styling
+						className="mx-auto h-100 w-auto" // Your existing classes for styling
 						animate={{
 							scale: [1, 1.03, 1], // Keyframes for a subtle pulse: normal -> slightly larger -> normal
 						}}

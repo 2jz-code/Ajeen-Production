@@ -109,12 +109,11 @@ export const PaymentSummary = ({
 						<>
 							<Separator className="my-1" /> {/* Margin from my-2 to my-1 */}
 							{/* Amount Paid Section */}
-							<div className="flex justify-between text-emerald-600 font-medium text-xs bg-emerald-50 px-2.5 py-1.5 rounded-md">
-								{" "}
-								{/* Font sm to xs, px-3 py-2 to px-2.5 py-1.5, rounded-lg to md */}
-								<span>Amount Paid</span>
-								<span>{formatPrice(amountPaid)}</span>
-							</div>
+							{/* <div className="flex justify-between text-emerald-600 font-medium text-xs bg-emerald-50 px-2.5 py-1.5 rounded-md"> */}{" "}
+							{/* Font sm to xs, px-3 py-2 to px-2.5 py-1.5, rounded-lg to md */}
+							{/* <span>Amount Paid</span> */}
+							{/* <span>{formatPrice(amountPaid)}</span> */}
+							{/* </div> */}
 							{/* Remaining Section */}
 							<div className="flex justify-between text-blue-700 font-bold text-base bg-blue-50 px-2.5 py-1.5 rounded-md border border-blue-200">
 								{" "}

@@ -83,7 +83,7 @@ const ComingSoonPage = () => {
 
 			{/* Contact Info */}
 			<div className="text-center text-sm text-gray-500 mb-10">
-				<p>2105 Cliff Rd Suite 300, Eagan, MN, 55124</p>
+				<p>2105 Cliff Rd Suite 300, Eagan, MN, 55122</p>
 			</div>
 
 			{/* Footer Copyright */}

@@ -5,28 +5,35 @@ from datetime import timedelta
 from django.contrib.auth.models import AbstractUser, Group, Permission
 from django.db import models
 
+
 class CustomUser(AbstractUser):
     ROLE_CHOICES = [
-        ('owner', 'Owner'),  # Add the owner role at the top
-        ('admin', 'Admin'),
-        ('manager', 'Manager'),
-        ('cashier', 'Cashier'),
-        ('customer', 'Website Customer'),
+        ("owner", "Owner"),  # Add the owner role at the top
+        ("admin", "Admin"),
+        ("manager", "Manager"),
+        ("cashier", "Cashier"),
+        ("customer", "Website Customer"),
     ]
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='cashier')
-    
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="cashier")
+
+    # Allow email to be blank
+    email = models.EmailField(blank=True)  # <--- MODIFIED LINE
+
     # Add fields from website user model
     phone_number = models.CharField(max_length=15, blank=True, null=True)
-    
+
     # Flag to identify which system the user belongs to
     is_pos_user = models.BooleanField(default=True)
     is_website_user = models.BooleanField(default=False)
-    
+
     # Add website-specific fields
-    website_profile_created = models.DateTimeField(auto_now_add=True, null=True, blank=True)
-    
-    is_rewards_opted_in = models.BooleanField(default=False, 
-                          help_text="Whether the user has opted into the rewards program")
+    website_profile_created = models.DateTimeField(
+        auto_now_add=True, null=True, blank=True
+    )
+
+    is_rewards_opted_in = models.BooleanField(
+        default=False, help_text="Whether the user has opted into the rewards program"
+    )
 
     groups = models.ManyToManyField(Group, related_name="customuser_groups", blank=True)
     user_permissions = models.ManyToManyField(
@@ -35,10 +42,11 @@ class CustomUser(AbstractUser):
 
     def save(self, *args, **kwargs):
         # Ensure customers are marked as website users
-        if self.role == 'customer':
+        if self.role == "customer":
             self.is_pos_user = False
             self.is_website_user = True
         super().save(*args, **kwargs)
+
 
 class UserSession(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
@@ -47,7 +55,7 @@ class UserSession(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
     is_active = models.BooleanField(default=True)
-    
+
     # Identify which system this session belongs to
     is_website_session = models.BooleanField(default=False)
 
