@@ -269,7 +269,7 @@ class ReaderStatusView(APIView):
     def get(self, request, *args, **kwargs):
         try:
             # Get reader ID from request parameters or use default if provided
-            reader_id = request.query_params.get("reader_id", "tmr_F9NiKA2GgcXTyg")
+            reader_id = request.query_params.get("reader_id", "tmr_GDqC8wQ9vT8B21")
 
             # Retrieve the specific reader
             reader = stripe.terminal.Reader.retrieve(reader_id)

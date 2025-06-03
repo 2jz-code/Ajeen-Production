@@ -44,6 +44,9 @@ import DiscountList from "./pages/discounts/DiscountList";
 import DiscountForm from "./pages/discounts/DiscountForm";
 import { useDocumentTitle } from "./hooks/useDocumentTitle";
 import RestockPage from "./pages/products/RestockPage";
+
+const MY_LIVE_READER_ID = import.meta.env.MY_LIVE_READER_ID;
+
 // Lazy load COGS pages
 const CogsDashboardPage = lazy(() => import("./pages/cogs/CogsDashboardPage"));
 const UnitsOfMeasurePage = lazy(() =>
@@ -88,6 +91,53 @@ function App() {
 		}
 	}, [isCustomerDisplay, isTerminalSimulation]);
 
+	// In src/pages/POS.jsx or src/App.jsx
+	useEffect(() => {
+		const mainElement = document.body; // Or a specific element for the POS screen
+
+		let touchTimeout;
+
+		const handleTouchStart = () => {
+			mainElement.classList.add("touch-active-hide-cursor");
+			clearTimeout(touchTimeout); // Clear any existing timeout
+		};
+
+		const handleTouchEnd = () => {
+			// Optionally, keep cursor hidden for a short period after touch ends
+			touchTimeout = setTimeout(() => {
+				mainElement.classList.remove("touch-active-hide-cursor");
+			}, 500); // Adjust delay as needed, or remove timeout to show cursor immediately
+		};
+
+		const handleMouseMove = () => {
+			// If a mouse move is detected, ensure the cursor is visible
+			clearTimeout(touchTimeout);
+			mainElement.classList.remove("touch-active-hide-cursor");
+		};
+
+		// Add event listeners
+		mainElement.addEventListener("touchstart", handleTouchStart, {
+			passive: true,
+		});
+		mainElement.addEventListener("touchend", handleTouchEnd, { passive: true });
+		mainElement.addEventListener("touchcancel", handleTouchEnd, {
+			passive: true,
+		});
+		mainElement.addEventListener("mousemove", handleMouseMove, {
+			passive: true,
+		});
+
+		// Cleanup
+		return () => {
+			mainElement.removeEventListener("touchstart", handleTouchStart);
+			mainElement.removeEventListener("touchend", handleTouchEnd);
+			mainElement.removeEventListener("touchcancel", handleTouchEnd);
+			mainElement.removeEventListener("mousemove", handleMouseMove);
+			clearTimeout(touchTimeout);
+			mainElement.classList.remove("touch-active-hide-cursor"); // Ensure class is removed on unmount
+		};
+	}, []); // Empty dependency array means this runs once on mount and cleans up on unmount
+
 	// If we're in terminal simulation mode, render the terminal component
 	if (isTerminalSimulation) {
 		return (
@@ -119,7 +169,7 @@ function App() {
 
 	// Otherwise render the main POS application
 	return (
-		<TerminalProvider>
+		<TerminalProvider liveReaderId={MY_LIVE_READER_ID}>
 			<WebSocketProvider>
 				<CustomerDisplayProvider>
 					<TerminalSimulationProvider>

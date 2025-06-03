@@ -4,6 +4,8 @@ import PropTypes from "prop-types";
 import TerminalContext from "./TerminalContext";
 import axiosInstance from "../../../api/config/axiosConfig";
 
+const reader_id = import.meta.env.MY_LIVE_READER_ID;
+
 // Terminal Provider component
 export const TerminalProvider = ({ children }) => {
 	const [status, setStatus] = useState("unknown");
@@ -18,7 +20,8 @@ export const TerminalProvider = ({ children }) => {
 		setIsChecking(true);
 		try {
 			const response = await axiosInstance.get(
-				"payments/terminal/reader-status/"
+				"payments/terminal/reader-status/",
+				reader_id
 			);
 			const responseData = response.data;
 

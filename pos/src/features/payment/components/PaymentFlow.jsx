@@ -79,16 +79,19 @@ export const PaymentFlow = ({ totalAmount, onBack }) => {
 	const CurrentView = PaymentViews[state.currentView];
 
 	const orderBasePreTaxPreSurchargeTotal = useMemo(() => {
-		return new Decimal(totalAmount || 0)
-			.div(new Decimal(1).plus(TAX_RATE))
-			.toNumber();
+		return new Decimal(totalAmount || 0).div(
+			new Decimal(1).plus(
+				TAX_RATE /* ensure TAX_RATE is a Decimal or precise string */
+			)
+		);
 	}, [totalAmount]);
 
 	const remainingBaseForSplitView = useMemo(() => {
-		return Math.max(
+		// Ensure state.amountPaid is also treated as a Decimal for subtraction
+		return Decimal.max(
 			0,
-			orderBasePreTaxPreSurchargeTotal - (state.amountPaid || 0)
-		);
+			orderBasePreTaxPreSurchargeTotal.minus(new Decimal(state.amountPaid || 0))
+		).toNumber();
 	}, [orderBasePreTaxPreSurchargeTotal, state.amountPaid]);
 
 	return (

@@ -25,6 +25,11 @@ class Product(models.Model):
         default=0, help_text="Current stock quantity for this grocery item."
     )
 
+    def save(self, *args, **kwargs):
+        if self.barcode == "":  # If barcode is an empty string
+            self.barcode = None  # Convert it to None (which will be stored as NULL)
+        super().save(*args, **kwargs)  # Call the original save method
+
     def __str__(self):
         return f"{self.name}"
 

@@ -112,39 +112,135 @@ const ProductList = ({
 	};
 
 	const getDisplayProducts = () => {
-		let productsToDisplay = [...products];
+		let productsToFilter = [...products]; // Start with all products from component state
+		const DRINKS_CATEGORY_NAME_LOWER = "drinks"; // For case-insensitive matching
 
+		// Apply search filter first if a search term exists
+		// This simplifies logic, as search results are typically flat lists.
+		if (searchTerm) {
+			productsToFilter = filterBySearch(productsToFilter);
+		}
+
+		// Scenario 1: A specific category is selected
 		if (selectedCategory) {
-			productsToDisplay = productsToDisplay.filter((product) => {
+			const categoryInfo = categories.find((c) => c.id === selectedCategory);
+			const selectedCategoryName = categoryInfo ? categoryInfo.name : "";
+
+			let categorySpecificProducts = productsToFilter.filter((product) => {
 				const productCategories = Array.isArray(product.category)
 					? product.category
 					: product.category
 					? [product.category]
-					: []; // Ensure product.category exists
+					: [];
 				return productCategories.some(
 					(cat) => cat && cat.id === selectedCategory
 				);
 			});
+
+			// If the selected category is "Drinks"
+			if (selectedCategoryName.toLowerCase() === DRINKS_CATEGORY_NAME_LOWER) {
+				if (categorySpecificProducts.length > 0) {
+					const freshDrinks = [];
+					const groceryDrinks = [];
+					categorySpecificProducts.forEach((p) => {
+						if (p.is_grocery_item) {
+							// Check the flag
+							groceryDrinks.push(p);
+						} else {
+							freshDrinks.push(p);
+						}
+					});
+					const subGroups = [];
+					if (freshDrinks.length > 0)
+						subGroups.push({
+							subHeading: "Fresh Drinks",
+							products: freshDrinks,
+						});
+					if (groceryDrinks.length > 0)
+						subGroups.push({
+							subHeading: "Grocery Drinks",
+							products: groceryDrinks,
+						});
+
+					if (subGroups.length > 0) {
+						return [
+							{
+								// Return as an array with a special object for drinks
+								categoryName: selectedCategoryName,
+								isDrinksCategory: true,
+								subGroups: subGroups,
+							},
+						];
+					} else if (categorySpecificProducts.length > 0) {
+						// Fallback: Drinks category has products, but they didn't form sub-groups (e.g. all one type or flag missing)
+						return categorySpecificProducts; // Show as a flat list
+					} else {
+						return []; // No products in Drinks category after filtering
+					}
+				} else {
+					return []; // Drinks category selected, but it's empty (possibly due to search)
+				}
+			} else {
+				// Any other category is selected, return its products (already filtered by search if searchTerm exists)
+				return categorySpecificProducts;
+			}
 		}
 
-		productsToDisplay = filterBySearch(productsToDisplay);
+		// Scenario 2: No category selected (showing "All" or global search results)
+		// If searchTerm is active, productsToFilter is already search-filtered.
+		// If no searchTerm, productsToFilter is all products.
+		// We will group these productsToFilter. The main "Grocery" category will be removed.
+		// "Drinks" within these results will be sub-grouped.
 
-		if (selectedCategory || searchTerm) {
-			return productsToDisplay;
-		} else {
-			let grouped = groupByCategory(productsToDisplay);
+		let grouped = groupByCategory(productsToFilter);
 
-			// **MODIFICATION: Make deletion case-insensitive by finding all grocery-like keys**
-			const keysToDelete = Object.keys(grouped).filter(
-				(key) => key.toLowerCase() === "grocery"
-			);
-			keysToDelete.forEach((key) => {
-				delete grouped[key];
-			});
-			// **MODIFICATION END**
+		// Remove the main "Grocery" category (case-insensitive)
+		const groceryKeysToDelete = Object.keys(grouped).filter(
+			(key) => key.toLowerCase() === "grocery"
+		);
+		groceryKeysToDelete.forEach((key) => {
+			delete grouped[key];
+		});
 
-			return grouped;
+		// Process the remaining groups, sub-grouping "Drinks"
+		const resultGrouped = {};
+		for (const categoryNameKey in grouped) {
+			const productsInGroup = grouped[categoryNameKey];
+			if (productsInGroup.length === 0) continue; // Skip empty categories
+
+			if (categoryNameKey.toLowerCase() === DRINKS_CATEGORY_NAME_LOWER) {
+				const freshDrinks = [];
+				const groceryDrinks = [];
+				productsInGroup.forEach((p) => {
+					if (p.is_grocery_item) {
+						groceryDrinks.push(p);
+					} else {
+						freshDrinks.push(p);
+					}
+				});
+				const subGroups = [];
+				if (freshDrinks.length > 0)
+					subGroups.push({ subHeading: "Fresh Drinks", products: freshDrinks });
+				if (groceryDrinks.length > 0)
+					subGroups.push({
+						subHeading: "Grocery Drinks",
+						products: groceryDrinks,
+					});
+
+				if (subGroups.length > 0) {
+					resultGrouped[categoryNameKey] = {
+						isDrinksCategory: true,
+						subGroups: subGroups,
+					};
+				} else if (productsInGroup.length > 0) {
+					// Fallback for Drinks in "All" view if no sub-groups formed
+					resultGrouped[categoryNameKey] = productsInGroup;
+				}
+			} else {
+				resultGrouped[categoryNameKey] = productsInGroup;
+			}
 		}
+		return resultGrouped; // This is an object (categories as keys)
 	};
 
 	const displayProducts = getDisplayProducts();
@@ -460,46 +556,101 @@ const ProductList = ({
 				</div>
 			) : (
 				<>
-					{Array.isArray(displayProducts) ? ( // True if a category is selected or searching
+					{/* Case 1: Displaying a flat list (selected category OR global search results) */}
+					{Array.isArray(displayProducts) ? (
 						<>
 							{displayProducts.length > 0 ? (
 								<div>
 									<h2 className="text-2xl font-bold text-accent-dark-green mb-6">
-										{
-											searchTerm
-												? `Search Results for "${searchTerm}"`
-												: selectedCategory &&
-												  categories &&
-												  categories.find((c) => c.id === selectedCategory)
-												? `${
-														categories.find((c) => c.id === selectedCategory)
-															?.name || "Category"
-												  } Items`
-												: "Filtered Items" // Fallback if category name not found, but shouldn't happen
-										}
+										{/* Title logic for this section */}
+										{displayProducts[0]?.isDrinksCategory
+											? displayProducts[0].categoryName
+											: searchTerm
+											? `Search Results for "${searchTerm}"`
+											: selectedCategory &&
+											  categories &&
+											  categories.find((c) => c.id === selectedCategory)
+											? `${
+													categories.find((c) => c.id === selectedCategory)
+														?.name || "Category"
+											  } Items`
+											: "Filtered Items"}
 									</h2>
-									<div
-										className={`${
-											activeView === "grid"
-												? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
-												: "flex flex-col space-y-4"
-										}`}
-									>
-										<AnimatePresence>
-											{displayProducts.map((product) =>
-												renderProductCard(product)
-											)}
-										</AnimatePresence>
-									</div>
+
+									{/* Check if it's the special Drinks structure */}
+									{displayProducts[0]?.isDrinksCategory === true &&
+									displayProducts[0].subGroups ? (
+										displayProducts[0].subGroups.map(
+											(sg) =>
+												sg.products.length > 0 && (
+													<div
+														key={sg.subHeading}
+														className="mb-8"
+													>
+														<h3 className="text-xl font-semibold text-accent-dark-green mb-4 pt-2 border-t border-accent-subtle-gray/20">
+															{sg.subHeading}
+															<span className="text-sm font-normal text-slate-500 ml-2">
+																({sg.products.length} items)
+															</span>
+														</h3>
+														<div
+															className={`${
+																activeView === "grid"
+																	? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
+																	: "flex flex-col space-y-4"
+															}`}
+														>
+															<AnimatePresence>
+																{sg.products.map((product) =>
+																	renderProductCard(product)
+																)}
+															</AnimatePresence>
+														</div>
+													</div>
+												)
+										)
+									) : /* Standard flat list of products (e.g., other selected category, or Drinks fallback) */
+									displayProducts.length > 0 ? ( // Ensure there are products if not special drinks
+										<div
+											className={`${
+												activeView === "grid"
+													? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
+													: "flex flex-col space-y-4"
+											}`}
+										>
+											<AnimatePresence>
+												{displayProducts.map((product) =>
+													renderProductCard(product)
+												)}
+											</AnimatePresence>
+										</div>
+									) : (
+										// This inner 'else' handles when displayProducts is an array but effectively empty for non-drinks
+										<div className="text-center py-12">
+											<FaSearch className="mx-auto h-12 w-12 text-accent-subtle-gray" />
+											<h3 className="mt-2 text-lg font-medium text-accent-dark-green">
+												No results for "
+												{searchTerm ||
+													categories.find((c) => c.id === selectedCategory)
+														?.name ||
+													"this filter"}
+												"
+											</h3>
+											<p className="mt-1 text-sm text-accent-dark-brown">
+												Try a different search term or browse other categories.
+											</p>
+										</div>
+									)}
 								</div>
 							) : (
+								/* No results for selected category or search term */
 								<div className="text-center py-12">
 									<FaSearch className="mx-auto h-12 w-12 text-accent-subtle-gray" />
 									<h3 className="mt-2 text-lg font-medium text-accent-dark-green">
 										No results for "
 										{searchTerm ||
 											categories.find((c) => c.id === selectedCategory)?.name ||
-											"this category"}
+											"this filter"}
 										"
 									</h3>
 									<p className="mt-1 text-sm text-accent-dark-brown">
@@ -508,47 +659,112 @@ const ProductList = ({
 								</div>
 							)}
 						</>
-					) : (
-						// False if "All" categories are shown (displayProducts is an object)
-						Object.keys(displayProducts).map((categoryName) => (
-							<div
-								key={categoryName}
-								className="mb-12"
-							>
-								<div className="flex items-center justify-between mb-6 pb-2 border-b border-accent-subtle-gray/30">
-									<h2 className="text-2xl font-bold text-accent-dark-green">
-										{categoryName}
-									</h2>
-									<button
-										onClick={(e) => {
-											e.preventDefault();
-											const categoryObject = Array.isArray(categories)
-												? categories.find((c) => c.name === categoryName)
-												: null;
-											if (categoryObject) {
-												setSelectedCategory(categoryObject.id);
-											}
-										}}
-										className="text-primary-green hover:text-accent-dark-green text-sm font-medium"
-									>
-										View All in {categoryName}
-									</button>
-								</div>
+					) : /* Case 2: Displaying grouped categories (All view, no search term) */
+					Object.keys(displayProducts).length > 0 ? (
+						Object.keys(displayProducts).map((categoryName) => {
+							const categoryContent = displayProducts[categoryName];
+
+							// Skip rendering this category if it's effectively empty
+							if (
+								categoryContent?.isDrinksCategory &&
+								(!categoryContent.subGroups ||
+									categoryContent.subGroups.every(
+										(sg) => sg.products.length === 0
+									))
+							) {
+								return null;
+							}
+							if (
+								Array.isArray(categoryContent) &&
+								categoryContent.length === 0
+							) {
+								return null;
+							}
+
+							return (
 								<div
-									className={`${
-										activeView === "grid"
-											? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
-											: "flex flex-col space-y-4"
-									}`}
+									key={categoryName}
+									className="mb-12"
 								>
-									<AnimatePresence>
-										{displayProducts[categoryName].map((product) =>
-											renderProductCard(product)
-										)}
-									</AnimatePresence>
+									<div className="flex items-center justify-between mb-6 pb-2 border-b border-accent-subtle-gray/30">
+										<h2 className="text-2xl font-bold text-accent-dark-green">
+											{categoryName}
+										</h2>
+										<button
+											onClick={(e) => {
+												/* ... */
+											}}
+											className="text-primary-green hover:text-accent-dark-green text-sm font-medium"
+										>
+											View All in {categoryName}
+										</button>
+									</div>
+
+									{/* Check if this category is "Drinks" and needs sub-group rendering */}
+									{categoryContent?.isDrinksCategory === true &&
+									categoryContent.subGroups
+										? categoryContent.subGroups.map(
+												(sg) =>
+													sg.products.length > 0 && (
+														<div
+															key={sg.subHeading}
+															className="mb-8"
+														>
+															{" "}
+															{/* Added margin for sub-sections */}
+															<h3 className="text-xl font-semibold text-accent-dark-green mb-4 pt-2 border-t border-accent-subtle-gray/20">
+																{sg.subHeading}
+																<span className="text-sm font-normal text-slate-500 ml-2">
+																	({sg.products.length} items)
+																</span>
+															</h3>
+															<div
+																className={`${
+																	activeView === "grid"
+																		? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
+																		: "flex flex-col space-y-4"
+																}`}
+															>
+																<AnimatePresence>
+																	{sg.products.map((product) =>
+																		renderProductCard(product)
+																	)}
+																</AnimatePresence>
+															</div>
+														</div>
+													)
+										  )
+										: /* Regular category rendering (array of products) */
+										  Array.isArray(categoryContent) &&
+										  categoryContent.length > 0 && (
+												<div
+													className={`${
+														activeView === "grid"
+															? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
+															: "flex flex-col space-y-4"
+													}`}
+												>
+													<AnimatePresence>
+														{categoryContent.map((product) =>
+															renderProductCard(product)
+														)}
+													</AnimatePresence>
+												</div>
+										  )}
 								</div>
-							</div>
-						))
+							);
+						})
+					) : (
+						/* All categories view is empty after filtering out Grocery etc. */
+						<div className="text-center py-12">
+							<FaShoppingBag className="mx-auto h-12 w-12 text-accent-subtle-gray" />
+							<h3 className="mt-2 text-lg font-medium text-accent-dark-green">
+								No products to display
+							</h3>
+							<p className="mt-1 text-sm text-accent-dark-brown">
+								Our menu is currently empty or all items are hidden by filters.
+							</p>
+						</div>
 					)}
 				</>
 			)}

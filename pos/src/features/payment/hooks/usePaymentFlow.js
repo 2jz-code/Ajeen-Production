@@ -200,7 +200,7 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 
 	const handleNavigation = useCallback(
 		(nextView, direction = 1, options = {}) => {
-			const currentTotalAmountWithTaxProp = totalAmount || 0;
+			const currentTotalAmountWithTaxProp = totalAmount || 0; // totalAmount prop is ((Subtotal - Discount) * (1 + TAX_RATE))
 			const currentAmountPaidToOrderBasePreTax = state.amountPaid || 0;
 			const isFullyPaid = isPaymentCompleteInternal(
 				currentAmountPaidToOrderBasePreTax
@@ -210,15 +210,17 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 			if (
 				state.splitMode &&
 				isFullyPaid &&
-				direction < 0 &&
-				(currentView === "Cash" || currentView === "Credit") &&
-				nextView !== "Completion"
+				direction < 0 && // Navigating back
+				(currentView === "Cash" || currentView === "Credit") && // From a payment screen
+				nextView !== "Completion" // And not trying to go to completion
 			) {
+				// If in split mode and order is fully paid, navigating back from Cash/Credit
+				// should go to Completion screen.
 				setState((prev) => ({
 					...prev,
 					currentView: "Completion",
 					previousViews: [...prev.previousViews, prev.currentView],
-					direction: 1,
+					direction: 1, // Moving forward to completion
 					currentStepAmount: null,
 					nextSplitAmount: null,
 					currentBaseForTipCalc: null,
@@ -231,69 +233,98 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 			setState((prev) => {
 				let newPaymentMethod = prev.paymentMethod;
 				let newSplitMode = prev.splitMode;
-				let newNextSplitAmount = prev.nextSplitAmount;
-				let newCurrentStepAmount = null;
-				let newCurrentBaseForTipCalc = null;
+				let newNextSplitAmount = prev.nextSplitAmount; // This was for storing the amount for the *next* split step.
+				let newCurrentStepAmount = null; // The amount to be paid in the current step/view.
+				let newCurrentBaseForTipCalc = null; // The base amount for tip calculation in the current step.
 				let newSplitDetails = prev.splitDetails;
 				let newReceiptPayload = prev.completionResultData;
-				let newStepSurchargePercentage = 0;
+				let newStepSurchargePercentage = 0; // Surcharge for the current step being navigated to.
 
 				if (direction > 0) {
-					let baseAmountForThisStep_PreTaxPreSurcharge;
+					// Moving forward
 					const orderBasePreTaxPreSurchargeTotal = new Decimal(
 						currentTotalAmountWithTaxProp
 					).div(new Decimal(1).plus(TAX_RATE));
+					const remainingBaseForOrder_Decimal =
+						orderBasePreTaxPreSurchargeTotal.minus(prev.amountPaid || 0);
 
-					if (options.nextSplitAmount !== undefined) {
-						baseAmountForThisStep_PreTaxPreSurcharge =
-							parseFloat(options.nextSplitAmount) || 0;
-					} else if (!prev.splitMode) {
-						baseAmountForThisStep_PreTaxPreSurcharge = Math.max(
-							0,
-							orderBasePreTaxPreSurchargeTotal
-								.minus(prev.amountPaid || 0)
-								.toNumber()
+					if (
+						options.nextSplitAmount !== undefined && // This means an amount for the *current* split step was provided
+						prev.splitMode &&
+						prev.splitDetails?.mode === "custom"
+					) {
+						// Custom Split Amount: User wants to pay exactly this amount for the current split.
+						// This amount is inclusive of its own tax and surcharge (if applicable for this split's method).
+						const amountCustomerWantsToPayThisSplit_Decimal = new Decimal(
+							parseFloat(options.nextSplitAmount) || 0
 						);
+
+						newCurrentStepAmount = parseFloat(
+							amountCustomerWantsToPayThisSplit_Decimal.toFixed(2)
+						);
+						newCurrentBaseForTipCalc = newCurrentStepAmount; // Tip is calculated on the amount being paid this step.
+
+						if (nextView === "Credit") {
+							newStepSurchargePercentage = CARD_SURCHARGE_PERCENTAGE;
+							newPaymentMethod = "credit";
+						} else if (nextView === "Cash") {
+							newStepSurchargePercentage = 0;
+							newPaymentMethod = "cash";
+						} else {
+							newPaymentMethod = null; // If navigating to a non-payment view from custom split somehow
+						}
 					} else {
-						baseAmountForThisStep_PreTaxPreSurcharge = 0;
-						if (nextView === "Cash" || nextView === "Credit")
-							console.warn(
-								"Split mode nav to payment without nextSplitAmount."
+						// Handles:
+						// 1. Full payment (not split mode)
+						// 2. Split mode with "Pay Remaining" (options.nextSplitAmount is pre-tax base for remaining)
+						// 3. Split mode with "Equal Split" (options.nextSplitAmount is pre-tax base for one equal part)
+
+						let baseAmountForThisStep_PreTaxPreSurcharge_Decimal;
+
+						if (options.nextSplitAmount !== undefined) {
+							// This means it's an "Equal Split" or "Pay Remaining" amount (which is already a base amount)
+							baseAmountForThisStep_PreTaxPreSurcharge_Decimal = new Decimal(
+								parseFloat(options.nextSplitAmount) || 0
 							);
+						} else {
+							// Full payment scenario (not in split mode, or no specific split amount provided)
+							baseAmountForThisStep_PreTaxPreSurcharge_Decimal = Decimal.max(
+								0,
+								remainingBaseForOrder_Decimal
+							);
+						}
+
+						let surchargeOnThisStep_Decimal = new Decimal(0);
+						if (nextView === "Credit") {
+							newStepSurchargePercentage = CARD_SURCHARGE_PERCENTAGE;
+							surchargeOnThisStep_Decimal =
+								baseAmountForThisStep_PreTaxPreSurcharge_Decimal.mul(
+									newStepSurchargePercentage
+								);
+							newPaymentMethod = "credit";
+						} else if (nextView === "Cash") {
+							newStepSurchargePercentage = 0; // No surcharge for cash
+							newPaymentMethod = "cash";
+						} else {
+							newPaymentMethod = null; // Non-payment view
+						}
+
+						const amountWithSurchargeForStep_Decimal =
+							baseAmountForThisStep_PreTaxPreSurcharge_Decimal.plus(
+								surchargeOnThisStep_Decimal
+							);
+						const taxOnThisStep_Decimal =
+							amountWithSurchargeForStep_Decimal.mul(TAX_RATE);
+						const currentStepAmount_Decimal =
+							amountWithSurchargeForStep_Decimal.plus(taxOnThisStep_Decimal);
+
+						newCurrentStepAmount = parseFloat(
+							currentStepAmount_Decimal.toFixed(2)
+						);
+						newCurrentBaseForTipCalc = newCurrentStepAmount;
 					}
 
-					let surchargeOnThisStep = new Decimal(0);
-					if (nextView === "Credit") {
-						newPaymentMethod = "credit";
-						newStepSurchargePercentage = CARD_SURCHARGE_PERCENTAGE;
-						surchargeOnThisStep = new Decimal(
-							baseAmountForThisStep_PreTaxPreSurcharge
-						).mul(newStepSurchargePercentage);
-					} else if (nextView === "Cash") {
-						newPaymentMethod = "cash";
-						newStepSurchargePercentage = 0;
-					} else {
-						newPaymentMethod = null;
-						newStepSurchargePercentage = 0;
-					}
-
-					const amountWithSurchargeForStep = new Decimal(
-						baseAmountForThisStep_PreTaxPreSurcharge
-					).plus(surchargeOnThisStep);
-					const taxOnThisStep = amountWithSurchargeForStep.mul(TAX_RATE);
-					const amountWithSurchargeAndTaxForStep =
-						amountWithSurchargeForStep.plus(taxOnThisStep);
-
-					newCurrentStepAmount = parseFloat(
-						amountWithSurchargeAndTaxForStep.toFixed(2)
-					);
-					newCurrentBaseForTipCalc = newCurrentStepAmount;
-
-					if (nextView !== "Cash" && nextView !== "Credit") {
-						newCurrentStepAmount = null;
-						newCurrentBaseForTipCalc = null;
-					}
-					newNextSplitAmount = null;
+					newNextSplitAmount = null; // options.nextSplitAmount was for *this* step, clear it for future.
 
 					if (nextView === "Split") {
 						newSplitMode = true;
@@ -302,7 +333,7 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 								.minus(prev.amountPaid || 0)
 								.toNumber();
 							newSplitDetails = {
-								mode: "remaining",
+								mode: "remaining", // Default split mode
 								currentSplitIndex: 0,
 								initialRemainingAmountForSplit: Math.max(
 									0,
@@ -311,6 +342,7 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 							};
 						}
 					}
+
 					if (
 						newSplitMode &&
 						(nextView === "Cash" || nextView === "Credit") &&
@@ -322,10 +354,13 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 						};
 					}
 
-					if (nextView === "Completion")
+					if (nextView === "Completion") {
 						newReceiptPayload = options.receiptPayload ?? null;
-					else newReceiptPayload = null;
+					} else {
+						newReceiptPayload = null; // Clear receipt payload if not navigating to completion
+					}
 
+					// If navigating from Split view and order is already fully paid, redirect to Completion.
 					if (
 						prev.currentView === "Split" &&
 						isPaymentCompleteInternal(prev.amountPaid || 0) &&
@@ -343,6 +378,7 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 								options.receiptPayload ?? prev.completionResultData,
 						};
 					}
+
 					return {
 						...prev,
 						currentView: nextView,
@@ -366,13 +402,18 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 
 					if (lastView === "InitialOptions" || lastView === "Split") {
 						newPaymentMethod = null;
-						finalStepSurchargePercentage = 0;
+						finalStepSurchargePercentage = 0; // No specific payment method selected yet
 					}
+					// If navigating back to InitialOptions, always reset splitMode
 					if (lastView === "InitialOptions") {
 						newSplitMode = false;
 						newSplitDetails = null;
 					}
-					if (lastView === "Split") resetSplitState();
+					// If navigating back to the 'Split' view itself, split state (mode, details) should persist
+					// but specific step amounts related to a payment method view should clear.
+					if (lastView === "Split") {
+						resetSplitState(); // This clears nextSplitAmount and currentSplitMethod from parent state
+					}
 
 					return {
 						...prev,
@@ -382,11 +423,11 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 						paymentMethod: newPaymentMethod,
 						splitMode: newSplitMode,
 						splitDetails: newSplitDetails,
-						nextSplitAmount: null,
-						currentStepAmount: null,
-						currentBaseForTipCalc: null,
+						nextSplitAmount: null, // Clear when navigating back
+						currentStepAmount: null, // Clear when navigating back
+						currentBaseForTipCalc: null, // Clear when navigating back
 						surchargePercentageForCurrentStep: finalStepSurchargePercentage,
-						completionResultData: null,
+						completionResultData: null, // Clear completion data on back navigation
 					};
 				}
 			});
@@ -397,10 +438,10 @@ export const usePaymentFlow = ({ totalAmount, onComplete, onNewOrder }) => {
 			state.currentView,
 			state.previousViews,
 			state.splitDetails,
-			state.paymentMethod,
+			state.paymentMethod, // Keep this to know the *current* payment method in summary
 			isPaymentCompleteInternal,
 			resetSplitState,
-			totalAmount,
+			totalAmount, // Prop dependency
 		]
 	);
 

@@ -104,9 +104,10 @@ export default function AddUser() {
 		if (!formData.username.trim()) newErrors.username = "Username is required";
 		else if (formData.username.length < 3)
 			newErrors.username = "Username must be at least 3 characters";
-		if (!formData.email.trim()) newErrors.email = "Email is required";
-		else if (!/\S+@\S+\.\S+/.test(formData.email))
-			newErrors.email = "Email is invalid";
+		// Remove email required validation, but keep format validation if email is provided
+		if (formData.email.trim() && !/\S+@\S+\.\S+/.test(formData.email))
+			// <--- MODIFIED LINE
+			newErrors.email = "Email is invalid"; // <--- MODIFIED LINE
 		if (!formData.password) newErrors.password = "Password is required";
 		else if (formData.password.length < 8)
 			newErrors.password = "Password must be at least 8 characters";
@@ -250,7 +251,7 @@ export default function AddUser() {
 										htmlFor="email"
 										className={labelClass}
 									>
-										Email <span className="text-red-500">*</span>
+										Email {/* <--- MODIFIED LINE: Removed asterisk span */}
 									</label>
 									<input
 										type="email"
@@ -259,9 +260,9 @@ export default function AddUser() {
 										value={formData.email}
 										onChange={handleChange}
 										className={
+											// <--- MODIFIED LINE: Removed required attribute
 											errors.email ? inputErrorClass : inputNormalClass
 										}
-										required
 									/>
 									{errors.email && (
 										<p className="mt-1 text-xs text-red-600">{errors.email}</p>
@@ -301,6 +302,8 @@ export default function AddUser() {
 								</div>
 							</div>
 						</section>
+
+						{/* ... rest of the component ... */}
 
 						<section
 							aria-labelledby="password-heading"

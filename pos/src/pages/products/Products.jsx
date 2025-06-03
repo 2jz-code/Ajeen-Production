@@ -17,11 +17,10 @@ import {
 	ArrowUpOnSquareStackIcon,
 	ArrowDownTrayIcon,
 	ArrowUpTrayIcon,
-	EllipsisVerticalIcon, // Added for Dropdown trigger
+	EllipsisVerticalIcon,
 } from "@heroicons/react/24/outline";
-import { PackageIcon } from "lucide-react"; // Added Settings2Icon as an alternative trigger
+import { PackageIcon } from "lucide-react";
 
-// ShadCN/UI components (ensure paths are correct)
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -29,13 +28,12 @@ import {
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
-} from "../../components/ui/dropdown-menu"; // Adjust path if necessary
+} from "../../components/ui/dropdown-menu";
 
 import CategoryManagementModal from "../../components/CategoryManagementModal";
 import LoadingSpinner from "../reports/components/LoadingSpinner";
 import MainLayout from "../layout/MainLayout";
 
-// getCategoryColors function remains the same...
 const getCategoryColors = (categoryId) => {
 	const colors = [
 		["border-blue-300", "bg-blue-50", "text-blue-700"],
@@ -62,9 +60,6 @@ export default function Products() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState(null);
 	const [isExporting, setIsExporting] = useState(false);
-
-	// CSV Import states
-	// selectedFile state is removed as we trigger upload immediately on file selection
 	const [isImportingCsv, setIsImportingCsv] = useState(false);
 	const fileInputRef = useRef(null);
 
@@ -75,7 +70,7 @@ export default function Products() {
 
 	const fetchData = useCallback(async (showLoading = true) => {
 		if (showLoading) setLoading(true);
-		setError(null); // Clear previous errors on new fetch
+		setError(null);
 		try {
 			const [categoriesRes, productsRes, authRes] = await Promise.all([
 				productService.getProductCategories(),
@@ -93,7 +88,6 @@ export default function Products() {
 		}
 	}, []);
 
-	// handleCategoryChange, useEffects for data fetching and height calculation remain the same...
 	const handleCategoryChange = useCallback(
 		(action, data) => {
 			let categoryIdToDelete;
@@ -172,13 +166,197 @@ export default function Products() {
 		}
 	};
 
-	const filteredProducts = useMemo(() => {
-		return products.filter((product) => {
-			if (!selectedCategory) return true;
-			const productCategoryId = product.category?.id ?? product.category;
-			return productCategoryId?.toString() === selectedCategory;
-		});
-	}, [products, selectedCategory]);
+	const groceryCategory = useMemo(
+		() => categories.find((cat) => cat.name.toLowerCase() === "grocery"),
+		[categories]
+	);
+	const groceryCategoryId = useMemo(
+		() => (groceryCategory ? groceryCategory.id.toString() : null),
+		[groceryCategory]
+	);
+
+	const drinksCategory = useMemo(
+		() => categories.find((cat) => cat.name.toLowerCase() === "drinks"), // Adjust "drinks" if your category name is different
+		[categories]
+	);
+	const drinksCategoryId = useMemo(
+		() => (drinksCategory ? drinksCategory.id.toString() : null),
+		[drinksCategory]
+	);
+	const processedProductsForDisplay = useMemo(() => {
+		const result = [];
+		let productsToProcess = [...products];
+
+		if (!selectedCategory) {
+			// "All Products" tab
+			if (groceryCategoryId) {
+				productsToProcess = productsToProcess.filter(
+					(product) =>
+						(product.category?.id ?? product.category)?.toString() !==
+						groceryCategoryId
+				);
+			}
+
+			const grouped = productsToProcess.reduce((acc, product) => {
+				const productActualCategoryId = (
+					product.category?.id ?? product.category
+				)?.toString();
+				let categoryName = "Uncategorized";
+				// Attempt to get category name from the categories array first
+				const categoryObj = categories.find(
+					(c) => c.id.toString() === productActualCategoryId
+				);
+				if (categoryObj) {
+					categoryName = categoryObj.name;
+				} else if (product.category_name) {
+					// Fallback to product's own category_name
+					categoryName = product.category_name;
+				}
+
+				if (!acc[categoryName]) {
+					acc[categoryName] = {
+						products: [],
+						categoryId: productActualCategoryId,
+						actualCategoryName: categoryName,
+					};
+				}
+				acc[categoryName].products.push(product);
+				return acc;
+			}, {});
+
+			for (const groupKey in grouped) {
+				const currentGroup = grouped[groupKey];
+				const categoryIdForDisplay = currentGroup.categoryId;
+				const categoryNameForDisplay = currentGroup.actualCategoryName;
+
+				if (currentGroup.products.length > 0) {
+					if (drinksCategoryId && categoryIdForDisplay === drinksCategoryId) {
+						const freshDrinks = [];
+						const cannedDrinks = [];
+						currentGroup.products.forEach((p) => {
+							if (p.is_grocery_item) {
+								// Check if the drink is a grocery item
+								cannedDrinks.push(p);
+							} else {
+								freshDrinks.push(p);
+							}
+						});
+
+						const subGroups = [];
+						if (freshDrinks.length > 0)
+							subGroups.push({
+								subHeading: "Fresh Drinks",
+								products: freshDrinks,
+							});
+						if (cannedDrinks.length > 0)
+							subGroups.push({
+								subHeading: "Canned Drinks",
+								products: cannedDrinks,
+							});
+
+						if (subGroups.length > 0) {
+							result.push({
+								categoryName: categoryNameForDisplay,
+								isDrinksCategory: true,
+								subGroups,
+							});
+						} else if (currentGroup.products.length > 0) {
+							// Fallback if no sub-groups but products exist
+							result.push({
+								categoryName: categoryNameForDisplay,
+								products: currentGroup.products,
+							});
+						}
+					} else {
+						result.push({
+							categoryName: categoryNameForDisplay,
+							products: currentGroup.products,
+						});
+					}
+				}
+			}
+			result.sort((a, b) => a.categoryName.localeCompare(b.categoryName));
+		} else {
+			// Specific category selected
+			const categoryDetails = categories.find(
+				(c) => c.id.toString() === selectedCategory
+			);
+			const categoryName = categoryDetails?.name || "Selected Category";
+
+			if (drinksCategoryId && selectedCategory === drinksCategoryId) {
+				// Selected category is "Drinks"
+				const productsInDrinksCategory = products.filter(
+					(product) =>
+						(product.category?.id ?? product.category)?.toString() ===
+						selectedCategory
+				);
+
+				const freshDrinks = [];
+				const cannedDrinks = [];
+				productsInDrinksCategory.forEach((p) => {
+					if (p.is_grocery_item) {
+						// Check if the drink is a grocery item
+						cannedDrinks.push(p);
+					} else {
+						freshDrinks.push(p);
+					}
+				});
+
+				const subGroups = [];
+				if (freshDrinks.length > 0)
+					subGroups.push({ subHeading: "Fresh Drinks", products: freshDrinks });
+				if (cannedDrinks.length > 0)
+					subGroups.push({
+						subHeading: "Grocery Drinks",
+						products: cannedDrinks,
+					});
+
+				if (subGroups.length > 0) {
+					result.push({
+						categoryName,
+						isDrinksCategory: true,
+						subGroups,
+					});
+				} else if (productsInDrinksCategory.length > 0) {
+					// Fallback: Drinks category has products but no sub-groups matched
+					result.push({
+						categoryName,
+						products: productsInDrinksCategory,
+					});
+				}
+			} else {
+				// Other specific category (not "Drinks")
+				const productsInCategory = products.filter(
+					(product) =>
+						(product.category?.id ?? product.category)?.toString() ===
+						selectedCategory
+				);
+
+				if (productsInCategory.length > 0) {
+					result.push({
+						categoryName,
+						products: productsInCategory,
+					});
+				}
+			}
+		}
+		return result;
+	}, [
+		products,
+		selectedCategory,
+		categories,
+		groceryCategoryId,
+		drinksCategoryId,
+	]); // Added drinksCategoryId
+
+	const allProductsTabCount = useMemo(() => {
+		if (groceryCategoryId) {
+			return products.filter(
+				(p) => (p.category?.id ?? p.category)?.toString() !== groceryCategoryId
+			).length;
+		}
+		return products.length; // If no "Grocery" category, count all
+	}, [products, groceryCategoryId]);
 
 	const handleExportProducts = async () => {
 		if (isExporting) return;
@@ -197,20 +375,12 @@ export default function Products() {
 		}
 	};
 
-	// --- CSV Import Handlers ---
 	const handleImportProducts = async (fileToImport) => {
-		if (!fileToImport) {
-			// This case might not be hit if called directly from handleFileChange
-			// but good for robustness if called from elsewhere.
-			alert("No file provided for import.");
-			return;
-		}
-		if (isImportingCsv) return;
-
+		if (!fileToImport || isImportingCsv) return;
 		setIsImportingCsv(true);
 		setError(null);
 		try {
-			const response = await productService.importProductsCSV(fileToImport); // Use the passed file
+			const response = await productService.importProductsCSV(fileToImport);
 			let successMessage =
 				response.message || "Products imported successfully!";
 			if (response.created_count > 0 || response.updated_count > 0) {
@@ -219,7 +389,6 @@ export default function Products() {
 				}, Updated: ${response.updated_count || 0}.`;
 			}
 			alert(successMessage);
-
 			if (response.errors && response.errors.length > 0) {
 				console.error("Import errors:", response.errors);
 				const errorDetails = response.errors
@@ -241,19 +410,16 @@ export default function Products() {
 			} else {
 				setError(null);
 			}
-
-			fetchData(false); // Refresh product list without full page loading spinner
-			if (fileInputRef.current) {
-				fileInputRef.current.value = ""; // Reset file input
-			}
+			fetchData(false);
+			if (fileInputRef.current) fileInputRef.current.value = "";
 		} catch (err) {
 			console.error("Failed to import products from CSV:", err);
 			let importError = "Failed to import products from CSV.";
 			if (err && err.error) {
 				importError = err.error;
-				if (err.missing_headers) {
+				if (err.missing_headers)
 					importError += ` Missing headers: ${err.missing_headers.join(", ")}.`;
-				} else if (err.errors && Array.isArray(err.errors)) {
+				else if (err.errors && Array.isArray(err.errors)) {
 					const specificErrors = err.errors
 						.slice(0, 3)
 						.map((e) => `Row ${e.row || "-"}: ${e.error}`)
@@ -262,9 +428,7 @@ export default function Products() {
 						err.errors.length > 3 ? "..." : ""
 					}`;
 				}
-			} else if (err && err.message) {
-				importError = err.message;
-			}
+			} else if (err && err.message) importError = err.message;
 			setError(importError);
 			alert(importError);
 		} finally {
@@ -274,21 +438,12 @@ export default function Products() {
 
 	const handleFileChangeAndInitiateImport = (event) => {
 		const file = event.target.files[0];
-		if (file) {
-			handleImportProducts(file); // Directly call import handler with the file
-		}
-		// Reset file input for consistent behavior if the same file is chosen again
-		if (fileInputRef.current) {
-			fileInputRef.current.value = "";
-		}
+		if (file) handleImportProducts(file);
+		if (fileInputRef.current) fileInputRef.current.value = "";
 	};
 
-	const triggerFileInput = () => {
-		fileInputRef.current?.click();
-	};
-	// --- End CSV Import Handlers ---
+	const triggerFileInput = () => fileInputRef.current?.click();
 
-	// Loading and error states rendering (remains the same)
 	if (loading && products.length === 0 && !error) {
 		return (
 			<MainLayout pageTitle="Loading Products...">
@@ -319,9 +474,17 @@ export default function Products() {
 		);
 	}
 
+	const noProductsMatchFilters =
+		!loading && processedProductsForDisplay.length === 0 && selectedCategory;
+
+	const noProductsAvailableAtAllInAllTab =
+		!loading &&
+		processedProductsForDisplay.length === 0 &&
+		!selectedCategory &&
+		allProductsTabCount === 0;
+
 	return (
 		<MainLayout pageTitle="Product Management">
-			{/* Hidden File Input for CSV Import */}
 			<input
 				type="file"
 				accept=".csv"
@@ -330,7 +493,6 @@ export default function Products() {
 				className="hidden"
 				disabled={isImportingCsv}
 			/>
-
 			<div
 				ref={pageContentRef}
 				className="flex flex-col h-full"
@@ -342,8 +504,6 @@ export default function Products() {
 					<h2 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center gap-2">
 						<PackageIcon className="h-6 w-6 text-slate-600" /> Product Catalog
 					</h2>
-
-					{/* Consolidated Admin Actions Dropdown */}
 					{isAdmin && (
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
@@ -351,9 +511,7 @@ export default function Products() {
 									className="px-3 py-2 bg-slate-700 text-white rounded-lg text-sm hover:bg-slate-800 transition-colors flex items-center gap-2 shadow-sm"
 									aria-label="Product Actions"
 								>
-									Actions
-									<EllipsisVerticalIcon className="h-4 w-4" />
-									{/* Or use Settings2Icon from lucide-react if preferred: <Settings2Icon className="h-4 w-4" /> */}
+									Actions <EllipsisVerticalIcon className="h-4 w-4" />
 								</button>
 							</DropdownMenuTrigger>
 							<DropdownMenuContent
@@ -371,6 +529,12 @@ export default function Products() {
 								>
 									<ArrowUpOnSquareStackIcon className="mr-2 h-4 w-4" />
 									<span>Bulk Restock Items</span>
+								</DropdownMenuItem>
+								<DropdownMenuSeparator />
+								<DropdownMenuLabel>Manage Categories</DropdownMenuLabel>
+								<DropdownMenuItem onClick={() => setIsCategoryModalOpen(true)}>
+									<AdjustmentsHorizontalIcon className="mr-2 h-4 w-4" />
+									<span>Manage Categories</span>
 								</DropdownMenuItem>
 								<DropdownMenuSeparator />
 								<DropdownMenuLabel>Import / Export</DropdownMenuLabel>
@@ -395,7 +559,6 @@ export default function Products() {
 					)}
 				</header>
 
-				{/* Category Tabs (remains the same) */}
 				<div
 					ref={tabsRef}
 					className="flex items-center flex-wrap gap-2 mb-4 bg-white p-2 rounded-lg shadow-sm border border-slate-200 overflow-x-auto custom-scrollbar flex-shrink-0"
@@ -408,7 +571,7 @@ export default function Products() {
 						}`}
 						onClick={() => setSelectedCategory("")}
 					>
-						All Products ({products.length})
+						All
 					</button>
 					{categories.map((category) => (
 						<button
@@ -423,18 +586,9 @@ export default function Products() {
 							{category.name}
 						</button>
 					))}
-					{isAdmin && (
-						<button
-							onClick={() => setIsCategoryModalOpen(true)}
-							className="ml-auto flex-shrink-0 px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-slate-100 text-slate-700 border border-slate-300 hover:bg-slate-200 flex items-center gap-1 whitespace-nowrap"
-						>
-							<AdjustmentsHorizontalIcon className="h-4 w-4" /> Manage
-							Categories
-						</button>
-					)}
+					{/* The standalone "Manage Categories" button was here and has been removed */}
 				</div>
 
-				{/* Error display (remains the same) */}
 				{error && !loading && (
 					<div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md flex items-center gap-2 text-sm shadow-sm flex-shrink-0">
 						<ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0" />
@@ -451,7 +605,6 @@ export default function Products() {
 					</div>
 				)}
 
-				{/* Product Grid (remains the same) */}
 				<div
 					className="flex-1 overflow-y-auto custom-scrollbar pb-4"
 					style={{ height: gridHeight }}
@@ -464,128 +617,291 @@ export default function Products() {
 							</span>
 						</div>
 					)}
-					{!loading && filteredProducts.length === 0 && (
-						<div className="col-span-full text-center py-10 text-slate-500">
-							No products found{" "}
-							{selectedCategory
-								? `in "${
-										categories.find((c) => c.id.toString() === selectedCategory)
-											?.name || "this category"
-								  }"`
-								: ""}
-							.{" "}
-							{products.length === 0 &&
-								"Consider adding new products or importing a CSV."}
+
+					{noProductsAvailableAtAllInAllTab && ( // When "All" is selected, and it results in no non-grocery items
+						<div className="text-center py-10 text-slate-500">
+							No products to display in the All view
 						</div>
 					)}
-					<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 sm:gap-5 grid-auto-rows-min">
-						{filteredProducts.map((product) => {
-							const [borderColor, badgeBgColor, badgeTextColor] =
-								getCategoryColors(product.category?.id ?? product.category);
-							const categoryName =
-								product.category?.name ||
-								product.category_name ||
-								"Uncategorized";
 
-							return (
-								<div
-									key={product.id || product.name}
-									className={`bg-white max-h-[350px] w-full rounded-lg shadow hover:shadow-lg transition-all overflow-hidden border-t-4 ${borderColor} border border-slate-200 flex flex-col group relative`}
-								>
-									<button
-										onClick={() =>
-											navigate(`/products/${encodeURIComponent(product.name)}`)
-										}
-										className="aspect-[4/3] bg-slate-100 overflow-hidden relative block w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-t-md"
-										aria-label={`View details for ${product.name}`}
-									>
-										<img
-											src={
-												product.image ||
-												`https://placehold.co/300x225/e2e8f0/94a3b8?text=${encodeURIComponent(
-													product.name.substring(0, 15)
-												)}`
-											}
-											alt={product.name}
-											className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-											onError={(e) => {
-												e.target.onerror = null;
-												e.target.src = `https://placehold.co/300x225/e2e8f0/94a3b8?text=${encodeURIComponent(
-													product.name.substring(0, 15)
-												)}`;
-											}}
-										/>
-										<div className="absolute inset-0 bg-black/50 bg-opacity-0 group-hover:bg-opacity-40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-											<EyeIcon className="h-8 w-8 text-white opacity-80" />
-										</div>
-									</button>
-									<div className="flex-1 flex flex-col justify-between p-3">
-										<div>
-											<h3
-												className="text-sm font-medium text-slate-800 truncate mb-0.5"
-												title={product.name}
-											>
-												{product.name}
-											</h3>
-											<div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
-												<span
-													className={`inline-block ${badgeBgColor} ${badgeTextColor} text-xs font-medium px-1.5 py-0.5 rounded`}
+					{noProductsMatchFilters && ( // When a specific category is selected and it's empty
+						<div className="text-center py-10 text-slate-500">
+							No products found in &quot;
+							{categories.find((c) => c.id.toString() === selectedCategory)
+								?.name || selectedCategory}
+							&quot;.
+						</div>
+					)}
+
+					{processedProductsForDisplay.map(
+						({
+							categoryName,
+							products: productList,
+							isDrinksCategory,
+							subGroups,
+						}) => (
+							<div
+								key={categoryName}
+								className="mb-8"
+							>
+								{/* Render main category heading if it has products or subGroups */}
+								{(productList?.length > 0 || subGroups?.length > 0) && (
+									<h2 className="text-2xl font-semibold text-slate-700 mb-4 border-b border-slate-200 pb-2">
+										{categoryName}
+									</h2>
+								)}
+								{isDrinksCategory && subGroups && subGroups.length > 0 ? (
+									subGroups.map(
+										({ subHeading, products: subProductList }) =>
+											subProductList.length > 0 && ( // Only render sub-group if it has products
+												<div
+													key={subHeading}
+													className="mb-6"
 												>
-													{categoryName}
-												</span>
-												{product.is_grocery_item && (
-													<span
-														className={`inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded ${
-															product.inventory_quantity > 5
-																? "bg-green-100 text-green-700"
-																: product.inventory_quantity > 0
-																? "bg-orange-100 text-orange-700"
-																: "bg-red-100 text-red-700"
-														}`}
+													<h3 className="text-xl font-medium text-slate-600 mb-3 pt-2 border-t border-slate-100 mt-4">
+														{subHeading}
+														<span className="text-sm font-normal text-slate-500 ml-2">
+															({subProductList.length} items)
+														</span>
+													</h3>
+													<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 sm:gap-5 grid-auto-rows-min">
+														{subProductList.map((product) => {
+															// PASTE YOUR EXISTING PRODUCT CARD JSX HERE
+															// Ensure all variables like borderColor, badgeBgColor, etc. are defined
+															const [
+																borderColor,
+																badgeBgColor,
+																badgeTextColor,
+															] = getCategoryColors(
+																product.category?.id ?? product.category
+															);
+															const currentProductCategoryName = // Renamed to avoid conflict with outer categoryName
+																product.category?.name ||
+																product.category_name ||
+																"Uncategorized";
+															return (
+																<div
+																	key={product.id || product.name}
+																	className={`bg-white max-h-[350px] w-full rounded-lg shadow hover:shadow-lg transition-all overflow-hidden border-t-4 ${borderColor} border border-slate-200 flex flex-col group relative`}
+																>
+																	<button
+																		onClick={() =>
+																			navigate(
+																				`/products/${encodeURIComponent(
+																					product.name
+																				)}`
+																			)
+																		}
+																		className="aspect-[4/3] bg-slate-100 overflow-hidden relative block w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-t-md"
+																		aria-label={`View details for ${product.name}`}
+																	>
+																		<img
+																			src={
+																				product.image ||
+																				`https://placehold.co/300x225/e2e8f0/94a3b8?text=${encodeURIComponent(
+																					product.name.substring(0, 15)
+																				)}`
+																			}
+																			alt={product.name}
+																			className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+																			onError={(e) => {
+																				e.target.onerror = null;
+																				e.target.src = `https://placehold.co/300x225/e2e8f0/94a3b8?text=${encodeURIComponent(
+																					product.name.substring(0, 15)
+																				)}`;
+																			}}
+																		/>
+																		<div className="absolute inset-0 bg-black/50 bg-opacity-0 group-hover:bg-opacity-40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+																			<EyeIcon className="h-8 w-8 text-white opacity-80" />
+																		</div>
+																	</button>
+																	<div className="flex-1 flex flex-col justify-between p-3">
+																		<div>
+																			<h3
+																				className="text-sm font-medium text-slate-800 truncate mb-0.5"
+																				title={product.name}
+																			>
+																				{product.name}
+																			</h3>
+																			<div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
+																				<span
+																					className={`inline-block ${badgeBgColor} ${badgeTextColor} text-xs font-medium px-1.5 py-0.5 rounded`}
+																				>
+																					{currentProductCategoryName}
+																				</span>
+																				{product.is_grocery_item && ( // This refers to the general grocery badge, not specific to drink sub-type here
+																					<span
+																						className={`inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded ${
+																							product.inventory_quantity > 5
+																								? "bg-green-100 text-green-700"
+																								: product.inventory_quantity > 0
+																								? "bg-orange-100 text-orange-700"
+																								: "bg-red-100 text-red-700"
+																						}`}
+																					>
+																						<ArchiveBoxIcon className="h-3 w-3" />
+																						{product.inventory_quantity}
+																					</span>
+																				)}
+																			</div>
+																			<p className="text-slate-800 font-semibold text-sm">
+																				${Number(product.price).toFixed(2)}
+																			</p>
+																		</div>
+																		{isAdmin && (
+																			<div className="flex gap-1.5 mt-2 border-t border-slate-100 pt-2">
+																				<button
+																					onClick={() =>
+																						navigate(
+																							`/products/edit/${encodeURIComponent(
+																								product.name
+																							)}`
+																						)
+																					}
+																					className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs hover:bg-blue-100 transition-colors flex items-center gap-1 flex-1 justify-center"
+																					title="Edit"
+																				>
+																					<PencilSolidIcon className="h-3.5 w-3.5" />{" "}
+																					Edit
+																				</button>
+																				<button
+																					onClick={() =>
+																						handleDelete(product.name)
+																					}
+																					className="px-2 py-1 bg-red-50 text-red-700 rounded text-xs hover:bg-red-100 transition-colors flex items-center gap-1 flex-1 justify-center"
+																					title="Delete"
+																				>
+																					<TrashSolidIcon className="h-3.5 w-3.5" />{" "}
+																					Delete
+																				</button>
+																			</div>
+																		)}
+																	</div>
+																</div>
+															);
+														})}
+													</div>
+												</div>
+											)
+									)
+								) : productList && productList.length > 0 ? (
+									<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 sm:gap-5 grid-auto-rows-min">
+										{productList.map((product) => {
+											// PASTE YOUR EXISTING PRODUCT CARD JSX HERE
+											// Ensure all variables like borderColor, badgeBgColor, etc. are defined
+											const [borderColor, badgeBgColor, badgeTextColor] =
+												getCategoryColors(
+													product.category?.id ?? product.category
+												);
+											const currentProductCategoryName = // Renamed to avoid conflict
+												product.category?.name ||
+												product.category_name ||
+												"Uncategorized";
+											return (
+												<div
+													key={product.id || product.name}
+													className={`bg-white max-h-[350px] w-full rounded-lg shadow hover:shadow-lg transition-all overflow-hidden border-t-4 ${borderColor} border border-slate-200 flex flex-col group relative`}
+												>
+													<button
+														onClick={() =>
+															navigate(
+																`/products/${encodeURIComponent(product.name)}`
+															)
+														}
+														className="aspect-[4/3] bg-slate-100 overflow-hidden relative block w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-t-md"
+														aria-label={`View details for ${product.name}`}
 													>
-														<ArchiveBoxIcon className="h-3 w-3" />
-														{product.inventory_quantity}
-													</span>
-												)}
-											</div>
-											<p className="text-slate-800 font-semibold text-sm">
-												${Number(product.price).toFixed(2)}
-											</p>
-										</div>
-										{isAdmin && (
-											<div className="flex gap-1.5 mt-2 border-t border-slate-100 pt-2">
-												<button
-													onClick={() =>
-														navigate(
-															`/products/edit/${encodeURIComponent(
-																product.name
-															)}`
-														)
-													}
-													className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs hover:bg-blue-100 transition-colors flex items-center gap-1 flex-1 justify-center"
-													title="Edit"
-												>
-													<PencilSolidIcon className="h-3.5 w-3.5" />
-													Edit
-												</button>
-												<button
-													onClick={() => handleDelete(product.name)}
-													className="px-2 py-1 bg-red-50 text-red-700 rounded text-xs hover:bg-red-100 transition-colors flex items-center gap-1 flex-1 justify-center"
-													title="Delete"
-												>
-													<TrashSolidIcon className="h-3.5 w-3.5" />
-													Delete
-												</button>
-											</div>
-										)}
+														<img
+															src={
+																product.image ||
+																`https://placehold.co/300x225/e2e8f0/94a3b8?text=${encodeURIComponent(
+																	product.name.substring(0, 15)
+																)}`
+															}
+															alt={product.name}
+															className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+															onError={(e) => {
+																e.target.onerror = null;
+																e.target.src = `https://placehold.co/300x225/e2e8f0/94a3b8?text=${encodeURIComponent(
+																	product.name.substring(0, 15)
+																)}`;
+															}}
+														/>
+														<div className="absolute inset-0 bg-black/50 bg-opacity-0 group-hover:bg-opacity-40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+															<EyeIcon className="h-8 w-8 text-white opacity-80" />
+														</div>
+													</button>
+													<div className="flex-1 flex flex-col justify-between p-3">
+														<div>
+															<h3
+																className="text-sm font-medium text-slate-800 truncate mb-0.5"
+																title={product.name}
+															>
+																{product.name}
+															</h3>
+															<div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
+																<span
+																	className={`inline-block ${badgeBgColor} ${badgeTextColor} text-xs font-medium px-1.5 py-0.5 rounded`}
+																>
+																	{currentProductCategoryName}
+																</span>
+																{product.is_grocery_item && (
+																	<span
+																		className={`inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded ${
+																			product.inventory_quantity > 5
+																				? "bg-green-100 text-green-700"
+																				: product.inventory_quantity > 0
+																				? "bg-orange-100 text-orange-700"
+																				: "bg-red-100 text-red-700"
+																		}`}
+																	>
+																		<ArchiveBoxIcon className="h-3 w-3" />
+																		{product.inventory_quantity}
+																	</span>
+																)}
+															</div>
+															<p className="text-slate-800 font-semibold text-sm">
+																${Number(product.price).toFixed(2)}
+															</p>
+														</div>
+														{isAdmin && (
+															<div className="flex gap-1.5 mt-2 border-t border-slate-100 pt-2">
+																<button
+																	onClick={() =>
+																		navigate(
+																			`/products/edit/${encodeURIComponent(
+																				product.name
+																			)}`
+																		)
+																	}
+																	className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs hover:bg-blue-100 transition-colors flex items-center gap-1 flex-1 justify-center"
+																	title="Edit"
+																>
+																	<PencilSolidIcon className="h-3.5 w-3.5" />{" "}
+																	Edit
+																</button>
+																<button
+																	onClick={() => handleDelete(product.name)}
+																	className="px-2 py-1 bg-red-50 text-red-700 rounded text-xs hover:bg-red-100 transition-colors flex items-center gap-1 flex-1 justify-center"
+																	title="Delete"
+																>
+																	<TrashSolidIcon className="h-3.5 w-3.5" />{" "}
+																	Delete
+																</button>
+															</div>
+														)}
+													</div>
+												</div>
+											);
+										})}
 									</div>
-								</div>
-							);
-						})}
-					</div>
+								) : null}{" "}
+								{/* End of conditional rendering for category content */}
+							</div>
+						)
+					)}
 				</div>
 
-				{/* CategoryManagementModal (remains the same) */}
 				<CategoryManagementModal
 					isOpen={isCategoryModalOpen}
 					onClose={() => setIsCategoryModalOpen(false)}

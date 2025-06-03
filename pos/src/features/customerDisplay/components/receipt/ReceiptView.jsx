@@ -21,10 +21,10 @@ const ReceiptView = ({ orderData, paymentData, onComplete, paymentMethod }) => {
 	const [showDetails, setShowDetails] = useState(false);
 
 	const tipAmount = orderData?.tipAmount || 0;
-	const baseTotal = typeof orderData?.total === "number" ? orderData.total : 0;
-	const finalTotal =
-		(orderData?.isSplitPayment ? orderData?.originalTotal : baseTotal) +
-		tipAmount;
+	// const baseTotal = typeof orderData?.total === "number" ? orderData.total : 0;
+	// const finalTotal =
+	// 	(orderData?.isSplitPayment ? orderData?.originalTotal : baseTotal) +
+	// 	tipAmount;
 
 	const getPaymentInfo = () => {
 		if (paymentMethod === "cash") return { methodDisplay: "Cash", id: "N/A" };
@@ -137,11 +137,7 @@ const ReceiptView = ({ orderData, paymentData, onComplete, paymentMethod }) => {
 							Thank You!
 						</h2>
 						<p className="text-lg text-slate-600">
-							Your payment of{" "}
-							<span className="font-semibold text-slate-800">
-								{formatPrice(finalTotal)}
-							</span>{" "}
-							was successful.
+							Your payment was successful.
 						</p>
 					</motion.div>
 				</div>

@@ -10,6 +10,7 @@ body {
 	background-color: #f8fafc;
 	font-family: "Inter", sans-serif;
 	color: #334155;
+	touch-action: pan-x pan-y;
 }
 
 html {
@@ -42,6 +43,10 @@ html {
 
 ::-webkit-scrollbar-thumb:hover {
 	background: #94a3b8;
+}
+
+.touch-active-hide-cursor {
+	cursor: none !important; /* Use !important if other cursor styles are conflicting */
 }
 
 @theme inline {
@@ -152,10 +157,10 @@ html {
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
+	* {
+		@apply border-border outline-ring/50;
 	}
-  body {
-    @apply bg-background text-foreground;
+	body {
+		@apply bg-background text-foreground;
 	}
 }
