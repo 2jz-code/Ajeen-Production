@@ -10,11 +10,16 @@ from django.db.models import (
     ExpressionWrapper,
     DecimalField,
     Value,
-)
+    Subquery,
+    OuterRef,
+)  # Added Subquery, OuterRef
 from django.db.models.functions import TruncDate, TruncDay, TruncWeek, TruncMonth
 from orders.models import Order, OrderItem  #
 from products.models import Product, Category  #
-from payments.models import Payment  #
+from payments.models import (
+    Payment,
+    PaymentTransaction,
+)  # Ensure PaymentTransaction is imported
 from decimal import Decimal  # Added for consistent decimal calculations
 
 
@@ -42,114 +47,116 @@ def generate_sales_report(
     start_date,
     end_date,
     group_by="day",
-    include_tax=True,
-    include_refunds=True,
-    date_field="updated_at",
+    include_tax=True,  # This flag's role might need re-evaluation if revenue is purely from transactions
+    include_refunds=True,  # This flag might also be less relevant if Payment status filters are primary
+    date_field="updated_at",  # This refers to the Order's date_field
 ):
-    # Convert string dates to datetime if needed
     if isinstance(start_date, str):
         start_date = datetime.strptime(start_date, "%Y-%m-%d")
     if isinstance(end_date, str):
         end_date = datetime.strptime(end_date, "%Y-%m-%d")
         end_date = end_date.replace(hour=23, minute=59, second=59)
 
-    date_filter = {
-        f"{date_field}__gte": start_date,
-        f"{date_field}__lte": end_date,
-        "status": "completed",  #
-    }
+    # Define the base filter for Orders
+    order_filters = Q(
+        **{
+            f"{date_field}__gte": start_date,
+            f"{date_field}__lte": end_date,
+            "status": "completed",  # Order.status is "completed"
+            "payment__status__in": [
+                "completed",
+                "partially_refunded",
+            ],  # Order.payment.status
+        }
+    )
 
-    query = Order.objects.filter(**date_filter)  #
-
-    if not include_refunds:
-        query = query.exclude(payment_status__in=["refunded", "partially_refunded"])  #
+    # Original query for order-level details (discounts, tips, etc.)
+    # We will add the transaction-based revenue to this.
+    query = Order.objects.filter(order_filters)
 
     if group_by == "day":
-        trunc_func = TruncDay(date_field)  #
-        date_format = "%Y-%m-%d"  #
+        trunc_func = TruncDay(date_field)
+        date_format = "%Y-%m-%d"
     elif group_by == "week":
-        trunc_func = TruncWeek(date_field)  #
-        date_format = "Week of %Y-%m-%d"  #
+        trunc_func = TruncWeek(date_field)
+        date_format = "Week of %Y-%m-%d"
     elif group_by == "month":
-        trunc_func = TruncMonth(date_field)  #
-        date_format = "%Y-%m"  #
-    else:  # Default to day if group_by is invalid
+        trunc_func = TruncMonth(date_field)
+        date_format = "%Y-%m"
+    else:
         trunc_func = TruncDay(date_field)
         date_format = "%Y-%m-%d"
 
+    # Subquery to calculate the sum of completed transaction amounts for each payment
+    # This assumes Order has a OneToOneField to Payment named 'payment'
+    # and Payment has a ForeignKey from PaymentTransaction named 'transactions'
+    completed_transaction_amount_subquery = (
+        PaymentTransaction.objects.filter(
+            parent_payment=OuterRef("payment__pk"),  # Link to the Order's payment
+            status="completed",
+        )
+        .values("parent_payment")
+        .annotate(total_paid=Sum("amount"))
+        .values("total_paid")
+    )
+
     sales_data = (
         query.annotate(
-            date_group=trunc_func  # Renamed to avoid conflict with a potential 'date' field in Order model if we switch date_field
+            date_group=trunc_func,
+            # This is the new revenue calculation based on completed transactions
+            actual_revenue_from_transactions=Subquery(
+                completed_transaction_amount_subquery,
+                output_field=DecimalField(max_digits=10, decimal_places=2),
+            ),
         )
         .values("date_group")
         .annotate(
             order_count=Count("id"),
-            # Gross Sales (Total Price collected)
-            total_revenue_gross=Sum("total_price"),
-            # Sum of subtotals from frontend (preferred source for subtotal)
+            # Summing the new transaction-based revenue
+            total_actual_revenue=Sum(
+                F("actual_revenue_from_transactions")
+            ),  # Use F() if needed, or directly if subquery works
+            # Continue summing order-level details for context
             total_subtotal_frontend=Sum("subtotal_from_frontend"),
-            # Sum of tax from frontend (preferred source for tax)
             total_tax_frontend=Sum("tax_amount_from_frontend"),
-            total_discount=Sum("discount_amount"),  #
-            total_tip=Sum("tip_amount"),  #
-            total_surcharge=Sum("surcharge_amount"),  #
+            total_discount=Sum("discount_amount"),
+            total_tip=Sum("tip_amount"),
+            total_surcharge=Sum("surcharge_amount"),
         )
         .order_by("date_group")
     )
 
     formatted_data = []
-    cumulative_gross_revenue = Decimal("0.00")
-    cumulative_net_revenue = Decimal("0.00")
+    cumulative_actual_revenue = Decimal("0.00")
 
     for entry in sales_data:
         date_str = entry["date_group"].strftime(date_format)
-
         order_count = entry["order_count"] or 0
-        gross_revenue = Decimal(entry["total_revenue_gross"] or "0.00")
 
-        # Use frontend tax if available, otherwise assume it's part of total_price and needs calculation if include_tax is False
-        # For simplicity here, if tax_from_frontend is None, we can't reliably extract net sales without more complex logic
-        # or assumptions. The Order model's calculate_total_price prioritizes frontend values.
+        # This is now the revenue from completed transactions for the orders in this group
+        actual_revenue = Decimal(entry["total_actual_revenue"] or "0.00")
+
+        # Order-level details are still valuable for understanding the composition
+        subtotal = Decimal(entry["total_subtotal_frontend"] or "0.00")
         tax_amount = Decimal(entry["total_tax_frontend"] or "0.00")  #
-
-        # Subtotal: Use subtotal_from_frontend if available.
-        # Otherwise, net revenue (total_price - tax) could be an approximation of subtotal before discounts/tips/surcharges,
-        # but this is complex due to the order of operations.
-        # The Order model itself calculates total_price = amount_before_tax + tax_amount + current_tip
-        # where amount_before_tax = subtotal_after_discount + surcharge_amount
-        # and subtotal_after_discount = subtotal - discount_amount.
-        # For reporting, `subtotal_from_frontend` is the most direct representation of pre-tax, pre-surcharge, pre-discount sum of items.
-        subtotal = Decimal(entry["total_subtotal_frontend"] or "0.00")  #
-
         discount = Decimal(entry["total_discount"] or "0.00")
         tip = Decimal(entry["total_tip"] or "0.00")
         surcharge = Decimal(entry["total_surcharge"] or "0.00")
 
-        # Net revenue calculation:
-        # If total_price includes tax, then net revenue = total_price - tax_amount.
-        # However, total_price from the model is the final amount paid.
-        # A common definition of "net sales" is revenue after discounts, before tax.
-        # Let's define net_revenue as (subtotal_from_frontend - discount_amount + surcharge_amount)
-        # Or, if using total_price: (total_price - tax_amount - tip_amount)
-        # Let's use the latter as total_price is the sum being aggregated.
-        net_revenue = (
-            gross_revenue - tax_amount - tip
-        )  # Tip is often not part of net revenue for the business
-        # Surcharges might be, discounts definitely reduce it.
-        # This definition needs to be aligned with business requirements.
-        # A more robust net_revenue: subtotal_frontend - discount + surcharge
+        # The 'include_tax' flag's role changes slightly.
+        # If 'actual_revenue' from transactions IS inclusive of tax (depends on how your payment amounts are stored/processed),
+        # and you want a pre-tax revenue, you'd subtract tax_amount.
+        # Assuming 'actual_revenue' is the gross amount collected via transactions:
+        reported_total_revenue = actual_revenue
+        if not include_tax:
+            # This assumes tax_amount collected here is representative of the tax portion in actual_revenue
+            # This part can be tricky if transactions don't break down tax.
+            # For simplicity, if actual_revenue IS the final amount paid, and tax_amount is the tax portion of that, this works.
+            # If 'actual_revenue_from_transactions' is already pre-tax, then this 'if' block might not be needed or apply differently.
+            # Given Stripe usually processes final amounts, 'actual_revenue' is likely post-tax (customer paid this).
+            reported_total_revenue -= tax_amount
 
-        # For this example, let's define net_revenue for the report as total_price - tax_amount (if include_tax is false, this would be the value)
-        # If include_tax is true, total_revenue in the report is gross_revenue.
-        # If include_tax is false, total_revenue in the report is gross_revenue - tax_amount.
-        reported_total_revenue = (
-            gross_revenue if include_tax else (gross_revenue - tax_amount)
-        )
-
-        cumulative_gross_revenue += gross_revenue
-        cumulative_net_revenue += (
-            reported_total_revenue  # Accumulate the reported revenue
-        )
+        cumulative_actual_revenue += reported_total_revenue
 
         avg_order_value_calc = (
             reported_total_revenue / order_count if order_count > 0 else Decimal("0.00")
@@ -158,28 +165,27 @@ def generate_sales_report(
         formatted_entry = {
             "date": date_str,
             "order_count": order_count,
-            "subtotal": float(subtotal),  # Sum of subtotal_from_frontend
+            "subtotal": float(subtotal),
             "discount": float(discount),
             "surcharge": float(surcharge),
-            "tax": float(tax_amount),  # Sum of tax_amount_from_frontend
+            "tax": float(tax_amount),  #
             "tip": float(tip),
             "total_revenue": float(
                 reported_total_revenue
-            ),  # This is now gross or net based on include_tax
+            ),  # This is now based on completed transactions
             "avg_order_value": float(avg_order_value_calc),
-            "cumulative_total_revenue": float(
-                cumulative_net_revenue
-            ),  # Cumulative of what's reported
+            "cumulative_total_revenue": float(cumulative_actual_revenue),
         }
         formatted_data.append(formatted_entry)
 
     if not formatted_data:
+        # ... (return empty summary as before)
         return {
             "summary": {
                 "period_start": start_date.strftime("%Y-%m-%d"),
                 "period_end": end_date.strftime("%Y-%m-%d"),
                 "total_orders": 0,
-                "total_revenue": 0,  # Based on include_tax
+                "total_revenue": 0,
                 "total_subtotal": 0,
                 "total_discount": 0,
                 "total_surcharge": 0,
@@ -190,10 +196,11 @@ def generate_sales_report(
             "data": [],
         }
 
+    # Summary calculations will now use the new transaction-based revenue
     total_orders_summary = sum(entry["order_count"] for entry in formatted_data)
     total_revenue_summary = sum(
         Decimal(str(entry["total_revenue"])) for entry in formatted_data
-    )  # Use the 'total_revenue' already calculated
+    )
     total_subtotal_summary = sum(
         Decimal(str(entry["subtotal"])) for entry in formatted_data
     )
@@ -203,7 +210,7 @@ def generate_sales_report(
     total_surcharge_summary = sum(
         Decimal(str(entry["surcharge"])) for entry in formatted_data
     )
-    total_tax_summary = sum(Decimal(str(entry["tax"])) for entry in formatted_data)
+    total_tax_summary = sum(Decimal(str(entry["tax"])) for entry in formatted_data)  #
     total_tip_summary = sum(Decimal(str(entry["tip"])) for entry in formatted_data)
 
     summary = {
@@ -213,11 +220,11 @@ def generate_sales_report(
         "total_subtotal": float(total_subtotal_summary),
         "total_discount": float(total_discount_summary),
         "total_surcharge": float(total_surcharge_summary),
-        "total_tax": float(total_tax_summary),
+        "total_tax": float(total_tax_summary),  #
         "total_tip": float(total_tip_summary),
         "total_revenue": float(
             total_revenue_summary
-        ),  # This sum is based on include_tax
+        ),  # This sum is based on transaction amounts
         "avg_order_value": (
             float(total_revenue_summary / total_orders_summary)
             if total_orders_summary > 0
